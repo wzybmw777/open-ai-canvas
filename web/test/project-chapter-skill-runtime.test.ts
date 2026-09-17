@@ -36,3 +36,10 @@ test("画布分镜生成统一经过 Skill Runtime", async () => {
     expect(source).not.toContain("getSkillFile");
     expect(source).not.toContain("getSkillBundle");
 });
+
+test("章节分镜任务携带文本生成模式和实际提示词", async () => {
+    const source = await Bun.file(new URL("../src/pages/projects/detail/project-chapter-ai.ts", import.meta.url)).text();
+    const storyboardTask = source.slice(source.indexOf("export async function generateChapterStoryboard"), source.indexOf("async function runProjectTextTask"));
+    expect(storyboardTask).toContain('mode: "text"');
+    expect(storyboardTask).toContain("prompt: skillExecution.prompt");
+});

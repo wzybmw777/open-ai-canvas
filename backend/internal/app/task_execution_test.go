@@ -85,6 +85,37 @@ func TestValidateTaskType(t *testing.T) {
 	}
 }
 
+func TestValidateTaskGenerationMode(t *testing.T) {
+	valid := map[string]string{
+		"text": "text", "canvas_text": "text", "canvas_image": "image",
+		"canvas_video": "video", "canvas_audio": "audio",
+	}
+	for taskType, mode := range valid {
+		t.Run(taskType, func(t *testing.T) {
+			if err := validateTaskGenerationMode(taskType, map[string]any{"mode": mode}); err != nil {
+				t.Fatalf("validateTaskGenerationMode() error = %v", err)
+			}
+		})
+	}
+	for _, input := range []map[string]any{{}, {"mode": "image"}, {"mode": " text "}} {
+		if err := validateTaskGenerationMode("canvas_text", input); err == nil {
+			t.Fatalf("validateTaskGenerationMode(canvas_text, %#v) error = nil", input)
+		}
+	}
+	if err := validateTaskGenerationMode("video_generate", map[string]any{"mode": "video"}); err != nil {
+		t.Fatalf("legacy video operation mode validation changed: %v", err)
+	}
+}
+
+func TestCreateTaskRejectsMissingGenerationModeBeforeRouting(t *testing.T) {
+	_, err := (&Service{}).CreateTask("user", CreateTaskRequest{
+		Type: "canvas_text", Prompt: "generate storyboard", Input: map[string]any{},
+	})
+	if err == nil || err.Error() != "任务类型 canvas_text 必须使用 text 生成模式" {
+		t.Fatalf("CreateTask() error = %v", err)
+	}
+}
+
 func TestProcessTaskRejectsUnknownType(t *testing.T) {
 	_, _, err := (&Service{}).processTask(context.Background(), model.Task{
 		Type:      "workflow_router",

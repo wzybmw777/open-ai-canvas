@@ -176,7 +176,7 @@ function overviewActions(projectId: string, metrics: ProjectOverviewMetrics, fir
         actions.push({ id: "complete-story", title: `补充 ${metrics.unitsWithoutText} 章正文`, description: "先完善章节内容，后续角色识别与分镜拆分才能获得稳定输入。", href: `${projectRoot}/chapters`, actionLabel: "整理章节", tone: "attention" });
     }
     if (metrics.pendingCandidateCount) {
-        actions.push({ id: "confirm-assets", title: `确认 ${metrics.pendingCandidateCount} 个资产候选`, description: "确认角色、场景与道具后，镜头可以稳定引用项目资产。", href: `${projectRoot}/assets`, actionLabel: "去确认", tone: "attention" });
+        actions.push({ id: "confirm-assets", title: `确认 ${metrics.pendingCandidateCount} 个资产候选`, description: "确认角色、场景与道具后，镜头可以稳定引用项目资产。", href: `${projectRoot}/assets?section=pending`, actionLabel: "去确认", tone: "attention" });
     }
     if (!metrics.shotCount || metrics.unitsWithoutShots) {
         actions.push({ id: "create-storyboards", title: `为 ${metrics.unitsWithoutShots || metrics.unitCount} 章建立分镜`, description: "按章节生成镜头草稿，再逐镜调整画面、对白和时长。", href: firstUnitId ? `${projectRoot}/chapters/${firstUnitId}` : `${projectRoot}/chapters`, actionLabel: "建立分镜", tone: "default" });

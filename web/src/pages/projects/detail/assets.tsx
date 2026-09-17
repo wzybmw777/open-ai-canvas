@@ -3,7 +3,7 @@ import { useMutation, useMutationState, useQuery } from "@tanstack/react-query";
 import { App, Button, Dropdown, Form, Input, Modal, Popconfirm, Tabs, type FormInstance } from "antd";
 import { Box, Check, ChevronDown, Download, FileText, FolderOpen, FolderPlus, Image as ImageIcon, Link2, MoreHorizontal, MoveRight, Music2, Pencil, Plus, RefreshCw, Search, Sparkles, Trash2, Upload, UserRound, Video, VolumeX } from "lucide-react";
 
-import { WorkspaceState } from "@/components/layout/workspace-state";
+import { WorkspaceErrorState, WorkspaceLoadingState, WorkspaceState } from "@/components/layout/workspace-state";
 import { PaginationBar } from "@/components/layout/workspace-page";
 import { AssetMediaPreview } from "@/components/asset-media-preview";
 import { CachedResourceImage } from "@/components/cached-resource-image";
@@ -38,6 +38,7 @@ import {
     updateProjectAssetFolder,
     updateProjectCharacter,
     type ProjectAsset,
+    type ProjectAssetCandidate,
     type ProjectAssetFolder,
 } from "@/services/api/projects";
 import { saveRemoteUserDataNow } from "@/services/user-data-sync";
@@ -45,6 +46,7 @@ import { useAssetStore, type Asset, type AssetCategory, type AssetStatus, type E
 import { useConfigStore, useEffectiveConfig } from "@/stores/use-config-store";
 import { CanvasNodeType, type CanvasFolderStyle, type CanvasFolderTheme, type CanvasNodeData } from "@/types/canvas";
 import { saveAs } from "file-saver";
+import { useSearchParams } from "react-router";
 
 import { ProjectCharacterCard } from "./project-character-card";
 import { linkSelectedProjectAssets } from "./project-asset-linking";
@@ -76,8 +78,16 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
     const [pageSize, setPageSize] = useState(40);
     const [candidatePage, setCandidatePage] = useState(1);
     const [keyword, setKeyword] = useState("");
+    const [searchParams, setSearchParams] = useSearchParams();
     const debouncedKeyword = useDebouncedValue(keyword.trim(), 250);
     const candidatePageSize = 24;
+    const showPendingCandidates = searchParams.get("section") === "pending";
+    const hidePendingCandidates = () => {
+        if (!showPendingCandidates) return;
+        const next = new URLSearchParams(searchParams);
+        next.delete("section");
+        setSearchParams(next, { replace: true });
+    };
     const [folderEditor, setFolderEditor] = useState<{ folder?: ProjectAssetFolder; parentId: string } | null>(null);
     const [folderName, setFolderName] = useState("");
     const [addOpen, setAddOpen] = useState(false);
@@ -102,10 +112,9 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
         }),
     });
     const foldersQuery = useQuery({ queryKey: ["project", detail.project.id, "asset-folders"], queryFn: () => listProjectAssetFolders(detail.project.id) });
-    const showPendingCandidates = folderId === ALL_FOLDERS && (category === "all" || category === "character");
     const candidatesQuery = useQuery({
-        queryKey: ["project", detail.project.id, "asset-candidates", candidatePage, candidatePageSize, "character", "pending_confirmation", debouncedKeyword],
-        queryFn: () => listProjectAssetCandidates(detail.project.id, { page: candidatePage, pageSize: candidatePageSize, category: "character", status: "pending_confirmation", query: debouncedKeyword || undefined }),
+        queryKey: ["project", detail.project.id, "asset-candidates", candidatePage, candidatePageSize, "pending_confirmation", debouncedKeyword],
+        queryFn: () => listProjectAssetCandidates(detail.project.id, { page: candidatePage, pageSize: candidatePageSize, status: "pending_confirmation", query: debouncedKeyword || undefined }),
     });
     const assets = assetsQuery.data?.assets || [];
     const assetFolders = foldersQuery.data?.folders || [];
@@ -130,16 +139,30 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
         setPage(1);
         setCandidatePage(1);
     }, [debouncedKeyword]);
+    useEffect(() => {
+        if (!showPendingCandidates) return;
+        setFolderId(ALL_FOLDERS);
+        setCategory("all");
+        setPage(1);
+    }, [showPendingCandidates]);
 
     const selectFolder = (nextFolderId: string) => {
+        hidePendingCandidates();
         setFolderId(nextFolderId);
         setCategory("all");
         setPage(1);
     };
     const selectCategory = (nextCategory: string) => {
+        hidePendingCandidates();
         setCategory(nextCategory);
         setFolderId(ALL_FOLDERS);
         setPage(1);
+    };
+    const selectPendingCandidates = () => {
+        const next = new URLSearchParams(searchParams);
+        next.set("section", "pending");
+        setSearchParams(next, { replace: true });
+        setCandidatePage(1);
     };
 
     const projectAssetIds = new Set(assets.map((asset) => asset.id));
@@ -179,9 +202,7 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
     ], [assetFolders]);
     const categoryCounts = categories.map((value) => ({
         value,
-        count: value === "all"
-            ? totalAssetCount + (candidatesQuery.data?.total || 0)
-            : (categoryCountMap[value] || 0) + (value === "character" ? candidatesQuery.data?.total || 0 : 0),
+        count: value === "all" ? totalAssetCount : categoryCountMap[value] || 0,
     }));
     const audioPickerItems = useMemo<AssetLibraryPickerItem[]>(() => {
         const localItems = personalAssets.flatMap((asset) => {
@@ -283,9 +304,9 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
         mutationFn: ({ candidateId, targetAssetId }: { candidateId: string; targetAssetId?: string }) => confirmProjectAssetCandidate(detail.project.id, candidateId, targetAssetId),
         onSuccess: ({ asset }, variables) => {
             syncPersonalCharacterProjection(asset);
-            done(variables.targetAssetId ? "候选信息已归并到角色新版本" : "角色卡已创建");
+            done(variables.targetAssetId ? "候选信息已归并到角色新版本" : `${categoryLabel(asset.category)}已确认为项目资产`);
         },
-        onError: failed("角色确认失败"),
+        onError: failed("资产候选确认失败"),
     });
     const confirmingCandidateId = confirmMutation.isPending ? confirmMutation.variables?.candidateId || "" : "";
     const saveCharacter = useMutation({
@@ -389,53 +410,30 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
             <div className="project-assets-layout mt-3 grid gap-3">
                 <nav className="space-y-0.5 pr-2" aria-label="素材目录与资产分类">
                     <div className="mb-1 flex h-8 items-center justify-between px-2 text-[var(--fs-tiny)] font-medium text-foreground/42"><span>素材目录</span><button type="button" className="rounded p-1 hover:bg-surface-hover" aria-label="新建根目录文件夹" onClick={() => openFolderEditor(undefined, "")}><FolderPlus className="size-3.5" /></button></div>
-                    <button type="button" onClick={() => selectFolder("")} className={`flex h-11 w-full items-center gap-2 rounded-md px-2 text-left text-xs ${folderId === "" ? "bg-surface-active font-medium" : "text-foreground/55 hover:bg-surface-hover"}`}><FolderOpen className="size-4 shrink-0" /><span className="min-w-0 flex-1 truncate">素材库</span><span className="text-[var(--fs-tiny)] tabular-nums text-foreground/42">{folderCountMap[""] || 0}</span></button>
+                    <button type="button" onClick={() => selectFolder("")} className={`flex h-11 w-full items-center gap-2 rounded-md px-2 text-left text-xs ${!showPendingCandidates && folderId === "" ? "bg-surface-active font-medium" : "text-foreground/55 hover:bg-surface-hover"}`}><FolderOpen className="size-4 shrink-0" /><span className="min-w-0 flex-1 truncate">素材库</span><span className="text-[var(--fs-tiny)] tabular-nums text-foreground/42">{folderCountMap[""] || 0}</span></button>
                     <ProjectAssetFolderTree folders={assetFolders} folderCounts={folderCountMap} selectedId={folderId} onSelect={selectFolder} />
                     <div className="my-2 h-px bg-foreground/[.08]" />
+                    <button type="button" aria-pressed={showPendingCandidates} onClick={selectPendingCandidates} className={`flex h-11 w-full items-center gap-2 rounded-md px-2 text-left text-xs ${showPendingCandidates ? "bg-surface-active font-medium" : "text-foreground/55 hover:bg-surface-hover"}`}><Sparkles className="size-4 shrink-0" /><span className="min-w-0 flex-1 truncate">待确认候选</span><span className="min-w-5 rounded bg-foreground/[.05] px-1 text-center text-[var(--fs-tiny)] tabular-nums">{candidatesQuery.data?.total || 0}</span></button>
+                    <div className="my-2 h-px bg-foreground/[.08]" />
                     <div className="mb-1 h-8 px-2 text-[var(--fs-tiny)] font-medium leading-8 text-foreground/42">分类筛选</div>
-                    {categoryCounts.map((item) => <button key={item.value} type="button" onClick={() => selectCategory(item.value)} className={`flex h-11 w-full items-center justify-between rounded-md px-2 text-left text-xs ${folderId === ALL_FOLDERS && category === item.value ? "bg-surface-active font-medium" : "text-foreground/55 hover:bg-surface-hover"}`}><span>{item.value === "all" ? "全部资产" : categoryLabels[item.value]}</span><span className="min-w-5 rounded bg-foreground/[.05] px-1 text-center text-[var(--fs-tiny)] tabular-nums">{item.count}</span></button>)}
+                    {categoryCounts.map((item) => <button key={item.value} type="button" onClick={() => selectCategory(item.value)} className={`flex h-11 w-full items-center justify-between rounded-md px-2 text-left text-xs ${!showPendingCandidates && folderId === ALL_FOLDERS && category === item.value ? "bg-surface-active font-medium" : "text-foreground/55 hover:bg-surface-hover"}`}><span>{item.value === "all" ? "全部资产" : categoryLabels[item.value]}</span><span className="min-w-5 rounded bg-foreground/[.05] px-1 text-center text-[var(--fs-tiny)] tabular-nums">{item.count}</span></button>)}
                 </nav>
                 <div className="min-w-0">
                     <div className="mb-3 flex min-h-9 flex-wrap items-center justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-1 text-xs text-foreground/48">
                             <button type="button" className="truncate rounded px-1.5 py-1 hover:bg-surface-hover" onClick={() => selectFolder("")}>素材库</button>
-                            {folderId === ALL_FOLDERS ? <><span>/</span><span className="font-medium text-foreground">全部资产</span></> : folderPath.map((folder) => <span key={folder.id} className="contents"><span>/</span><button type="button" className="truncate rounded px-1.5 py-1 font-medium text-foreground hover:bg-surface-hover" onClick={() => selectFolder(folder.id)}>{folder.name}</button></span>)}
+                            {showPendingCandidates ? <><span>/</span><span className="font-medium text-foreground">待确认候选</span></> : folderId === ALL_FOLDERS ? <><span>/</span><span className="font-medium text-foreground">全部资产</span></> : folderPath.map((folder) => <span key={folder.id} className="contents"><span>/</span><button type="button" className="truncate rounded px-1.5 py-1 font-medium text-foreground hover:bg-surface-hover" onClick={() => selectFolder(folder.id)}>{folder.name}</button></span>)}
                         </div>
                         <div className="flex items-center gap-2">
-                            <Input allowClear value={keyword} onChange={(event) => setKeyword(event.target.value)} prefix={<Search className="size-3.5 text-foreground/35" />} placeholder="搜索资产名称" aria-label="搜索项目资产" className="w-52" />
-                            {folderId !== ALL_FOLDERS ? <Button type="text" size="small" icon={<FolderPlus className="size-3.5" />} onClick={() => openFolderEditor(undefined, folderId)}>新建子文件夹</Button> : null}
+                            <Input allowClear value={keyword} onChange={(event) => setKeyword(event.target.value)} prefix={<Search className="size-3.5 text-foreground/35" />} placeholder={showPendingCandidates ? "搜索候选名称" : "搜索资产名称"} aria-label={showPendingCandidates ? "搜索待确认资产候选" : "搜索项目资产"} className="w-52" />
+                            {!showPendingCandidates && folderId !== ALL_FOLDERS ? <Button type="text" size="small" icon={<FolderPlus className="size-3.5" />} onClick={() => openFolderEditor(undefined, folderId)}>新建子文件夹</Button> : null}
                         </div>
                     </div>
-                    {childFolders.length ? <div className="project-asset-folder-grid mb-5">{childFolders.map((folder) => <ProjectAssetFolderCard key={folder.id} folder={folder} folders={assetFolders} assets={assets} folderCounts={folderCountMap} personalAssets={personalAssets} onOpen={() => selectFolder(folder.id)} onRename={() => openFolderEditor(folder)} onMove={(parentId) => moveFolderMutation.mutate({ id: folder.id, parentId })} onStyle={(style) => styleFolderMutation.mutate({ id: folder.id, style })} onTheme={(theme) => themeFolderMutation.mutate({ id: folder.id, theme })} onDelete={() => modal.confirm({ title: `删除文件夹“${folder.name}”？`, content: "仅空文件夹可以删除，素材和子文件夹不会被级联删除。", okText: "删除", okButtonProps: { danger: true }, cancelText: "取消", onOk: () => deleteFolderMutation.mutateAsync(folder.id) })} deleting={(deleteFolderMutation.isPending && deleteFolderMutation.variables === folder.id) || (moveFolderMutation.isPending && moveFolderMutation.variables?.id === folder.id) || (styleFolderMutation.isPending && styleFolderMutation.variables?.id === folder.id) || (themeFolderMutation.isPending && themeFolderMutation.variables?.id === folder.id)} />)}</div> : null}
-                    {folderId === ALL_FOLDERS && (category === "all" || category === "character") && pendingCandidates.length ? (
-                        <section className="mb-4" aria-label="待确认角色">
-                            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                                <div className="flex items-center gap-1.5 text-xs font-medium"><Sparkles className="size-3.5 text-foreground/50" />剧情识别出的角色</div>
-                                <span className="text-[var(--fs-tiny)] tabular-nums text-foreground/42">剩余 {candidatesQuery.data?.total || 0} 个待确认</span>
-                            </div>
-                            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                                {pendingCandidates.map((candidate) => {
-                                    const confirming = confirmingCandidateId === candidate.id;
-                                    return (
-                                        <article key={candidate.id} className="flex min-h-28 items-center gap-3 rounded-lg bg-surface-active p-3">
-                                            <span className="grid size-12 shrink-0 place-items-center rounded-md bg-foreground/[.045] text-foreground/25"><UserRound className="size-5" /></span>
-                                            <div className="min-w-0 flex-1">
-                                                <div className="truncate text-xs font-semibold">{candidate.name}</div>
-                                                <div className="mt-1 text-[var(--fs-tiny)] text-foreground/42">待确认角色卡 · 来自章节分析</div>
-                                                <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1">
-                                                    <Button type="text" size="small" icon={<Check className="size-3.5" />} loading={confirming} disabled={Boolean(confirmingCandidateId) && !confirming} onClick={() => confirmMutation.mutate({ candidateId: candidate.id })}>确认新角色</Button>
-                                                    {characterAssets.length ? <Dropdown trigger={["click"]} menu={{ items: characterAssets.map((asset) => ({ key: asset.id, label: asset.title })), onClick: ({ key }) => confirmMutation.mutate({ candidateId: candidate.id, targetAssetId: key }) }}><Button type="text" size="small" disabled={Boolean(confirmingCandidateId)}>归并到角色<ChevronDown className="size-3" /></Button></Dropdown> : null}
-                                                </div>
-                                            </div>
-                                        </article>
-                                    );
-                                })}
-                            </div>
-                            <PaginationBar current={candidatePage} pageSize={candidatePageSize} total={candidatesQuery.data?.total || 0} itemLabel="项" pageSizeOptions={[candidatePageSize]} onChange={(nextPage) => setCandidatePage(nextPage)} />
-                        </section>
-                    ) : null}
-                    <div className="mb-2 flex items-center justify-between text-xs text-foreground/45"><span>{currentFolder?.name || (folderId === ALL_FOLDERS ? (category === "all" ? "全部资产" : categoryLabel(category)) : "根目录内容")}</span><span>{assetsQuery.data?.total || 0} 项已确认</span></div>
-                    {assetsQuery.isLoading ? <WorkspaceState icon="assets" compact title="正在读取资产" description="按当前目录、分类和关键词加载这一页。" /> : visibleAssets.length ? <><div className="project-assets-grid assets-library-grid">{visibleAssets.map((asset) => asset.category === "character" ? <ProjectCharacterCard key={asset.id} asset={asset} folderItems={folderMoveItems} generating={generatingAssetIds.has(asset.id)} removing={(moveMutation.isPending && moveMutation.variables?.id === asset.id) || (unlinkMutation.isPending && unlinkMutation.variables === asset.id)} onOpen={() => setPreviewAsset(asset)} onEdit={() => openCharacterEditor(asset)} onGenerate={() => generateMutation.mutate(asset)} onBindImages={() => openImages(asset)} onBindVoice={() => openVoice(asset)} onMove={(nextFolderId) => moveMutation.mutate({ id: asset.id, nextFolderId })} onRemove={() => unlinkMutation.mutate(asset.id)} /> : <MediaAssetCard key={asset.id} asset={asset} personalAsset={personalAssets.find((item) => item.id === asset.id)} folderItems={folderMoveItems} onOpen={() => setPreviewAsset(asset)} onMove={(nextFolderId) => moveMutation.mutate({ id: asset.id, nextFolderId })} onCategoryChange={(next) => categoryMutation.mutate({ id: asset.id, next })} onVersion={() => versionMutation.mutate(asset.id)} onRemove={() => unlinkMutation.mutate(asset.id)} loading={(moveMutation.isPending && moveMutation.variables?.id === asset.id) || (categoryMutation.isPending && categoryMutation.variables?.id === asset.id) || (versionMutation.isPending && versionMutation.variables === asset.id) || (unlinkMutation.isPending && unlinkMutation.variables === asset.id)} />)}</div><PaginationBar current={page} pageSize={pageSize} total={assetsQuery.data?.total || 0} itemLabel="项" pageSizeOptions={[20, 40, 80]} onChange={(nextPage, nextPageSize) => { setPage(nextPageSize !== pageSize ? 1 : nextPage); setPageSize(nextPageSize); }} /></> : childFolders.length || (showPendingCandidates && pendingCandidates.length) ? null : <WorkspaceState icon="assets" compact title={debouncedKeyword ? "没有找到匹配资产" : "这个文件夹还没有内容"} description={debouncedKeyword ? "换一个关键词，或调整左侧分类与目录筛选。" : "可以新建子文件夹、引用个人素材，或把画布产物归档到这里。"} />}
+                    {showPendingCandidates ? <ProjectAssetCandidatesSection candidates={pendingCandidates} total={candidatesQuery.data?.total || 0} page={candidatePage} pageSize={candidatePageSize} loading={candidatesQuery.isLoading} error={candidatesQuery.isError} keyword={debouncedKeyword} confirmingCandidateId={confirmingCandidateId} characterAssets={characterAssets} onConfirm={(candidateId, targetAssetId) => confirmMutation.mutate({ candidateId, targetAssetId })} onPageChange={setCandidatePage} onRetry={() => void candidatesQuery.refetch()} /> : <>
+                        {childFolders.length ? <div className="project-asset-folder-grid mb-5">{childFolders.map((folder) => <ProjectAssetFolderCard key={folder.id} folder={folder} folders={assetFolders} assets={assets} folderCounts={folderCountMap} personalAssets={personalAssets} onOpen={() => selectFolder(folder.id)} onRename={() => openFolderEditor(folder)} onMove={(parentId) => moveFolderMutation.mutate({ id: folder.id, parentId })} onStyle={(style) => styleFolderMutation.mutate({ id: folder.id, style })} onTheme={(theme) => themeFolderMutation.mutate({ id: folder.id, theme })} onDelete={() => modal.confirm({ title: `删除文件夹“${folder.name}”？`, content: "仅空文件夹可以删除，素材和子文件夹不会被级联删除。", okText: "删除", okButtonProps: { danger: true }, cancelText: "取消", onOk: () => deleteFolderMutation.mutateAsync(folder.id) })} deleting={(deleteFolderMutation.isPending && deleteFolderMutation.variables === folder.id) || (moveFolderMutation.isPending && moveFolderMutation.variables?.id === folder.id) || (styleFolderMutation.isPending && styleFolderMutation.variables?.id === folder.id) || (themeFolderMutation.isPending && themeFolderMutation.variables?.id === folder.id)} />)}</div> : null}
+                        <div className="mb-2 flex items-center justify-between text-xs text-foreground/45"><span>{currentFolder?.name || (folderId === ALL_FOLDERS ? (category === "all" ? "全部资产" : categoryLabel(category)) : "根目录内容")}</span><span>{assetsQuery.data?.total || 0} 项已确认</span></div>
+                        {assetsQuery.isLoading ? <WorkspaceState icon="assets" compact title="正在读取资产" description="按当前目录、分类和关键词加载这一页。" /> : visibleAssets.length ? <><div className="project-assets-grid assets-library-grid">{visibleAssets.map((asset) => asset.category === "character" ? <ProjectCharacterCard key={asset.id} asset={asset} folderItems={folderMoveItems} generating={generatingAssetIds.has(asset.id)} removing={(moveMutation.isPending && moveMutation.variables?.id === asset.id) || (unlinkMutation.isPending && unlinkMutation.variables === asset.id)} onOpen={() => setPreviewAsset(asset)} onEdit={() => openCharacterEditor(asset)} onGenerate={() => generateMutation.mutate(asset)} onBindImages={() => openImages(asset)} onBindVoice={() => openVoice(asset)} onMove={(nextFolderId) => moveMutation.mutate({ id: asset.id, nextFolderId })} onRemove={() => unlinkMutation.mutate(asset.id)} /> : <MediaAssetCard key={asset.id} asset={asset} personalAsset={personalAssets.find((item) => item.id === asset.id)} folderItems={folderMoveItems} onOpen={() => setPreviewAsset(asset)} onMove={(nextFolderId) => moveMutation.mutate({ id: asset.id, nextFolderId })} onCategoryChange={(next) => categoryMutation.mutate({ id: asset.id, next })} onVersion={() => versionMutation.mutate(asset.id)} onRemove={() => unlinkMutation.mutate(asset.id)} loading={(moveMutation.isPending && moveMutation.variables?.id === asset.id) || (categoryMutation.isPending && categoryMutation.variables?.id === asset.id) || (versionMutation.isPending && versionMutation.variables === asset.id) || (unlinkMutation.isPending && unlinkMutation.variables === asset.id)} />)}</div><PaginationBar current={page} pageSize={pageSize} total={assetsQuery.data?.total || 0} itemLabel="项" pageSizeOptions={[20, 40, 80]} onChange={(nextPage, nextPageSize) => { setPage(nextPageSize !== pageSize ? 1 : nextPage); setPageSize(nextPageSize); }} /></> : childFolders.length ? null : <WorkspaceState icon="assets" compact title={debouncedKeyword ? "没有找到匹配资产" : "这个文件夹还没有内容"} description={debouncedKeyword ? "换一个关键词，或调整左侧分类与目录筛选。" : "可以新建子文件夹、引用个人素材，或把画布产物归档到这里。"} />}
+                    </>}
                 </div>
             </div>
 
@@ -528,6 +526,75 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
             </Modal>
         </div>
     );
+}
+
+function ProjectAssetCandidatesSection({ candidates, total, page, pageSize, loading, error, keyword, confirmingCandidateId, characterAssets, onConfirm, onPageChange, onRetry }: {
+    candidates: ProjectAssetCandidate[];
+    total: number;
+    page: number;
+    pageSize: number;
+    loading: boolean;
+    error: boolean;
+    keyword: string;
+    confirmingCandidateId: string;
+    characterAssets: ProjectAsset[];
+    onConfirm: (candidateId: string, targetAssetId?: string) => void;
+    onPageChange: (page: number) => void;
+    onRetry: () => void;
+}) {
+    if (loading) return <WorkspaceLoadingState label="正在读取待确认候选" detail="汇总剧情识别出的角色、场景和道具" />;
+    if (error) return <WorkspaceErrorState compact title="待确认候选读取失败" description="请检查网络连接后重试，现有资产不会受到影响。" onRetry={onRetry} />;
+    if (!candidates.length) return <WorkspaceState icon="assets" compact title={keyword ? "没有找到匹配候选" : "没有待确认的资产候选"} description={keyword ? "换一个关键词再试。" : "章节分析识别出的角色、场景和道具会集中显示在这里。"} />;
+
+    return (
+        <section aria-label="待确认资产候选">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div><h3 className="text-sm font-semibold">剧情识别出的资产</h3><p className="mt-1 text-[var(--fs-label)] text-foreground/48">确认后会建立正式项目资产，供分镜和画布引用。</p></div>
+                <span className="text-[var(--fs-tiny)] tabular-nums text-foreground/42">剩余 {total} 个待确认</span>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                {candidates.map((candidate) => {
+                    const confirming = confirmingCandidateId === candidate.id;
+                    const label = categoryLabel(candidate.category);
+                    const description = projectAssetCandidateDescription(candidate);
+                    return (
+                        <article key={candidate.id} className="flex min-h-32 items-start gap-3 rounded-md bg-surface-active p-3">
+                            <span className="grid size-12 shrink-0 place-items-center rounded-md bg-foreground/[.045] text-foreground/30" aria-hidden="true"><ProjectAssetCandidateIcon category={candidate.category} /></span>
+                            <div className="min-w-0 flex-1">
+                                <div className="flex min-w-0 items-center gap-2"><h4 className="min-w-0 flex-1 truncate text-xs font-semibold" title={candidate.name}>{candidate.name}</h4><span className="shrink-0 rounded bg-foreground/[.06] px-1.5 py-0.5 text-[var(--fs-micro)] text-foreground/48">{label}</span></div>
+                                <p className="mt-1 line-clamp-2 min-h-8 text-[var(--fs-tiny)] leading-4 text-foreground/48" title={description}>{description}</p>
+                                <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1">
+                                    <Button type="text" size="small" icon={<Check className="size-3.5" />} loading={confirming} disabled={Boolean(confirmingCandidateId) && !confirming} onClick={() => onConfirm(candidate.id)}>确认为新{label}</Button>
+                                    {candidate.category === "character" && characterAssets.length ? <Dropdown trigger={["click"]} menu={{ items: characterAssets.map((asset) => ({ key: asset.id, label: asset.title })), onClick: ({ key }) => onConfirm(candidate.id, key) }}><Button type="text" size="small" disabled={Boolean(confirmingCandidateId)}>归并到角色<ChevronDown className="size-3" /></Button></Dropdown> : null}
+                                </div>
+                            </div>
+                        </article>
+                    );
+                })}
+            </div>
+            <PaginationBar current={page} pageSize={pageSize} total={total} itemLabel="项" pageSizeOptions={[pageSize]} onChange={(nextPage) => onPageChange(nextPage)} />
+        </section>
+    );
+}
+
+function ProjectAssetCandidateIcon({ category }: { category: string }) {
+    if (category === "character") return <UserRound className="size-5" />;
+    if (category === "environment") return <ImageIcon className="size-5" />;
+    if (category === "prop") return <Box className="size-5" />;
+    return <FileText className="size-5" />;
+}
+
+function projectAssetCandidateDescription(candidate: ProjectAssetCandidate) {
+    try {
+        const details = JSON.parse(candidate.detailsJson) as Record<string, unknown>;
+        for (const key of ["description", "role", "appearance", "prompt"]) {
+            const value = details[key];
+            if (typeof value === "string" && value.trim()) return value.trim();
+        }
+    } catch {
+        // The confirmation action remains available when legacy detail JSON is malformed.
+    }
+    return `${categoryLabel(candidate.category)}候选 · 来自章节分析`;
 }
 
 function ProjectAssetFolderTree({ folders, folderCounts, selectedId, onSelect }: { folders: ProjectAssetFolder[]; folderCounts: Record<string, number>; selectedId: string; onSelect: (folderId: string) => void }) {

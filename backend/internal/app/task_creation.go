@@ -41,6 +41,9 @@ func (s *Service) CreateTask(userID string, req CreateTaskRequest) (*model.Task,
 	if err != nil {
 		return nil, err
 	}
+	if err := validateTaskGenerationMode(taskType, normalizedInput); err != nil {
+		return nil, err
+	}
 
 	var routed *RoutedModel
 	logicalModelID := strings.TrimSpace(req.LogicalModelID)
@@ -317,6 +320,24 @@ func validateTaskType(taskType string) error {
 		return errors.New("task type is required")
 	}
 	return fmt.Errorf("不支持的任务类型：%s", taskType)
+}
+
+func validateTaskGenerationMode(taskType string, input map[string]any) error {
+	expected := map[string]string{
+		"text":         "text",
+		"canvas_text":  "text",
+		"canvas_image": "image",
+		"canvas_video": "video",
+		"canvas_audio": "audio",
+	}[taskType]
+	if expected == "" {
+		return nil
+	}
+	mode, _ := input["mode"].(string)
+	if mode != expected {
+		return BadAuthRequest(fmt.Sprintf("任务类型 %s 必须使用 %s 生成模式", taskType, expected))
+	}
+	return nil
 }
 
 func (s *Service) requireCustomChannelsForTaskInput(input map[string]any) error {
