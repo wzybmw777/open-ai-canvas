@@ -45,7 +45,7 @@
 | `create.body.model` | `{"$ref":"request.model"}` |
 | `create.body.prompt` | `{"$ref":"request.prompt"}` |
 | `create.body.seconds` | `{"$toString":{"$ref":"request.duration"}}` |
-| `create.body.size` | `{"$omitEmpty":{"$ref":"request.aspectRatio"}}` |
+| `create.body.size` | `16:9` 转为 `1280x720`，`9:16` 转为 `720x1280`，像素尺寸原样透传，`auto` 不发送 |
 | `create.body.resolution_name` | `{"$omitEmpty":{"$ref":"request.resolution"}}` |
 | `create.body.variants` | `{"$omitEmpty":{"$ref":"request.providerOptions.newapi.variants"}}` |
 | `create.files[0].name` | `"input_reference"` |
@@ -234,7 +234,46 @@
             },
             "size": {
               "$omitEmpty": {
-                "$ref": "request.aspectRatio"
+                "$switch": {
+                  "cases": [
+                    {
+                      "when": {
+                        "$eq": [
+                          {
+                            "$ref": "request.aspectRatio"
+                          },
+                          "16:9"
+                        ]
+                      },
+                      "then": "1280x720"
+                    },
+                    {
+                      "when": {
+                        "$eq": [
+                          {
+                            "$ref": "request.aspectRatio"
+                          },
+                          "9:16"
+                        ]
+                      },
+                      "then": "720x1280"
+                    },
+                    {
+                      "when": {
+                        "$eq": [
+                          {
+                            "$ref": "request.aspectRatio"
+                          },
+                          "auto"
+                        ]
+                      },
+                      "then": null
+                    }
+                  ],
+                  "default": {
+                    "$ref": "request.aspectRatio"
+                  }
+                }
               }
             },
             "resolution_name": {
