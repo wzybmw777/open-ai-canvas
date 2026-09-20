@@ -103,7 +103,7 @@ func cloudAgentCanonicalFor(system string, history []providerTextMessage, prompt
 		messages = append(messages, message)
 	}
 	messages = append(messages, map[string]any{"role": "user", "content": prompt})
-	return canonicalAgentRequest{SystemPrompt: system, Messages: messages, Tools: compileCloudAgentTools(req, includeProfileTool), ToolChoice: "auto", PromptCacheKey: cloudAgentPromptCacheKey(req.CanvasID, system)}
+	return canonicalAgentRequest{SystemPrompt: system, Messages: messages, Tools: compileCloudAgentTools(req, includeProfileTool), ToolChoice: "auto", PromptCacheKey: cloudAgentPromptCacheKey(req.CanvasID, system), ParallelToolCalls: true}
 }
 
 func cloudAgentPromptCacheKey(canvasID, system string) string {

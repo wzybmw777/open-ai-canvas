@@ -103,7 +103,15 @@ func (s *Service) cloudAgentRefreshStepSnapshotHash(run *model.CloudAgentExecuti
 		}
 		if !advanced {
 			if mutation.BeforeSnapshotHash != expected {
-				continue
+				// Media callers may use the content-only hash. Join the same
+				// recorded mutation chain without accepting intervening user edits.
+				if call.Function.Name != "generate_media" && call.Function.Name != "image_layer_split" {
+					continue
+				}
+				before, err := creationDocument(mutation.BeforeJSON)
+				if err != nil || cloudAgentMediaContentHash(before) != expected {
+					continue
+				}
 			}
 			advanced = true
 		} else if mutation.BeforeSnapshotHash != expected {

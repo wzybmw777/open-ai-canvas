@@ -11,11 +11,12 @@ import (
 // The browser sends one protocol-neutral conversation. Only the selected
 // provider body is materialized; declarative plugins retain their request paths.
 type canonicalAgentRequest struct {
-	Messages       []map[string]interface{} `json:"messages"`
-	Tools          []map[string]interface{} `json:"tools"`
-	ToolChoice     interface{}              `json:"toolChoice"`
-	SystemPrompt   string                   `json:"systemPrompt"`
-	PromptCacheKey string                   `json:"promptCacheKey,omitempty"`
+	Messages          []map[string]interface{} `json:"messages"`
+	Tools             []map[string]interface{} `json:"tools"`
+	ToolChoice        interface{}              `json:"toolChoice"`
+	SystemPrompt      string                   `json:"systemPrompt"`
+	PromptCacheKey    string                   `json:"promptCacheKey,omitempty"`
+	ParallelToolCalls bool                     `json:"parallelToolCalls,omitempty"`
 }
 
 func expandCanonicalAgentRequest(source *canonicalAgentRequest, config providerConfig, declarative bool) (*agentToolRequests, error) {
@@ -156,7 +157,7 @@ func canonicalAgentChatBody(source *canonicalAgentRequest, claude bool) map[stri
 	if named, ok := choice.(map[string]interface{}); ok {
 		choice = map[string]interface{}{"type": "function", "function": map[string]interface{}{"name": named["name"]}}
 	}
-	body := map[string]interface{}{"messages": messages, "tools": tools, "tool_choice": choice, "parallel_tool_calls": false}
+	body := map[string]interface{}{"messages": messages, "tools": tools, "tool_choice": choice, "parallel_tool_calls": source.ParallelToolCalls}
 	if !claude && source.PromptCacheKey != "" {
 		body["prompt_cache_key"] = source.PromptCacheKey
 	}
@@ -188,7 +189,7 @@ func canonicalAgentResponsesBody(source *canonicalAgentRequest) map[string]inter
 		converted["type"] = "function"
 		tools = append(tools, converted)
 	}
-	body := map[string]interface{}{"input": messages, "tools": tools, "tool_choice": source.ToolChoice, "parallel_tool_calls": false}
+	body := map[string]interface{}{"input": messages, "tools": tools, "tool_choice": source.ToolChoice, "parallel_tool_calls": source.ParallelToolCalls}
 	if source.PromptCacheKey != "" {
 		body["prompt_cache_key"] = source.PromptCacheKey
 	}

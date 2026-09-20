@@ -140,7 +140,9 @@ func emitCloudAgentCanvasChange(repo *repository.Repository, runID string, state
 		payload["preview"] = &preview
 		payload["text"] = preview.Description
 	}
-	if state.CallIndex >= 0 && state.CallIndex < len(state.Calls) {
+	if input.StepID != "" {
+		payload["callId"] = input.StepID
+	} else if state.CallIndex >= 0 && state.CallIndex < len(state.Calls) {
 		payload["callId"] = state.Calls[state.CallIndex].ID
 	}
 	state.event(runID, "canvas_updated", payload)

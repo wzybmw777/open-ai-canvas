@@ -40,7 +40,11 @@ func (s *Service) terminateStuckCloudAgent(run *model.CloudAgentExecution) bool 
 }
 
 func (s *Service) cloudAgentHasLiveWork(run *model.CloudAgentExecution, state *cloudAgentRuntime) bool {
-	for _, taskID := range []string{state.ActiveTaskID, state.MediaTaskID, state.StoryboardTaskID} {
+	taskIDs := []string{state.ActiveTaskID, state.MediaTaskID, state.StoryboardTaskID}
+	for _, pending := range state.PendingMedia {
+		taskIDs = append(taskIDs, pending.TaskID)
+	}
+	for _, taskID := range taskIDs {
 		if taskID == "" {
 			continue
 		}

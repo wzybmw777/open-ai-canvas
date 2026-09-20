@@ -112,7 +112,7 @@ func compileCloudAgentPolicies(req CloudAgentRequest, skills []cloudAgentSkill, 
 			"maxCredits": req.Budget.MaxCredits, "maxSteps": cloudAgentStepLimit(req),
 			"maxGenerationTasks": req.Budget.MaxGenerationTasks, "maxVideoSeconds": req.Budget.MaxVideoSeconds,
 		},
-		"maxToolCalls": cloudAgentMaxToolCalls, "maxOutputBytes": cloudAgentMaxOutputBytes,
+		"maxToolCalls": cloudAgentMaxToolCalls, "maxOutputBytes": cloudAgentMaxOutputBytes, "maxConcurrentGenerations": cloudAgentMediaConcurrency,
 		"canvasSummary": canvasSummary,
 	}
 	if len(anchors) > 0 {

@@ -65,13 +65,20 @@ func (r *Repository) CloudAgentRoots() ([]model.Task, error) {
 	return tasks, err
 }
 
+// Durable task ownership remains available even if the run checkpoint is damaged.
+func (r *Repository) CloudAgentChildTasks(userID, runID string) ([]model.Task, error) {
+	var tasks []model.Task
+	err := r.db.Where("user_id = ? AND agent_run_id = ?", userID, runID).Order("created_at, id").Find(&tasks).Error
+	return tasks, err
+}
+
 // A stable keyset makes waiting rows yield to later runs without changing business timestamps.
 func (r *Repository) ActiveCloudAgentsAfter(after string, limit int) ([]model.CloudAgentExecution, error) {
 	var runs []model.CloudAgentExecution
 	if limit < 1 || limit > 50 {
 		limit = 50
 	}
-	err := r.db.Where("(status IN ? OR cleanup_pending = ?) AND id > ?", []string{"running", "queued"}, true, after).Order("id").Limit(limit).Find(&runs).Error
+	err := r.db.Where("(status IN ? OR (status = ? AND media_task_id <> '') OR cleanup_pending = ?) AND id > ?", []string{"running", "queued"}, "waiting_approval", true, after).Order("id").Limit(limit).Find(&runs).Error
 	if err == nil {
 		for i := range runs {
 			if err = r.hydrateCloudAgent(&runs[i]); err != nil {
