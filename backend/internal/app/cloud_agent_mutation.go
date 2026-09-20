@@ -1,6 +1,7 @@
 package app
 
 import (
+	"strings"
 	"time"
 
 	"infinite-canvas/backend/internal/model"
@@ -8,6 +9,22 @@ import (
 )
 
 const cloudAgentMutationSnapshotLimit = 1 << 20
+
+// Successful writes report persisted changes, not the pre-approval preview.
+func cloudAgentAppliedMutationResult(canvasID, nodeID, snapshotHash string, items []cloudAgentApprovalPreviewItem) map[string]any {
+	summaries := make([]string, 0, len(items))
+	for _, item := range items {
+		summaries = append(summaries, item.Summary)
+	}
+	result := map[string]any{
+		"canvasId": canvasID, "snapshotHash": snapshotHash, "status": "applied",
+		"summary": "画布修改已保存：" + strings.Join(summaries, "；"), "changes": items,
+	}
+	if nodeID != "" {
+		result["nodeId"] = nodeID
+	}
+	return result
+}
 
 type cloudAgentMutationInput struct {
 	RunID              string

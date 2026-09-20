@@ -346,7 +346,7 @@ func applyCloudAgentStoryboardMutation(repo *repository.Repository, userID, canv
 	if len(plan.Preview.Items) > 0 {
 		nodeID = plan.Preview.Items[0].NodeID
 	}
-	return map[string]any{"canvasId": canvasID, "nodeId": nodeID, "snapshotHash": cloudAgentCanvasHash(plan.Document), "summary": plan.Preview.Description, "preview": plan.Preview}, nil
+	return cloudAgentAppliedMutationResult(canvasID, nodeID, cloudAgentCanvasHash(plan.Document), plan.Preview.Items), nil
 }
 
 func mapsAsAny(values []map[string]any) []any {

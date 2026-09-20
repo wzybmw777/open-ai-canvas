@@ -131,8 +131,14 @@ func emitCloudAgentCanvasChange(repo *repository.Repository, runID string, state
 		"canvasPatch": map[string]any{"canvasId": input.CanvasID, "baseRevision": canvas.Revision - 1, "revision": canvas.Revision, "updatedAt": after["updatedAt"], "nodes": nodes, "connections": edges},
 	}
 	if input.Preview != nil {
-		payload["preview"] = input.Preview
-		payload["text"] = input.Preview.Description
+		preview := *input.Preview
+		switch input.Operation {
+		case "canvas_apply_ops", "canvas_create_storyboard", "canvas_edit_storyboard", "canvas_edit_batch_table":
+			preview.Title, preview.Description = "画布修改已保存", "画布修改已保存"
+			payload["status"] = "applied"
+		}
+		payload["preview"] = &preview
+		payload["text"] = preview.Description
 	}
 	if state.CallIndex >= 0 && state.CallIndex < len(state.Calls) {
 		payload["callId"] = state.Calls[state.CallIndex].ID

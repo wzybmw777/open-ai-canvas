@@ -405,7 +405,7 @@ func applyCloudAgentBatchTableMutation(repo *repository.Repository, userID, canv
 			return nil, err
 		}
 	}
-	return map[string]any{"canvasId": canvasID, "nodeId": plan.Preview.Items[0].NodeID, "snapshotHash": cloudAgentCanvasHash(plan.Document), "summary": plan.Preview.Description, "preview": plan.Preview}, nil
+	return cloudAgentAppliedMutationResult(canvasID, plan.Preview.Items[0].NodeID, cloudAgentCanvasHash(plan.Document), plan.Preview.Items), nil
 }
 
 func cloudAgentBatchTableReadResult(view any, nodeID string) (map[string]any, error) {

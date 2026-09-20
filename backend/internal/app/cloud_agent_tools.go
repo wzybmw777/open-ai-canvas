@@ -718,7 +718,7 @@ func applyCloudAgentCanvas(repo *repository.Repository, userID, canvasID string,
 			return nil, err
 		}
 	}
-	return map[string]any{"canvasId": canvasID, "snapshotHash": cloudAgentCanvasHash(plan.Document), "summary": fmt.Sprintf("已完成 %d 项节点/连线操作", len(plan.Args.Ops)), "preview": plan.Preview}, nil
+	return cloudAgentAppliedMutationResult(canvasID, "", cloudAgentCanvasHash(plan.Document), plan.Preview.Items), nil
 }
 
 func validateCloudAgentConnection(nodes []map[string]any, fromID, toID string, existingConnections ...[]map[string]any) error {
