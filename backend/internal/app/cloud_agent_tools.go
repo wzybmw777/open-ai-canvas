@@ -202,7 +202,7 @@ func compileCloudAgentTools(req CloudAgentRequest, includeProfileTool bool) []ma
 			"topic", "category", "situation")
 	}
 	if req.PermissionMode != "read_only" && len(req.ContextScope) > 0 {
-		add("image_layer_split", "将图片按用户指定对象拆分为独立透明图层。参数与 generate_media 的图片生成参数一致，但 mode 固定为 image；这是生成型操作，必须进入现有媒体审批与计费链路，不能直接执行。", map[string]any{
+		add("image_layer_split", "将图片按用户指定对象拆分为独立透明图层。参数与 generate_media 的图片生成参数一致，但 mode 固定为 image；沿用媒体准入与计费链路，full_access 直接生成，其他可写模式需独立审批。", map[string]any{
 			"prompt": str("需要拆分的对象与透明背景要求"), "logicalModelId": str("selection.logicalModelId"), "channelId": str("selection.channelId"), "channelModelKey": str("selection.channelModelKey"),
 			"quality": str("模型支持的质量档位"), "snapshotHash": str("最近画布读取返回的 mediaSnapshotHash，可省略"), "nodeId": str("新的结果节点ID"), "title": str("结果节点名称"), "referenceNodeIds": map[string]any{"type": "array", "maxItems": 16, "items": str("源图片节点ID")},
 		}, "prompt", "nodeId", "title", "referenceNodeIds")
@@ -260,7 +260,7 @@ func compileCloudAgentTools(req CloudAgentRequest, includeProfileTool bool) []ma
 		add("canvas_apply_ops", "创建空白节点、修改提示词或建立引用连线，不提交生成任务、不产生生成费用；先读取画布并传 snapshotHash。提交媒体生成使用 generate_media。每次最多20项，禁止删除、任意 metadata 和媒体 URL。每项都需要 type 和 id：add_node 还需要 nodeType，update_node 还需要按节点能力清单填写 patch，connect_nodes 还需要 fromNodeId 与 toNodeId。连线是生成输入关系，不会改变已提交任务的输入；来源须 canSource，目标须 canTarget 且接受来源 inputKind，能力以注册表为准。", map[string]any{"snapshotHash": str("canvas_get_state返回的snapshotHash"), "ops": map[string]any{"type": "array", "maxItems": 20, "items": opItem}}, "snapshotHash", "ops")
 	}
 	if req.PermissionMode != "read_only" && len(req.ContextScope) > 0 {
-		add("generate_media", "提交媒体生成：准备草稿和引用连线，独立审批通过后提交收费任务，auto也需要审批。仅创建节点、编辑提示词或连线使用 canvas_apply_ops。生成前读取画布和按实际参考素材筛选的模型目录，参数需符合返回的时长、画幅和音频能力。可续用空闲且无任务、无产物的草稿；其他运行的草稿需原运行已结束且清理完成。已绑定任务或已有产物的节点不能覆盖，原任务状态和错误可从 generation 或 task_get 读取。sourceNodeId 是文本输入；referenceNodeIds 是媒体输入；referenceTransientIds 只接受标注工具返回的临时引用，不接受任意URL。准入错误按返回的 reason 修正；已提交任务失败应告知用户，重新生成需用户明确要求并重新审批。", map[string]any{
+		add("generate_media", "提交媒体生成：准备草稿和引用连线，full_access 在预算内直接提交收费任务，无需批准按钮；auto 和 request_approval 仍需独立审批。仅创建节点、编辑提示词或连线使用 canvas_apply_ops。生成前读取画布和按实际参考素材筛选的模型目录，参数需符合返回的时长、画幅和音频能力。可续用空闲且无任务、无产物的草稿；其他运行的草稿需原运行已结束且清理完成。已绑定任务或已有产物的节点不能覆盖，原任务状态和错误可从 generation 或 task_get 读取。sourceNodeId 是文本输入；referenceNodeIds 是媒体输入；referenceTransientIds 只接受标注工具返回的临时引用，不接受任意URL。准入错误按返回的 reason 修正；已提交任务失败应告知用户，重新生成需用户明确要求，并按本轮权限决定是否审批。", map[string]any{
 			"mode": map[string]any{"type": "string", "enum": cloudAgentGenerationModeNames()}, "prompt": str("完整生成提示词；引用素材时在对应描述中使用 @图片1、@视频1、@音频1，各类型按 referenceNodeIds 中出现顺序独立编号，文本来源不占媒体编号。服务端会为遗漏的已选素材补齐引用标签，不推断素材用途"),
 			"logicalModelId": str("selection.logicalModelId；与channelId/channelModelKey互斥"), "channelId": str("selection.channelId"), "channelModelKey": str("selection.channelModelKey"),
 			"durationSeconds": map[string]any{"type": "integer", "minimum": 0}, "size": str("模型支持的画幅，例如9:16"), "quality": str("目录支持的分辨率或质量"), "videoGenerateAudio": map[string]any{"type": "boolean", "description": "是否生成音频，仅视频可用"},

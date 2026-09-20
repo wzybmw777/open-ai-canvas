@@ -126,6 +126,6 @@ function isConversationDocument(value: unknown): value is CloudAgentConversation
             && Array.isArray(candidate.messages)
             && typeof candidate.createdAt === "string"
             && typeof candidate.updatedAt === "string"
-            && ["read_only", "auto", "request_approval"].includes(candidate.permissionMode || "");
+            && ["read_only", "auto", "request_approval", "full_access"].includes(candidate.permissionMode || "");
     });
 }

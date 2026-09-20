@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AgentWelcome } from "@/components/canvas/canvas-agent-welcome";
 import { AgentChatComposer } from "@/components/canvas/canvas-cloud-agent-chat-ui";
-import { agentPermissionVisual } from "@/components/canvas/canvas-cloud-agent-settings";
+import { agentPermissionLabel, agentPermissionMenuItems, agentPermissionVisual } from "@/components/canvas/canvas-cloud-agent-settings";
 import { canvasThemes } from "@/lib/canvas-theme";
 
 const noop = () => {};
@@ -23,14 +23,24 @@ test("empty canvas disables only the canvas-analysis shortcut", () => {
 });
 
 test("permission modes have distinct icons, not just distinct colors", () => {
-    const icons = (["read_only", "request_approval", "auto"] as const).map((mode) => {
+    const icons = (["read_only", "request_approval", "auto", "full_access"] as const).map((mode) => {
         const Icon = agentPermissionVisual(mode).icon;
         return renderToStaticMarkup(<Icon />);
     });
-    expect(new Set(icons).size).toBe(3);
+    expect(new Set(icons).size).toBe(4);
     expect(icons[0]).toContain("lucide-lock-keyhole");
     expect(icons[1]).toContain("lucide-shield-check");
     expect(icons[2]).toContain("lucide-sparkles");
+    expect(icons[3]).toContain("lucide-zap");
+});
+
+test("permission menu allows explicit full access selection", () => {
+    let selected = "request_approval";
+    const item = agentPermissionMenuItems("request_approval", (mode) => { selected = mode; }).find((option) => option.key === "full_access");
+    expect(item).toBeDefined();
+    expect(agentPermissionLabel("full_access")).toBe("绝对权限");
+    item?.onClick();
+    expect(selected).toBe("full_access");
 });
 
 test("compact send button preserves empty-draft and sending guards", () => {

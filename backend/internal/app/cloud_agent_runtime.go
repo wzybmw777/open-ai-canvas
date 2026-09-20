@@ -252,7 +252,7 @@ func validateCloudAgentRuntime(run *model.CloudAgentExecution, state *cloudAgent
 		return errors.New("Agent runtime active task is not in task history")
 	}
 	if state.MediaTaskID != "" {
-		if !cloudAgentContainsString(state.TaskIDs, state.MediaTaskID) || state.CallIndex >= len(state.Calls) || state.Calls[state.CallIndex].Function.Name != "generate_media" {
+		if !cloudAgentContainsString(state.TaskIDs, state.MediaTaskID) || state.CallIndex >= len(state.Calls) || (state.Calls[state.CallIndex].Function.Name != "generate_media" && state.Calls[state.CallIndex].Function.Name != "image_layer_split") {
 			return errors.New("Agent runtime media task is not attached to current call")
 		}
 	}
@@ -465,7 +465,7 @@ func (s *Service) cloudAgentExecutionOutput(task *model.Task, initial cloudAgent
 	out.UpdatedAt = run.UpdatedAt
 	out.Events = state.Events
 	out.Approval = state.Approval
-	if cloudAgentRunTerminal(run.Status) {
+	if cloudAgentRunTerminal(run.Status) || (state.Request.PermissionMode == "full_access" && state.Approval != nil && state.Approval.Decision == "approve") {
 		out.Approval = nil
 	}
 	out.Step = state.Step
@@ -1111,6 +1111,25 @@ func (s *Service) advanceCloudAgentTool(run *model.CloudAgentExecution, state *c
 				if err := pinCloudAgentPreparedMedia(repo, run.UserID, run.ID, state.Approval.ID, preparedMedia); err != nil {
 					return err
 				}
+			}
+			if state.Request.PermissionMode == "full_access" && preparedMedia != nil {
+				// Persist the user's run-level authorization with the exact prepared
+				// inputs before submission, so worker recovery cannot duplicate a charge.
+				approvalID := state.Approval.ID
+				state.Approval.Decision = "approve"
+				state.Approval.Reason = "用户选择绝对权限，本轮媒体生成无需逐项审批"
+				state.Decisions[approvalID] = "approve"
+				if state.DecisionPreparedHashes == nil {
+					state.DecisionPreparedHashes = map[string]string{}
+				}
+				state.DecisionPreparedHashes[approvalID] = preparedMedia.Hash
+				current.Status = "running"
+				state.event(run.ID, "approval_decided", map[string]any{
+					"approvalId": approvalID, "decision": "approve", "source": "permission_mode", "permissionMode": "full_access",
+					"toolName": call.Function.Name, "modelName": modelName, "preparedHash": preparedMedia.Hash, "generationId": preparedMedia.GenerationID,
+					"text": "已按绝对权限授权，将在预算内直接提交生成任务",
+				})
+				return cloudAgentSave(current, state)
 			}
 			current.Status = "waiting_approval"
 			state.event(run.ID, "approval_requested", map[string]any{"approvalId": state.Approval.ID, "toolName": call.Function.Name, "modelName": modelName, "arguments": json.RawMessage(call.Function.Arguments), "preview": preview, "prepared": preparedMedia.publicView(), "text": preview.Description})

@@ -158,6 +158,13 @@ describe("Agent SSE recovery", () => {
 });
 
 describe("Agent admission replay and durable pending records", () => {
+    it("restores full-access conversations without downgrading permissions", async () => {
+        const conversation = { id: "full-access-chat", title: "直接生成", messages: [], run: null, permissionMode: "full_access" as const, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" };
+        await conversations.saveCloudAgentConversations("canvas", conversation.id, [conversation]);
+        const restored = await conversations.loadCloudAgentConversations("canvas");
+        expect(restored.activeId).toBe(conversation.id);
+        expect(restored.conversations[0]?.permissionMode).toBe("full_access");
+    });
     const input: CreateAgentRunInput = { canvasId: "canvas", prompt: "generate", model: "original", idempotencyKey: "stable-key-123" };
     it("retries with a frozen original body/key and a bounded HTTP timeout", async () => {
         const bodies: unknown[] = [];

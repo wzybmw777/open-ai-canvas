@@ -1194,7 +1194,7 @@ components:
           type: string
         permissionMode:
           type: string
-          enum: [read_only, request_approval, auto]
+          enum: [read_only, request_approval, auto, full_access]
         reasoningMode:
           type: string
           enum: [off, auto, deep]
