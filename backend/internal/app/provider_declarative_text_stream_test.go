@@ -118,3 +118,29 @@ func TestDeclarativeTextStreaming(t *testing.T) {
 		}
 	}
 }
+
+func TestDeclarativeTextResumeRequiresReconciliationWithoutNewRequest(t *testing.T) {
+	t.Setenv("CANVAS_ALLOWED_PRIVATE_UPSTREAM_HOSTS", "127.0.0.1")
+	for _, wire := range []string{"chat-completion", "openai-response", "claude-api"} {
+		t.Run(wire, func(t *testing.T) {
+			var calls atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls.Add(1)
+				w.WriteHeader(http.StatusInternalServerError)
+			}))
+			defer server.Close()
+			ctx := context.WithValue(context.Background(), providerAnalyticsKey{}, providerAnalyticsContext{ProviderRequestID: "response-existing"})
+			ctx = withProtocolRegistry(ctx, loadOfficialFallbackRegistry())
+			_, err := runTextTask(ctx, canvasGenerationInput{
+				Mode: "text", Prompt: "hello", StreamText: true,
+				Config: providerConfig{BaseURL: server.URL, APIKey: "test-key", Model: "test-model", InterfaceType: wire},
+			})
+			if !isRouteDispatchUncertain(err) || !billingFailureUncertain(err) {
+				t.Fatalf("interrupted request must remain uncertain: %v", err)
+			}
+			if calls.Load() != 0 {
+				t.Fatalf("resume sent %d upstream requests", calls.Load())
+			}
+		})
+	}
+}

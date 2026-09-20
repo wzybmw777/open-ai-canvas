@@ -36,6 +36,17 @@ func TestDefaultVideoTaskTimeoutIsOneHour(t *testing.T) {
 	}
 }
 
+func TestTextTaskTimeoutAllowsLongOutputAndHonorsConfiguredLimit(t *testing.T) {
+	policy := defaultRuntimePolicy().Task
+	if got := taskExecutionTimeoutWithPolicy("canvas_text", policy); got != 30*time.Minute {
+		t.Fatalf("default text timeout = %s, want 30m", got)
+	}
+	policy.TextTimeoutMinutes = 12
+	if got := taskExecutionTimeoutWithPolicy("canvas_text", policy); got != 12*time.Minute {
+		t.Fatalf("configured text timeout = %s, want 12m", got)
+	}
+}
+
 func TestProviderPollingDeadlineDefaultsToOneHour(t *testing.T) {
 	startedAt := time.Now()
 	deadline := providerPollingDeadline(context.Background())

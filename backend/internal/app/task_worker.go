@@ -22,6 +22,40 @@ type taskWorkerCoordinator struct {
 
 const workerSlotLeaseDuration = time.Minute
 
+// Lease ownership lasts through terminal persistence, independently of the
+// provider deadline. Only a renewal failure cancels the provider execution.
+func startTaskLeaseRenewal(interval time.Duration, renew func(context.Context) error, cancelTask context.CancelFunc) (<-chan error, func()) {
+	ctx, cancel := context.WithCancel(context.Background())
+	lost := make(chan error, 1)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				renewCtx, cancelRenew := context.WithTimeout(ctx, 5*time.Second)
+				err := renew(renewCtx)
+				cancelRenew()
+				if err != nil {
+					if ctx.Err() == nil {
+						lost <- err
+						cancelTask()
+					}
+					return
+				}
+			}
+		}
+	}()
+	return lost, func() {
+		cancel()
+		<-done
+	}
+}
+
 func newTaskWorkerCoordinator(service *Service) *taskWorkerCoordinator {
 	return &taskWorkerCoordinator{service: service}
 }
@@ -139,35 +173,16 @@ func (w *taskWorkerCoordinator) processClaimedTask(task *model.Task, globalSlot 
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), taskExecutionTimeoutWithPolicy(task.Type, policy.Task))
 	defer cancel()
-	leaseDone := make(chan struct{})
-	leaseLost := make(chan error, 1)
 	taskID, leaseOwner := task.ID, task.LeaseOwner
-	go func() {
-		ticker := time.NewTicker(15 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				renewCtx, cancelRenew := context.WithTimeout(ctx, 5*time.Second)
-				var err error
-				if globalSlot != nil {
-					err = globalSlot.Renew(renewCtx)
-				}
-				if err == nil {
-					err = s.repo.WithContext(renewCtx).RenewTaskLease(taskID, leaseOwner, 45*time.Second)
-				}
-				cancelRenew()
-				if err != nil {
-					leaseLost <- err
-					cancel()
-					return
-				}
-			case <-leaseDone:
-				return
+	leaseLost, stopLease := startTaskLeaseRenewal(15*time.Second, func(renewCtx context.Context) error {
+		if globalSlot != nil {
+			if err := globalSlot.Renew(renewCtx); err != nil {
+				return err
 			}
 		}
-	}()
-	defer close(leaseDone)
+		return s.repo.WithContext(renewCtx).RenewTaskLease(taskID, leaseOwner, 45*time.Second)
+	}, cancel)
+	defer stopLease()
 	_ = s.log(task.UserID, task.ID, "info", "后端任务开始处理", "")
 	s.registerActiveTask(task.ID, cancel)
 	defer s.unregisterActiveTask(task.ID)
@@ -252,7 +267,7 @@ func (w *taskWorkerCoordinator) processClaimedTask(task *model.Task, globalSlot 
 			err = errors.New("上游任务长时间未同步，已停止自动查询，请确认渠道任务状态后重试。")
 		}
 		if errors.Is(err, context.DeadlineExceeded) {
-			err = errors.New(taskTimeoutMessage(task.Type))
+			err = fmt.Errorf("%s: %w", taskTimeoutMessage(task.Type), err)
 		}
 		s.noteAgentMemoryCompactTask(*task, nil, err)
 		return terminal.handleExecutionFailure(task, err, providerSucceeded, channelSlotFailedBeforeRequest)
@@ -351,6 +366,9 @@ func newAPIChannel2TaskSyncExpired(task model.Task, err error, now time.Time) bo
 }
 
 func taskTimeoutMessage(taskType string) string {
+	if strings.HasPrefix(taskType, "canvas_text") {
+		return "文本生成达到等待时限，已有文本草稿保留；请先核对供应商执行状态与费用"
+	}
 	if strings.HasPrefix(taskType, "canvas_video") || strings.HasPrefix(taskType, "video_") {
 		return "视频生成等待超时，请稍后到任务中心查看或重试。"
 	}

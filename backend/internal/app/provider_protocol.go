@@ -61,6 +61,9 @@ func runProtocolAdapterTaskWithPolicy(ctx context.Context, input canvasGeneratio
 	// 不把“已提交但结果未知”伪装成成功，也不把下载失败降级成空结果。
 	request := protocolRequestFromInput(input)
 	taskID := resumedProviderRequestID(ctx)
+	if taskID != "" && strings.TrimSpace(adapter.Metadata().Poll) == "" {
+		return nil, routeDispatchUncertainError{"上游请求已提交，但当前协议不支持查询恢复；已停止自动重发，请先核对供应商任务与费用"}
+	}
 	var created protocol.CreateResult
 	if taskID == "" {
 		// 幂等键只存在于宿主请求元数据中，声明式插件可以把它映射到 Header，

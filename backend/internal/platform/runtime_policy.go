@@ -118,7 +118,7 @@ func DefaultRuntimePolicy() RuntimePolicySetting {
 			ChannelConcurrency:       defaultChannelConcurrencyLimit(),
 			ActiveTaskLimit:          5,
 			ImageTimeoutMinutes:      8,
-			TextTimeoutMinutes:       8,
+			TextTimeoutMinutes:       30,
 			AudioTimeoutMinutes:      8,
 			VideoTimeoutMinutes:      60,
 			StoryboardTimeoutMinutes: 20,

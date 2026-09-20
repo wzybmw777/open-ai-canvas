@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -149,6 +150,34 @@ func TestTaskTerminalCoordinatorHandlesCancellation(t *testing.T) {
 	}
 	if len(logger.messages) != 1 || repo.terminalCalls != 1 {
 		t.Fatalf("expected cancellation side effects, replay=%v logs=%v terminalCalls=%d", replay.statuses, logger.messages, repo.terminalCalls)
+	}
+}
+
+func TestTaskTerminalInterruptedTextRetainsDraftAndUncertainBilling(t *testing.T) {
+	for _, failure := range []error{
+		fmt.Errorf("%s: %w", taskTimeoutMessage("canvas_text"), context.DeadlineExceeded),
+		routeDispatchUncertainError{"已提交的请求不支持查询恢复"},
+	} {
+		t.Run(failure.Error(), func(t *testing.T) {
+			task := &model.Task{ID: "task", Type: "canvas_text", Status: model.TaskStatusRunning, BillingOrderID: "order", ProviderRequestID: "response-existing", TextDraft: "partial output"}
+			repo := &taskTerminalRepositoryStub{task: task}
+			billingRepo := &taskBillingRepositoryStub{order: &model.BillingOrder{Status: model.BillingStatusRunning}}
+			replay := &taskTerminalReplayStub{}
+			coordinator := newTaskTerminalCoordinatorForTest(repo, nil, replay, &taskTerminalLoggerStub{}, &taskTerminalOutputStub{})
+			coordinator.billing = newTaskBillingCoordinator(billingRepo)
+			if err := coordinator.handleExecutionFailure(task, failure, false, false); !errors.Is(err, failure) {
+				t.Fatalf("terminal error = %v", err)
+			}
+			if task.Status != model.TaskStatusFailed || task.TextDraft != "partial output" || repo.terminalCalls != 1 {
+				t.Fatalf("task did not retain failed draft: %+v", task)
+			}
+			if len(billingRepo.uncertainCalls) != 1 || len(billingRepo.refundCalls) != 0 {
+				t.Fatalf("interrupted generation was not retained for billing review: %+v", billingRepo)
+			}
+			if len(replay.statuses) != 1 || replay.statuses[0] != model.TaskStatusFailed {
+				t.Fatalf("text replay was not finalized: %v", replay.statuses)
+			}
+		})
 	}
 }
 
