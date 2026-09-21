@@ -5,7 +5,7 @@ import { AdminDrawer } from "@/pages/admin/ui/overlays";
 import { Switch } from "@/pages/admin/ui/controls";
 import type { ColumnsType } from "antd/es/table";
 import dayjs, { type Dayjs } from "dayjs";
-import { Eye, Plus, RefreshCw, Search, Settings2, XCircle } from "lucide-react";
+import { Eye, Plus, RefreshCw, Search, Settings2, Store, XCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { PaginationBar } from "@/pages/admin/components/admin-ui";
@@ -16,6 +16,7 @@ import {
     exportAdminPaymentReconciliations,
     exportAdminPaymentReconciliationItems,
     createAdminTopupProduct,
+    getAdminExternalTopupShop,
     listAdminPaymentOrders,
     listAdminPaymentProviders,
     listAdminPaymentReconciliationItems,
@@ -24,8 +25,10 @@ import {
     queryAdminPaymentOrder,
     runAdminPaymentReconciliation,
     updateAdminPaymentProvider,
+    updateAdminExternalTopupShop,
     updateAdminTopupProduct,
     type AdminPaymentProvider,
+    type ExternalTopupShop,
     type AdminPaymentOrder,
     type PaymentOrder,
     type PaymentOrderFilters,
@@ -38,13 +41,27 @@ import {
 import { AdminPageFrame } from "../components/admin-shell";
 import { AdminDataTable, AdminExportButton, AdminRowActions, AdminStatusBadge, AdminTableEmpty, configuredSecretText } from "../components/admin-ui";
 import { AdminUserDetailDrawer } from "../components/admin-user-detail-drawer";
-import "./payments-page.css";
 
 type ProviderFormValues = {
     enabled: boolean;
     closeAfterMinutes: number;
     values: Record<string, string>;
 };
+
+type ExternalShopChannel = {
+    kind: "external-shop";
+    id: "external-shop";
+    name: "链动小铺";
+    checkoutMode: "embedded";
+    enabled: boolean;
+    url: string;
+};
+
+type PaymentChannelRow = AdminPaymentProvider | ExternalShopChannel;
+
+function isExternalShopChannel(row: PaymentChannelRow): row is ExternalShopChannel {
+    return "kind" in row && row.kind === "external-shop";
+}
 
 type ProductFormValues = {
     name: string;
@@ -80,6 +97,10 @@ export default function AdminPaymentsPage() {
     const [providers, setProviders] = useState<AdminPaymentProvider[]>([]);
     const [products, setProducts] = useState<TopupProduct[]>([]);
     const [loading, setLoading] = useState(true);
+    const [externalShop, setExternalShop] = useState<ExternalTopupShop | null>(null);
+    const [shopDrawerOpen, setShopDrawerOpen] = useState(false);
+    const [shopSaving, setShopSaving] = useState(false);
+    const [shopForm] = Form.useForm<ExternalTopupShop>();
 
     const [providerDrawer, setProviderDrawer] = useState<AdminPaymentProvider>();
     const [providerSaving, setProviderSaving] = useState(false);
@@ -150,9 +171,10 @@ export default function AdminPaymentsPage() {
     const loadBase = async () => {
         setLoading(true);
         try {
-            const [providerResult, productResult] = await Promise.all([listAdminPaymentProviders(), listAdminTopupProducts()]);
+            const [providerResult, productResult, shopResult] = await Promise.all([listAdminPaymentProviders(), listAdminTopupProducts(), getAdminExternalTopupShop()]);
             setProviders(providerResult.providers);
             setProducts(productResult.products);
+            setExternalShop(shopResult.shop);
             setBillProviderId((current) => current || providerResult.providers.find((item) => item.configured)?.id || providerResult.providers[0]?.id || "");
         } catch (error) {
             message.error(error instanceof Error ? error.message : "读取支付配置失败");
@@ -247,6 +269,21 @@ export default function AdminPaymentsPage() {
             message.error(error instanceof Error ? error.message : "保存支付渠道失败");
         } finally {
             setProviderSaving(false);
+        }
+    };
+
+    const saveShop = async () => {
+        const values = await shopForm.validateFields();
+        setShopSaving(true);
+        try {
+            const result = await updateAdminExternalTopupShop({ enabled: values.enabled, url: values.url.trim() });
+            setExternalShop(result.shop);
+            setShopDrawerOpen(false);
+            message.success("链动小铺配置已保存");
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : "保存店铺配置失败");
+        } finally {
+            setShopSaving(false);
         }
     };
 
@@ -372,13 +409,17 @@ export default function AdminPaymentsPage() {
 
     const providerNames = useMemo(() => Object.fromEntries(providers.map((item) => [item.id, item.name])), [providers]);
 
-    const providerColumns: ColumnsType<AdminPaymentProvider> = [
+    const providerRows: PaymentChannelRow[] = externalShop
+        ? [...providers, { kind: "external-shop", id: "external-shop", name: "链动小铺", checkoutMode: "embedded", enabled: externalShop.enabled, url: externalShop.url }]
+        : providers;
+
+    const providerColumns: ColumnsType<PaymentChannelRow> = [
         {
             title: "支付渠道",
             key: "provider",
             render: (_, provider) => (
                 <div className="flex items-center gap-3">
-                    <PaymentBrandIcon providerId={provider.id} />
+                    {isExternalShopChannel(provider) ? <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted"><Store className="size-5" /></span> : <PaymentBrandIcon providerId={provider.id} />}
                     <div>
                         <div className="font-medium">{provider.name}</div>
                         <div className="mt-0.5 font-mono text-xs text-foreground/45">{provider.id}</div>
@@ -386,13 +427,18 @@ export default function AdminPaymentsPage() {
                 </div>
             ),
         },
-        { title: "支付方式", dataIndex: "checkoutMode", width: 120, align: "center", render: (value) => (value === "qr_code" ? "扫码支付" : "网站跳转") },
+        { title: "支付方式", dataIndex: "checkoutMode", width: 120, align: "center", render: (value) => value === "embedded" ? "嵌入式店铺" : value === "qr_code" ? "扫码支付" : "网站跳转" },
         {
             title: "状态",
             key: "status",
             width: 180,
             align: "center",
-            render: (_, provider) => (
+            render: (_, provider) => isExternalShopChannel(provider) ? (
+                <div className="flex flex-col items-center gap-1.5">
+                    <AdminStatusBadge label={provider.enabled ? "可用" : "未启用"} tone={provider.enabled ? "success" : "neutral"} />
+                    <span className="text-xs text-foreground/45">独立入口 · 链接已配置</span>
+                </div>
+            ) : (
                 <div className="flex flex-col items-center gap-1.5">
                     <AdminStatusBadge label={provider.enabled ? "可用" : "不可用"} tone={provider.enabled ? "success" : "neutral"} />
                     <span className="text-xs text-foreground/45">
@@ -401,15 +447,20 @@ export default function AdminPaymentsPage() {
                 </div>
             ),
         },
-        { title: "未支付自动关闭", dataIndex: "closeAfterMinutes", width: 150, align: "center", render: (value) => `${value || 30} 分钟` },
-        { title: "配置版本", dataIndex: "version", width: 105, align: "center", render: (value) => (value ? `v${value}` : "未配置") },
+        { title: "未支付自动关闭", key: "closeAfterMinutes", width: 150, align: "center", render: (_, provider) => isExternalShopChannel(provider) ? "不适用" : `${provider.closeAfterMinutes || 30} 分钟` },
+        { title: "配置版本", key: "version", width: 105, align: "center", render: (_, provider) => isExternalShopChannel(provider) ? "不适用" : provider.version ? `v${provider.version}` : "未配置" },
         {
             title: "操作",
             key: "actions",
             width: 100,
             align: "center",
             render: (_, provider) => (
-                <Button size="small" icon={<Settings2 className="size-3.5" />} onClick={() => openProvider(provider)}>
+                <Button size="small" icon={<Settings2 className="size-3.5" />} onClick={() => {
+                    if (isExternalShopChannel(provider)) {
+                        shopForm.setFieldsValue({ enabled: provider.enabled, url: provider.url });
+                        setShopDrawerOpen(true);
+                    } else openProvider(provider);
+                }}>
                     配置
                 </Button>
             ),
@@ -587,7 +638,7 @@ export default function AdminPaymentsPage() {
                     {
                         key: "providers",
                         label: "支付渠道",
-                        children: <AdminDataTable table={{ rowKey: "id", loading, columns: providerColumns, dataSource: providers, pagination: false, scroll: { x: 980 } }} empty={<AdminTableEmpty title="没有发现支付渠道插件" />} />,
+                        children: <AdminDataTable table={{ rowKey: "id", loading, columns: providerColumns, dataSource: providerRows, pagination: false, scroll: { x: 980 } }} empty={<AdminTableEmpty title="没有发现支付渠道" />} />,
                     },
                     {
                         key: "products",
@@ -761,6 +812,24 @@ export default function AdminPaymentsPage() {
                 ]} />}
             </AdminDrawer>
             <AdminUserDetailDrawer userId={selectedUserId} onClose={() => setSelectedUserId(null)} />
+
+            <AdminDrawer
+                title="配置链动小铺"
+                width={520}
+                open={shopDrawerOpen}
+                onClose={() => setShopDrawerOpen(false)}
+                extra={<Button type="primary" loading={shopSaving} onClick={() => void saveShop()}>保存</Button>}
+            >
+                <Form form={shopForm} layout="vertical" requiredMark="optional">
+                    <Callout className="mb-4" tone="warning" title="外部店铺不会自动充值积分">
+                        该链接仅在积分中心嵌入展示。店铺付款不产生站内支付订单或积分到账记录，管理员需自行处理兑换码或人工入账。
+                    </Callout>
+                    <Form.Item name="enabled" label="启用店铺入口" valuePropName="checked"><Switch /></Form.Item>
+                    <Form.Item name="url" label="店铺链接" rules={[{ required: true, message: "请输入店铺链接" }, { type: "url", message: "请输入有效的 HTTPS 链接" }, { validator: (_, value: string) => value?.trim().startsWith("https://") ? Promise.resolve() : Promise.reject(new Error("仅支持 HTTPS 链接")) }]}>
+                        <Input maxLength={2048} placeholder="https://example.com/shop" prefix={<Store className="size-4" />} />
+                    </Form.Item>
+                </Form>
+            </AdminDrawer>
 
             <Drawer
                 title={providerDrawer ? `配置 ${providerDrawer.name}` : "配置支付渠道"}

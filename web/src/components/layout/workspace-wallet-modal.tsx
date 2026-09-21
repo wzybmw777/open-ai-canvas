@@ -1,18 +1,18 @@
 import { App, Button, Input, Skeleton } from "antd";
-import { Check, ChevronLeft, ChevronRight, CircleAlert, Coins, CreditCard, History, RefreshCw, TicketCheck, WalletCards } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, CircleAlert, Coins, CreditCard, History, RefreshCw, Store, TicketCheck, WalletCards } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 import { PaymentCheckoutCode } from "@/components/payment-checkout-code";
 import { AppModal } from "@/components/ui/product/app-modal";
 import { formatCredits } from "@/constant/credits";
-import { closePaymentOrder, createPaymentOrder, getPaymentOrder, listPaymentProviders, listTopupProducts, queryPaymentOrder, refreshPaymentCheckout, type PaymentOrder, type PaymentProvider, type TopupProduct } from "@/services/api/payments";
+import { closePaymentOrder, createPaymentOrder, getExternalTopupShop, getPaymentOrder, listPaymentProviders, listTopupProducts, queryPaymentOrder, refreshPaymentCheckout, type ExternalTopupShop, type PaymentOrder, type PaymentProvider, type TopupProduct } from "@/services/api/payments";
 import { getWallet, redeemCredits, type CreditLedgerEntry, type WalletSummary } from "@/services/api/wallet";
 import { cn } from "@/lib/utils";
 import { openWorkspaceWallet, WORKSPACE_WALLET_OPEN_EVENT, type WorkspaceWalletOpenDetail } from "@/lib/workspace-wallet";
 import { useUserStore } from "@/stores/use-user-store";
 
-type WalletModalTab = "topup" | "history";
+type WalletModalTab = "topup" | "shop" | "history";
 
 export function WorkspaceWalletHost() {
     const creditsEnabled = useUserStore((state) => state.features.creditsEnabled);
@@ -81,6 +81,7 @@ export function WorkspaceWalletModal({
     const [page, setPage] = useState(1);
     const [products, setProducts] = useState<TopupProduct[]>([]);
     const [providers, setProviders] = useState<PaymentProvider[]>([]);
+    const [externalShop, setExternalShop] = useState<ExternalTopupShop | null>(null);
     const [paymentsLoading, setPaymentsLoading] = useState(false);
     const [selectedProductId, setSelectedProductId] = useState("");
     const [selectedProviderId, setSelectedProviderId] = useState("");
@@ -114,13 +115,17 @@ export function WorkspaceWalletModal({
 
     useEffect(() => {
         if (!open) return;
+        setTab("topup");
         setPage(1);
+        setExternalShop(null);
         void reloadWallet(1);
         setPaymentsLoading(true);
-        Promise.all([listTopupProducts(), listPaymentProviders()])
-            .then(([productResult, providerResult]) => {
+        Promise.all([listTopupProducts(), listPaymentProviders(), getExternalTopupShop()])
+            .then(([productResult, providerResult, shopResult]) => {
                 setProducts(productResult.products.filter((item) => item.enabled));
                 setProviders(providerResult.providers.filter((item) => item.enabled && item.pluginEnabled && item.configured));
+                setExternalShop(shopResult.shop);
+                setTab((current) => current === "topup" && shopResult.shop && (!productResult.products.some((item) => item.enabled) || !providerResult.providers.some((item) => item.enabled && item.pluginEnabled && item.configured)) ? "shop" : current === "shop" && !shopResult.shop ? "topup" : current);
                 setSelectedProductId((current) => current || productResult.products.find((item) => item.enabled)?.id || "");
                 setSelectedProviderId((current) => current || providerResult.providers.find((item) => item.enabled && item.pluginEnabled && item.configured)?.id || "");
             })
@@ -265,7 +270,7 @@ export function WorkspaceWalletModal({
 
     return (
         <>
-            <AppModal flush open={open} title={null} footer={null} centered width="min(880px, calc(100vw - 28px))" onCancel={onClose} rootClassName="workspace-wallet-modal">
+            <AppModal flush open={open} title={null} footer={null} centered width={tab === "shop" && externalShop ? "min(1280px, calc(100vw - 12px))" : "min(880px, calc(100vw - 28px))"} onCancel={onClose} rootClassName={cn("workspace-wallet-modal", tab === "shop" && externalShop && "is-shop-open")}>
                 <div className="workspace-wallet-shell">
                     <header className="workspace-wallet-header">
                         <div>
@@ -282,7 +287,8 @@ export function WorkspaceWalletModal({
 
                     <div className="workspace-wallet-tabs" role="tablist" aria-label="积分中心">
                         <button type="button" role="tab" aria-selected={tab === "topup"} onClick={() => setTab("topup")}><WalletCards />充值 / 兑换</button>
-                        <button type="button" role="tab" aria-selected={tab === "history"} onClick={() => setTab("history")}><History />积分消耗历史</button>
+                        {externalShop ? <button type="button" role="tab" aria-selected={tab === "shop"} onClick={() => setTab("shop")}><Store />链动小铺</button> : null}
+                        <button type="button" role="tab" aria-selected={tab === "history"} onClick={() => setTab("history")}><History />收支记录</button>
                     </div>
 
                     {tab === "topup" ? (
@@ -311,6 +317,11 @@ export function WorkspaceWalletModal({
                                     <Button size="large" loading={redeeming} disabled={code.trim().length !== 32} onClick={() => void redeem()}>确认兑换</Button>
                                 </div>
                             </section>
+                        </div>
+                    ) : tab === "shop" && externalShop ? (
+                        <div className="workspace-wallet-content is-shop">
+                            <div className="workspace-wallet-shop-heading"><h3>链动小铺</h3><span>店铺付款不会自动入账积分，请与管理员确认兑换方式。</span></div>
+                            <EmbeddedTopupShop url={externalShop.url} />
                         </div>
                     ) : (
                         <div className="workspace-wallet-content is-history">
@@ -341,6 +352,23 @@ export function WorkspaceWalletModal({
             </AppModal>
         </>
     );
+}
+
+export function EmbeddedTopupShop({ url }: { url: string }) {
+    const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
+
+    return <div className="workspace-wallet-shop-frame">
+        {status === "error" ? <div className="workspace-wallet-inline-state is-error" role="alert"><CircleAlert /><div><strong>店铺暂时无法加载</strong><span>请联系管理员检查店铺链接及嵌入权限。</span></div></div> : <iframe
+            title="链动小铺"
+            src={url}
+            sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+            allow="payment"
+            referrerPolicy="no-referrer"
+            onLoad={() => setStatus("loaded")}
+            onError={() => setStatus("error")}
+        />}
+        {status === "loading" ? <span className="workspace-wallet-shop-loading" role="status">店铺加载中...</span> : null}
+    </div>;
 }
 
 function WalletLedgerRow({ entry }: { entry: CreditLedgerEntry }) {

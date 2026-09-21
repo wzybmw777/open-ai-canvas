@@ -12,6 +12,20 @@ export type PaymentProvider = {
     closeAfterMinutes: number;
 };
 
+export type ExternalTopupShop = { enabled: boolean; url: string };
+
+export function getExternalTopupShop() {
+    return http.get<{ shop: ExternalTopupShop | null }>("/payments/external-shop");
+}
+
+export function getAdminExternalTopupShop() {
+    return http.get<{ shop: ExternalTopupShop }>("/admin/payments/external-shop");
+}
+
+export function updateAdminExternalTopupShop(input: ExternalTopupShop) {
+    return http.put<{ shop: ExternalTopupShop }>("/admin/payments/external-shop", input);
+}
+
 export type TopupProduct = {
     id: string;
     name: string;

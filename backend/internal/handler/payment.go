@@ -19,6 +19,19 @@ const paymentNotificationMaxBytes = 1 << 20
 var paymentOrderIDPattern = regexp.MustCompile(`^[a-f0-9]{32}$`)
 
 func RegisterPaymentRoutes(r *gin.RouterGroup, svc *service.Service) {
+	r.GET("/payments/external-shop", func(c *gin.Context) {
+		user, err := currentUser(c, svc)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		shop, err := svc.ExternalTopupShop(user)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		ok(c, gin.H{"shop": shop})
+	})
 	r.GET("/payments/providers", func(c *gin.Context) {
 		user, err := currentUser(c, svc)
 		if err != nil {
@@ -185,6 +198,37 @@ func RegisterPaymentRoutes(r *gin.RouterGroup, svc *service.Service) {
 
 	admin := r.Group("/admin/payments")
 	registerPaymentExportRoutes(admin, svc)
+	admin.GET("/external-shop", func(c *gin.Context) {
+		user, err := currentUser(c, svc)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		shop, err := svc.AdminExternalTopupShop(user)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		ok(c, gin.H{"shop": shop})
+	})
+	admin.PUT("/external-shop", func(c *gin.Context) {
+		user, err := currentUser(c, svc)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		var request service.ExternalTopupShopSetting
+		if err := c.ShouldBindJSON(&request); err != nil {
+			fail(c, http.StatusBadRequest, err)
+			return
+		}
+		shop, err := svc.UpdateExternalTopupShop(user, request)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		ok(c, gin.H{"shop": shop})
+	})
 	admin.GET("/providers", func(c *gin.Context) {
 		user, err := currentUser(c, svc)
 		if err != nil {

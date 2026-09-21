@@ -16500,6 +16500,39 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     color: var(--user-ink);
 }
 
+.workspace-wallet-modal.is-shop-open .ant-modal-container {
+    max-height: calc(100dvh - 12px);
+    border-radius: 8px;
+}
+
+.workspace-wallet-modal.is-shop-open .workspace-wallet-shell {
+    height: calc(100dvh - 12px);
+    min-height: 0;
+}
+
+.workspace-wallet-modal.is-shop-open .workspace-wallet-header {
+    gap: 14px;
+    padding: 12px 56px 12px 24px;
+}
+
+.workspace-wallet-modal.is-shop-open .workspace-wallet-header h2 {
+    margin: 2px 0 0;
+    font-size: 18px;
+}
+
+.workspace-wallet-modal.is-shop-open .workspace-wallet-header p,
+.workspace-wallet-modal.is-shop-open .workspace-wallet-balance small {
+    display: none;
+}
+
+.workspace-wallet-modal.is-shop-open .workspace-wallet-balance {
+    padding: 6px 12px;
+}
+
+.workspace-wallet-modal.is-shop-open .workspace-wallet-balance strong {
+    font-size: 18px;
+}
+
 .workspace-wallet-header {
     display: flex;
     flex-shrink: 0;
@@ -16724,6 +16757,59 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     align-items: center;
     gap: 12px;
     margin-top: 14px;
+}
+
+.workspace-wallet-content.is-shop {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin: 10px 16px 16px;
+}
+
+.workspace-wallet-shop-heading {
+    display: flex;
+    flex-shrink: 0;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    color: var(--user-ink-muted);
+    font-size: 11px;
+}
+
+.workspace-wallet-shop-heading h3 {
+    margin: 0;
+    color: var(--user-ink);
+    font-size: 15px;
+    font-weight: 660;
+}
+
+.workspace-wallet-shop-frame {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    border: 1px solid var(--user-border);
+    border-radius: 8px;
+    background: var(--user-surface);
+}
+
+.workspace-wallet-shop-frame iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+.workspace-wallet-shop-loading {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: var(--user-surface);
+    color: var(--user-ink-muted);
+    font-size: 12px;
+    pointer-events: none;
 }
 
 .workspace-wallet-providers {
@@ -16956,9 +17042,14 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     .creation-featured-heading p { text-align: left; }
     .creation-featured-grid { grid-template-columns: 1fr; }
     .workspace-wallet-header { align-items: stretch; flex-direction: column; padding: 26px 22px 20px; }
+    .workspace-wallet-modal.is-shop-open .workspace-wallet-header { align-items: center; flex-direction: row; padding: 8px 50px 8px 14px; }
+    .workspace-wallet-modal.is-shop-open .workspace-wallet-header h2 { display: none; }
+    .workspace-wallet-modal.is-shop-open .workspace-wallet-balance { min-width: 0; }
+    .workspace-wallet-modal.is-shop-open .workspace-wallet-balance span { display: none; }
     .workspace-wallet-balance { min-width: 0; }
     .workspace-wallet-tabs { margin: 8px 14px 0; }
     .workspace-wallet-content { margin: 14px 14px 18px; padding: 0; }
+    .workspace-wallet-content.is-shop { margin: 8px 8px 10px; }
     .workspace-wallet-products { grid-template-columns: 1fr; }
     .workspace-wallet-provider-row,
     .workspace-wallet-redeem-row { align-items: stretch; flex-direction: column; }
