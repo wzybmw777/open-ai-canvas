@@ -133,7 +133,7 @@ func emitCloudAgentCanvasChange(repo *repository.Repository, runID string, state
 	if input.Preview != nil {
 		preview := *input.Preview
 		switch input.Operation {
-		case "canvas_apply_ops", "canvas_create_storyboard", "canvas_edit_storyboard", "canvas_edit_batch_table":
+		case "canvas_apply_ops", "canvas_create_storyboard", "canvas_edit_storyboard", "canvas_edit_batch_table", "canvas_bind_storyboard_assets":
 			preview.Title, preview.Description = "画布修改已保存", "画布修改已保存"
 			payload["status"] = "applied"
 		}

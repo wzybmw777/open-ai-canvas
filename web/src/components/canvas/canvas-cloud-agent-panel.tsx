@@ -1233,12 +1233,13 @@ function applyAgentEvent(event: AgentEvent, setMessages: Dispatch<SetStateAction
         if (payload.operation === "generate_media_submit" || payload.operation === "generate_media_complete") return;
         const { canvasPatch: _patch, ...detail } = payload;
         const id = payload.callId ? `canvas-${event.runId}-${payload.callId}` : event.eventId;
-        setMessages((current) => appendUniqueMessage(current, { id, role: "tool", title: "canvas_apply_ops", text: "画布操作已完成", detail: { ...detail, eventType: event.type } }));
+        const toolName = payload.operation === "canvas_bind_storyboard_assets" ? "canvas_bind_storyboard_assets" : "canvas_apply_ops";
+        setMessages((current) => appendUniqueMessage(current, { id, role: "tool", title: toolName, text: "画布操作已完成", detail: { ...detail, eventType: event.type } }));
         return;
     }
-    if (event.type === "tool_completed" && payload.toolName === "canvas_apply_ops" && payload.callId) {
+    if (event.type === "tool_completed" && (payload.toolName === "canvas_apply_ops" || payload.toolName === "canvas_bind_storyboard_assets") && payload.callId) {
         const id = `canvas-${event.runId}-${payload.callId}`;
-        setMessages((current) => appendUniqueMessage(current, { id, role: "tool", title: "canvas_apply_ops", text: text || "画布操作已完成", detail: { ...payload, eventType: event.type } }));
+        setMessages((current) => appendUniqueMessage(current, { id, role: "tool", title: String(payload.toolName), text: text || "画布操作已完成", detail: { ...payload, eventType: event.type } }));
         return;
     }
     if (event.type === "generation_task_created") {

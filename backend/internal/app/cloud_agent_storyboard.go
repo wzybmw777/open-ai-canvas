@@ -328,6 +328,8 @@ func applyCloudAgentStoryboardMutation(repo *repository.Repository, userID, canv
 	var err error
 	if call.Function.Name == "canvas_create_storyboard" {
 		plan, err = prepareCloudAgentStoryboardCreate(repo, userID, canvasID, call)
+	} else if call.Function.Name == "canvas_bind_storyboard_assets" {
+		plan, err = prepareCloudAgentStoryboardBindings(repo, userID, canvasID, call)
 	} else {
 		plan, err = prepareCloudAgentStoryboardEdit(repo, userID, canvasID, call)
 	}

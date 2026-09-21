@@ -2,6 +2,13 @@ import { describe, expect, it } from "bun:test";
 import { agentToolCategory, agentToolCategoryLabel, agentToolStatus, friendlyAgentToolSummary } from "@/lib/canvas/agent-tool-presentation";
 
 describe("Agent tool presentation", () => {
+    it("shows storyboard binding as a saved edit and preserves failure state", () => {
+        expect(agentToolCategory("canvas_bind_storyboard_assets")).toBe("operate");
+        expect(agentToolCategoryLabel("canvas_bind_storyboard_assets", "operate")).toBe("关联分镜资产");
+        expect(friendlyAgentToolSummary("canvas_bind_storyboard_assets", "", undefined, true)).toBe("准备关联分镜资产");
+        expect(friendlyAgentToolSummary("canvas_bind_storyboard_assets", "", { eventType: "tool_completed" })).toBe("分镜资产关联已保存");
+        expect(friendlyAgentToolSummary("canvas_bind_storyboard_assets", "", { eventType: "tool_failed" })).toBe("分镜资产关联未完成");
+    });
     it("separates read, create, and canvas operation activity", () => {
         expect(agentToolCategory("canvas_get_state", { eventType: "tool_completed" })).toBe("read");
         expect(agentToolCategoryLabel("canvas_get_state", "read")).toBe("读取节点");

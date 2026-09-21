@@ -217,7 +217,13 @@ func compileCloudAgentTools(req CloudAgentRequest, includeProfileTool bool) []ma
 			"x":            map[string]any{"type": "number"},
 			"y":            map[string]any{"type": "number"},
 		}, "snapshotHash", "nodeId", "title", "rows")
-		add("canvas_edit_storyboard", "追加、修改或删除分镜脚本中的单个镜头行。必须先用 canvas_read_storyboard 读取最新 snapshotHash 和真实 rowId；append 不传 rowId，update/remove 必须传。patch 只允许镜头文本与时长，不能修改素材绑定、媒体节点ID、任务状态、资源URL或任意 metadata。", map[string]any{
+		add("canvas_bind_storyboard_assets", "将当前画布的真实媒体资产批量关联到分镜镜头，直接写入各行 assetBindings。先读取分镜真实 rowId、snapshotHash 和画布资产；依据用户意图、镜头内容与已确认的资产信息选择关联，不根据名称编造视觉内容。每次最多20行、每行最多16项。通常用 merge 保留已有绑定并按 nodeId 新增或更新角色和优先级；仅用户明确要求替换或清空时使用 replace（空数组清空该行）。不使用普通连线冒充镜头绑定，不修改镜头文本、媒体节点ID或任务，不提交收费生成。", map[string]any{
+			"snapshotHash": str("最近一次画布或分镜读取返回的 snapshotHash"),
+			"nodeId":       str("真实分镜脚本节点ID"),
+			"mode":         map[string]any{"type": "string", "enum": []string{"merge", "replace"}},
+			"rows":         cloudAgentStoryboardBindingsSchema(),
+		}, "snapshotHash", "nodeId", "mode", "rows")
+		add("canvas_edit_storyboard", "追加、修改或删除分镜脚本中的单个镜头行。必须先用 canvas_read_storyboard 读取最新 snapshotHash 和真实 rowId；append 不传 rowId，update/remove 必须传。patch 只允许镜头文本与时长，不能修改素材绑定、媒体节点ID、任务状态、资源URL或任意 metadata；关联资产使用 canvas_bind_storyboard_assets。", map[string]any{
 			"snapshotHash": str("最近一次分镜读取返回的 snapshotHash"),
 			"nodeId":       str("真实分镜脚本节点ID"),
 			"action":       map[string]any{"type": "string", "enum": []string{"append", "update", "remove"}},
@@ -310,7 +316,7 @@ func cloudAgentToolAllowed(req CloudAgentRequest, name string) bool {
 	return false
 }
 func cloudAgentWrite(name string) bool {
-	return name == "canvas_apply_ops" || name == "generate_media" || name == "image_layer_split" || name == "canvas_create_storyboard" || name == "canvas_edit_storyboard" || name == "canvas_edit_batch_table"
+	return name == "canvas_apply_ops" || name == "generate_media" || name == "image_layer_split" || name == "canvas_create_storyboard" || name == "canvas_edit_storyboard" || name == "canvas_bind_storyboard_assets" || name == "canvas_edit_batch_table"
 }
 
 func cloudAgentReadTool(repo *repository.Repository, userID string, state *cloudAgentRuntime, call cloudAgentCall, services ...*Service) (any, error) {

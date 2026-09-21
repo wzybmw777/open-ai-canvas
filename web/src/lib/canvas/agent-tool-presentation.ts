@@ -3,6 +3,7 @@ export const AGENT_TOOL_METADATA: Record<string, { summary: string | ((context: 
     canvas_get_state: { summary: "已读取当前画布", failureMessage: "获取画布内容失败" },
     task_get: { summary: "已查询任务状态", failureMessage: "查询任务状态失败" },
     canvas_apply_ops: { summary: ({ pending }) => pending ? "准备更新画布内容" : "画布内容已保存至服务端", failureMessage: "更新画布内容失败" },
+    canvas_bind_storyboard_assets: { summary: ({ pending }) => pending ? "准备关联分镜资产" : "分镜资产关联已保存", failureMessage: "分镜资产关联未完成" },
     model_list: { summary: "已获取可用模型", failureMessage: "获取可用模型失败" },
     generate_media: { summary: ({ pending, detail }) => pending ? "准备创建媒体节点并生成" : field(detail, "eventType") === "tool_completed" ? "生成结果已回写画布节点" : "媒体节点已创建，生成任务已提交", failureMessage: "媒体生成未完成" },
 };
@@ -38,6 +39,7 @@ export function agentToolCategory(toolName: string, detail?: unknown): AgentTool
 }
 
 export function agentToolCategoryLabel(toolName: string, category: AgentToolCategory): string {
+    if (toolName === "canvas_bind_storyboard_assets") return "关联分镜资产";
     if (category === "read") return toolName === "canvas_get_state" ? "读取节点" : "读取信息";
     if (category === "create") return "创建节点";
     return "操作画布";

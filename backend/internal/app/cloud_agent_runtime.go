@@ -1092,6 +1092,12 @@ func (s *Service) advanceCloudAgentTool(run *model.CloudAgentExecution, state *c
 			} else {
 				var mutationErr error
 				switch call.Function.Name {
+				case "canvas_bind_storyboard_assets":
+					bindingPlan, err := prepareCloudAgentStoryboardBindings(repo, run.UserID, state.Request.CanvasID, call)
+					mutationErr = err
+					if err == nil {
+						preview = bindingPlan.Preview
+					}
 				case "canvas_create_storyboard":
 					storyboardPlan, err := prepareCloudAgentStoryboardCreate(repo, run.UserID, state.Request.CanvasID, call)
 					mutationErr = err
@@ -1205,7 +1211,7 @@ func (s *Service) advanceCloudAgentTool(run *model.CloudAgentExecution, state *c
 			toolErr = BadAuthRequest("工具未获本轮权限授权")
 		case call.Function.Name == "canvas_apply_ops":
 			result, toolErr = applyCloudAgentCanvas(repo, run.UserID, state.Request.CanvasID, call, policy, cloudAgentCanvasEventRecorder(run.ID, state))
-		case call.Function.Name == "canvas_create_storyboard", call.Function.Name == "canvas_edit_storyboard":
+		case call.Function.Name == "canvas_create_storyboard", call.Function.Name == "canvas_edit_storyboard", call.Function.Name == "canvas_bind_storyboard_assets":
 			result, toolErr = applyCloudAgentStoryboardMutation(repo, run.UserID, state.Request.CanvasID, call, policy, cloudAgentCanvasEventRecorder(run.ID, state))
 		case call.Function.Name == "canvas_edit_batch_table":
 			result, toolErr = applyCloudAgentBatchTableMutation(repo, run.UserID, state.Request.CanvasID, call, policy, cloudAgentCanvasEventRecorder(run.ID, state))

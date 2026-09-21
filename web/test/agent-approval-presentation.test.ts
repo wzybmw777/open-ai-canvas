@@ -3,6 +3,16 @@ import { describe, expect, it } from "bun:test";
 import { agentApprovalPresentation } from "@/lib/canvas/agent-approval-presentation";
 
 describe("Agent approval presentation", () => {
+    it("shows actual rows and assets for a batch storyboard binding approval", () => {
+        const view = agentApprovalPresentation({ toolName: "canvas_bind_storyboard_assets", preview: {
+            kind: "canvas_mutation", title: "确认关联分镜资产", description: "准备更新 2 个镜头的资产关联，不提交生成任务。",
+            items: [1, 2].map((shot) => ({ operation: "edit_storyboard", nodeId: "script", nodeTitle: "追逐戏", nodeType: "script", fields: [`第 ${shot} 镜头的资产关联`], details: ["《主角》：角色，优先级 100"], summary: `分镜《追逐戏》第 ${shot} 镜头关联 1 项资产` })),
+        } });
+        expect(view.source).toBe("server");
+        expect(view.items).toHaveLength(2);
+        expect(view.items[1].fields).toEqual(["第 2 镜头的资产关联"]);
+        expect(view.items[0].details).toEqual(["《主角》：角色，优先级 100"]);
+    });
     const args = JSON.stringify({ snapshotHash: "private-hash", ops: [
         { type: "add_node", id: "image-node", nodeType: "image", title: "开场分镜", content: "private script" },
         { type: "update_node", id: "video-node-1789310237935", patch: { title: "结尾台词", content: "private dialogue" } },

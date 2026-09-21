@@ -11,6 +11,8 @@ description: 影策后端核心持久化表与状态边界
 
 ### 云端 Agent 运行时
 
+分镜镜头的 `metadata.storyboard.rows[].assetBindings` 保存 `{ nodeId, role, priority }` 数组，指向同一画布内的媒体节点。Agent 批量关联复用现有画布 JSON、版本 CAS 与 `cloud_agent_canvas_mutations` 撤销记录，未新增表、列或数据库迁移。
+
 媒体并发沿用现有表：`cloud_agent_executions.state_json.pendingMedia` 保存同一模型步骤中先前已提交的 `{ taskId, callIndex }`，与当前 `mediaTaskId` 合计最多 4 项；全部工具结果收齐后才进入下一模型步骤。控制列 `media_task_id` 指向当前媒体任务，没有当前任务时指向首个未完成项，供待审批运行调度识别；完整取消恢复按账号和 `tasks.agent_run_id` 查询，检查点损坏也不会遗漏子任务。收费预留、引用租约、任务、画布绑定及检查点仍在同一 CAS 事务提交。本次不新增数据库列或迁移。
 
 每轮 Agent 存为 `tasks` 中 `operation = cloud_agent` 的 `canvas_text` 任务，任务 `input_json.cloudAgent` 保存版本 1 的已校验请求、父轮 ID、请求指纹和技能快照；历史从服务端父轮结果构造。任务 ID 由用户与幂等键确定，利用现有主键、任务 admission 和积分预留事务防止重复提交重复扣费。Agent 的模型循环、工具调用、审批、子任务和事件写入 `cloud_agent_executions.state_json`，任务 Worker 只负责推进状态，不依赖浏览器连接。公共任务创建与重试接口禁止绕过 Agent admission；删除任务会影响该轮继续对话与回放。

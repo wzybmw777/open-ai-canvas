@@ -79,12 +79,12 @@ func BuiltinRegistry() *Registry {
 			},
 		},
 		{
-			Type: "script", Version: "1", Label: "分镜脚本", DefaultWidth: 920, DefaultHeight: 360,
+			Type: "script", Version: "2", Label: "分镜脚本", DefaultWidth: 920, DefaultHeight: 360,
 			Purpose:       "维护结构化的多镜头脚本，支持镜头级审查、修改和媒体关联。",
 			GoodFor:       []string{"多镜头规划", "镜头连续性", "逐镜审查和微调", "逐镜生成图片或视频", "需要他人接手维护的内容"},
 			NotIdealFor:   []string{"只有一个画面的快速试验", "一次性临时提示词", "仅需要阅读排版的普通文档"},
 			Tradeoffs:     []string{"前期录入成本高于文本节点", "但能保留镜头级结构、资产关系和后续维护能力"},
-			Actions:       []string{"read_rows", "append_row", "update_row", "remove_row", "generate_storyboard"},
+			Actions:       []string{"read_rows", "append_row", "update_row", "remove_row", "bind_row_assets", "generate_storyboard"},
 			SummaryFields: []string{"storyboard"}, DetailFields: []string{"storyboard"}, ProjectionKind: "storyboard", ProjectionField: "storyboard",
 			CreateMetadata: func(string) map[string]any {
 				return map[string]any{"status": "idle", "workflowKind": "script", "storyboard": map[string]any{"rows": []any{}, "visibleColumns": []any{"shotNumber", "durationSeconds", "videoMotionPrompt", "dialogue", "assets"}, "referenceNodeIds": []any{}}}
