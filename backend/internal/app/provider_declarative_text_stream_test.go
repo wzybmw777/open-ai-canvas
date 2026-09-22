@@ -118,7 +118,6 @@ func TestDeclarativeTextStreaming(t *testing.T) {
 		}
 	}
 }
-
 func TestDeclarativeTextResumeRequiresReconciliationWithoutNewRequest(t *testing.T) {
 	t.Setenv("CANVAS_ALLOWED_PRIVATE_UPSTREAM_HOSTS", "127.0.0.1")
 	for _, wire := range []string{"chat-completion", "openai-response", "claude-api"} {
