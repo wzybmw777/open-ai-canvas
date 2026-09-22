@@ -482,6 +482,30 @@ func TestOfficialOpenAIVideosDeclaresAuthenticatedResultDownload(t *testing.T) {
 	}
 }
 
+func TestOfficialOpenAIVideosMapsAspectRatioToPixelSize(t *testing.T) {
+	adapter := officialPackageAdapter(t, "openai-videos.yingce-plugin", "newapi")
+	for _, test := range []struct {
+		name, aspectRatio, wantSize string
+	}{
+		{name: "landscape", aspectRatio: "16:9", wantSize: "1280x720"},
+		{name: "portrait", aspectRatio: "9:16", wantSize: "720x1280"},
+		{name: "pixel size", aspectRatio: "1920x1080", wantSize: "1920x1080"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			create, err := adapter.BuildCreate(context.Background(), RequestContext{Request: GenerationRequest{
+				Model: "minimax-h3", Prompt: "保持画幅", Duration: 4, AspectRatio: test.aspectRatio, Resolution: "1080p",
+			}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			body := manifestTestBody(t, create)
+			if body["size"] != test.wantSize || body["resolution_name"] != "1080p" {
+				t.Fatalf("create body = %#v, want size %q and resolution_name 1080p", body, test.wantSize)
+			}
+		})
+	}
+}
+
 // 系统指令必须真正到达上游：只映射 messages 的协议要收到 system 消息，
 // 有独立 system 字段的协议要用该字段且不能在消息数组里重复发送。
 func TestOfficialTextProtocolsDeliverInstructions(t *testing.T) {
