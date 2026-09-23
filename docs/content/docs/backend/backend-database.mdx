@@ -15,7 +15,7 @@ description: 影策后端核心持久化表与状态边界
 
 ## 结构迁移与版本
 
-当前结构版本为 34。版本 34 `task_media_recovery` 为 `tasks` 增加 `media_recovery_json`（text）和 `media_stage`（最长 24 字）。版本 33 `oauth_state_accepted_terms` 为 `o_auth_states` 增加非空布尔列 `accepted_terms`，默认 `false`，不替历史流程补造同意记录。升级前备份，按既有流程执行 `migrate-schema up` 和 `verify` 后再启动新后端。旧版本二进制不支持版本 34，回退需恢复匹配的数据库备份。
+当前结构版本为 35。版本 35 `auth_sms_verification` 为旧库补齐用户的 `phone`、`email_verified_at`、`phone_verified_at` 和邮箱验证码的 `attempts` 字段，并创建组合验证、通知额度、短信渠道与短信记录表；不替历史账号补造已验证标记。版本 34 `task_media_recovery` 为 `tasks` 增加 `media_recovery_json`（text）和 `media_stage`（最长 24 字）。版本 33 `oauth_state_accepted_terms` 为 `o_auth_states` 增加非空布尔列 `accepted_terms`，默认 `false`，不替历史流程补造同意记录。升级前备份，按既有流程执行 `migrate-schema up` 和 `verify` 后再启动新后端。旧版本二进制不支持版本 35，回退需恢复匹配的数据库备份。
 
 ### 生成成功后的作品保存恢复
 
@@ -121,6 +121,10 @@ docker compose -f docker-compose.deploy.yml up -d backend web
 | `auth_sessions` | 保存登录 Cookie 对应的服务端会话和令牌哈希 | 密码重置成功时删除该用户全部会话，旧 Cookie 立即失效 |
 | `o_auth_states` | 保存一次性 OAuth state、PKCE verifier、跳转路径和本次 `accepted_terms` 标志 | 有效期 10 分钟且只能消费一次；仅新建第三方账号时要求同意，已有账号登录不受该标志影响；不是长期协议签署记录 |
 | `email_verification_codes` | 保存注册和密码重置的一次性邮箱验证码 | 只保存带用途隔离的 HMAC 哈希；验证码 10 分钟过期、只能消费一次，明文不进入数据库 |
+| `auth_verifications` | 保存组合验证的短期凭证、目标、用途与尝试次数 | 只保存验证码 HMAC 和客户端票据哈希，绑定用途、目标及策略 |
+| `notification_quota` | 保存跨实例共享的通知额度和接收方冷却时间 | 固定窗口计数与到期时间由服务端维护 |
+| `sms_channels` | 保存短信渠道、模板和凭据配置 | 凭据不通过公开 JSON 返回，渠道支持软删除 |
+| `sms_records` | 保存短信发送结果和渠道诊断 | 不保存验证码、模板参数、原始响应或完整手机号 |
 
 密码重置在单个数据库事务中条件消费 `password_reset` 验证码、更新 `users.password_hash` 并删除 `auth_sessions`。任一步失败都会回滚，不能出现密码已修改但旧会话仍有效，或验证码已消耗但密码未更新的部分状态。
 

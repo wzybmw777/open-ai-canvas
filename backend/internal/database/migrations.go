@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const CurrentSchemaVersion int64 = 34
+const CurrentSchemaVersion int64 = 35
 
 const baselineSchemaChecksum = "sha256:open-ai-canvas-schema-v1-20260830"
 const schemaMigrationAppliedAtIndexChecksum = "sha256:schema-migrations-applied-at-index-v2-20260830"
@@ -117,6 +117,29 @@ var schemaMigrations = []migration{
 		}
 		return nil
 	}},
+	{version: 35, name: "auth_sms_verification", checksum: "sha256:auth-sms-verification-v35", apply: migrateAuthSMSVerification},
+}
+
+func migrateAuthSMSVerification(tx *gorm.DB) error {
+	for _, item := range []struct {
+		model  any
+		fields []string
+	}{
+		{&model.User{}, []string{"Phone", "EmailVerifiedAt", "PhoneVerifiedAt"}},
+		{&model.EmailVerificationCode{}, []string{"Attempts"}},
+	} {
+		if !tx.Migrator().HasTable(item.model) {
+			continue
+		}
+		for _, field := range item.fields {
+			if !tx.Migrator().HasColumn(item.model, field) {
+				if err := tx.Migrator().AddColumn(item.model, field); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return tx.AutoMigrate(&model.AuthVerification{}, &model.NotificationQuota{}, &model.SMSChannel{}, &model.SMSRecord{})
 }
 
 func migrateChannelModelTags(tx *gorm.DB) error {
