@@ -106,16 +106,7 @@ export function ChannelOrderDialog({ channelId, onSaved }: { channelId?: string;
                             setTargetPosition(items.findIndex((item) => item.id === id) + 1);
                         }}
                     />
-                    <InputNumber
-                        aria-label="目标位置"
-                        placeholder="位置"
-                        min={1}
-                        max={items.length || 1}
-                        precision={0}
-                        value={targetPosition}
-                        disabled={loading || saving || !targetId}
-                        onChange={setTargetPosition}
-                    />
+                    <InputNumber aria-label="目标位置" placeholder="位置" min={1} max={items.length || 1} precision={0} value={targetPosition} disabled={loading || saving || !targetId} onChange={setTargetPosition} />
                     <Button
                         disabled={loading || saving || !targetId || targetPosition === null || !Number.isInteger(targetPosition) || targetPosition < 1 || targetPosition > items.length}
                         onClick={() => {

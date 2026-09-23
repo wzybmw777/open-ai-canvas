@@ -347,6 +347,10 @@ func TestCloudAgentAdmissionAndContinuation(t *testing.T) {
 
 func TestCloudAgentAdmissionAcceptsTokenPricingWithQuotedChargeLimit(t *testing.T) {
 	s, db, _, _ := creationTestService(t)
+	// Token 计费按本轮输出上限预留，余额须覆盖测试请求的一积分预算。
+	if err := db.Model(&model.CreditAccount{}).Where("user_id = ?", "user").Update("available_microcredits", CreditScale).Error; err != nil {
+		t.Fatal(err)
+	}
 	if err := db.Create(&model.CanvasProject{ID: "agent-canvas", UserID: "user", PayloadJSON: `{"nodes":[]}`}).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -371,7 +375,7 @@ func TestCloudAgentAdmissionAcceptsTokenPricingWithQuotedChargeLimit(t *testing.
 	if err := db.First(&order, "task_id = ?", run.ID).Error; err != nil {
 		t.Fatal(err)
 	}
-	if order.BillingMode != "token" || order.AmountMicrocredits <= 0 || order.ChargeLimitMicrocredits != order.AmountMicrocredits {
+	if order.BillingMode != "token" || order.AmountMicrocredits <= 0 || order.AmountMicrocredits > CreditScale || order.ChargeLimitMicrocredits != order.AmountMicrocredits {
 		t.Fatalf("Agent token order did not persist quoted hard limit: %+v", order)
 	}
 }

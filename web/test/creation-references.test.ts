@@ -2,7 +2,15 @@ import { describe, expect, test } from "bun:test";
 
 import { canvasResourceMentionToken } from "../src/lib/canvas/canvas-resource-references";
 import { creationAttachmentKind, creationFileAccepted, creationMediaAspectRatio, creationUploadAccept, type CreationAttachment } from "../src/pages/create/creation-assets";
-import { buildCreationMentionReferences, displayCreationPrompt, reconcileCreationAttachmentLimit, reconcileCreationAttachmentLimits, removeCreationReferenceTokens, replaceCreationAttachmentReference, selectedCreationReferences } from "../src/pages/create/creation-references";
+import {
+    buildCreationMentionReferences,
+    displayCreationPrompt,
+    reconcileCreationAttachmentLimit,
+    reconcileCreationAttachmentLimits,
+    removeCreationReferenceTokens,
+    replaceCreationAttachmentReference,
+    selectedCreationReferences,
+} from "../src/pages/create/creation-references";
 
 function imageAttachment(id: string): CreationAttachment {
     return {
@@ -42,13 +50,7 @@ describe("creation references", () => {
     });
 
     test("视频参考内容分别遵守图片、视频和音频上限", () => {
-        const attachments = [
-            imageAttachment("image-1"),
-            mediaAttachment("video-1", "video/mp4"),
-            imageAttachment("image-2"),
-            mediaAttachment("audio-1", "audio/mpeg"),
-            mediaAttachment("video-2", "video/mp4"),
-        ];
+        const attachments = [imageAttachment("image-1"), mediaAttachment("video-1", "video/mp4"), imageAttachment("image-2"), mediaAttachment("audio-1", "audio/mpeg"), mediaAttachment("video-2", "video/mp4")];
         const references = buildCreationMentionReferences([], attachments);
         const result = reconcileCreationAttachmentLimits(attachments, references, { maxImages: 1, maxVideos: 2, maxAudios: 0 });
 
