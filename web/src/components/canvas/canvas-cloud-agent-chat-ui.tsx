@@ -4,7 +4,40 @@ import { Tooltip } from "@/components/ui/base/tooltip";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ClipboardEvent as ReactClipboardEvent, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ArrowLeft, ArrowUp, AtSign, Bookmark, BrainCircuit, CheckCircle2, ChevronDown, ChevronUp, CircleAlert, CircleDot, Clapperboard, Eye, HelpCircle, ImagePlus, Layers3, List, ListChecks, LoaderCircle, MessageCircle, Palette, Pencil, Plus, RotateCcw, Shapes, Share2, ShoppingBag, Sparkles, Square, UserRound, Wrench, X, XCircle } from "lucide-react";
+import {
+    ArrowLeft,
+    ArrowUp,
+    AtSign,
+    Bookmark,
+    BrainCircuit,
+    CheckCircle2,
+    ChevronDown,
+    ChevronUp,
+    CircleAlert,
+    CircleDot,
+    Clapperboard,
+    Eye,
+    HelpCircle,
+    ImagePlus,
+    Layers3,
+    List,
+    ListChecks,
+    LoaderCircle,
+    MessageCircle,
+    Palette,
+    Pencil,
+    Plus,
+    RotateCcw,
+    Shapes,
+    Share2,
+    ShoppingBag,
+    Sparkles,
+    Square,
+    UserRound,
+    Wrench,
+    X,
+    XCircle,
+} from "lucide-react";
 
 import { canvasThemes } from "@/lib/canvas-theme";
 import { AIMessageMarkdown } from "@/components/ai/ai-message-markdown";
@@ -181,21 +214,24 @@ export function rewriteAgentNodeLinks(text: string, references: CanvasResourceRe
     const newNodePrefixPattern = /(新节点|节点|新建节点)\s*ID(?=\s*[：:])/gu;
     let inFence = false;
 
-    return text.split(/(\r?\n)/u).map((part) => {
-        if (/^\r?\n$/u.test(part)) return part;
-        const fence = /^\s{0,3}(`{3,}|~{3,})/u.test(part);
-        if (fence) {
-            inFence = !inFence;
-            return part;
-        }
-        if (inFence) return part;
+    return text
+        .split(/(\r?\n)/u)
+        .map((part) => {
+            if (/^\r?\n$/u.test(part)) return part;
+            const fence = /^\s{0,3}(`{3,}|~{3,})/u.test(part);
+            if (fence) {
+                inFence = !inFence;
+                return part;
+            }
+            if (inFence) return part;
 
-        const normalized = part.replace(newNodePrefixPattern, "$1");
-        return normalized.replace(nodeTokenPattern, (match, backtickedId: string | undefined, plainId: string | undefined) => {
-            const nodeId = backtickedId || plainId;
-            return nodeId ? createAgentNodeLink(nodeId, referenceByNodeId.get(nodeId)) : match;
-        });
-    }).join("");
+            const normalized = part.replace(newNodePrefixPattern, "$1");
+            return normalized.replace(nodeTokenPattern, (match, backtickedId: string | undefined, plainId: string | undefined) => {
+                const nodeId = backtickedId || plainId;
+                return nodeId ? createAgentNodeLink(nodeId, referenceByNodeId.get(nodeId)) : match;
+            });
+        })
+        .join("");
 }
 
 function agentNodeIdFromHref(href?: string) {
@@ -214,7 +250,11 @@ function createAgentMessageMarkdownComponents(references: CanvasResourceReferenc
         a: ({ children, href, className, ...props }) => {
             const nodeId = agentNodeIdFromHref(href);
             if (!nodeId) {
-                return <a {...props} href={href} className={`ai-message-markdown-link ${className || ""}`.trim()} target="_blank" rel="noreferrer">{children}</a>;
+                return (
+                    <a {...props} href={href} className={`ai-message-markdown-link ${className || ""}`.trim()} target="_blank" rel="noreferrer">
+                        {children}
+                    </a>
+                );
             }
 
             const reference = referenceByNodeId.get(nodeId);
@@ -233,7 +273,13 @@ function createAgentMessageMarkdownComponents(references: CanvasResourceReferenc
                         onFocusNode?.(nodeId);
                     }}
                 >
-                    {previewUrl ? <img className="agent-message-node-link-preview" src={previewUrl} alt="" loading="lazy" /> : <span className="agent-message-node-link-icon" aria-hidden="true"><CircleDot className="size-3.5" /></span>}
+                    {previewUrl ? (
+                        <img className="agent-message-node-link-preview" src={previewUrl} alt="" loading="lazy" />
+                    ) : (
+                        <span className="agent-message-node-link-icon" aria-hidden="true">
+                            <CircleDot className="size-3.5" />
+                        </span>
+                    )}
                     <span className="agent-message-node-link-copy">
                         <span className="agent-message-node-link-kind">{agentNodeTypeLabel(nodeId, reference)}</span>
                         <span className="agent-message-node-link-title">{reference?.title || reference?.label || children}</span>
@@ -358,15 +404,12 @@ export function AgentChatMessage({
  * 推理是辅助信息，不应与正文和工具输出争夺主视觉。一个事件流里的连续摘要
  * 合并成一个入口，默认收起；需要排查时再展开查看完整内容。
  */
-export function AgentReasoningFeed({
-    items,
-    theme,
-}: {
-    items: CloudAgentChatMessage[];
-    theme: (typeof canvasThemes)[keyof typeof canvasThemes];
-}) {
+export function AgentReasoningFeed({ items, theme }: { items: CloudAgentChatMessage[]; theme: (typeof canvasThemes)[keyof typeof canvasThemes] }) {
     const streaming = items.some((item) => item.streaming);
-    const text = items.map((item) => item.text.trim()).filter(Boolean).join("\n\n");
+    const text = items
+        .map((item) => item.text.trim())
+        .filter(Boolean)
+        .join("\n\n");
     const countLabel = items.length > 1 ? `${items.length} 段 · ` : "";
     return (
         <div className="agent-reasoning" style={{ "--agent-reasoning-accent": theme.accent.primary } as CSSProperties}>
@@ -450,10 +493,13 @@ function useTypewriterText(targetText: string, shouldAnimate: boolean) {
         startLoop();
     }, [shouldAnimate, startLoop, targetText]);
 
-    useEffect(() => () => {
-        if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-        runningRef.current = false;
-    }, []);
+    useEffect(
+        () => () => {
+            if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+            runningRef.current = false;
+        },
+        [],
+    );
 
     return visibleText;
 }
@@ -813,7 +859,10 @@ export function AgentPlanBar({ items, theme, minimized, onToggle, terminal = fal
                         const Icon = done ? CheckCircle2 : terminal ? CircleAlert : doing ? LoaderCircle : CircleDot;
                         return (
                             <li key={entry.id} className="flex min-w-0 items-start gap-1.5 text-xs">
-                                <Icon className={doing && !terminal ? "mt-[3px] size-3 shrink-0 animate-spin" : "mt-[3px] size-3 shrink-0"} style={{ color: done ? "#429477" : terminal ? theme.node.muted : doing ? theme.accent.primary : theme.node.muted }} />
+                                <Icon
+                                    className={doing && !terminal ? "mt-[3px] size-3 shrink-0 animate-spin" : "mt-[3px] size-3 shrink-0"}
+                                    style={{ color: done ? "#429477" : terminal ? theme.node.muted : doing ? theme.accent.primary : theme.node.muted }}
+                                />
                                 <span className={done ? "min-w-0 break-words line-through opacity-50" : terminal ? "min-w-0 break-words opacity-55" : "min-w-0 break-words"}>{entry.title}</span>
                             </li>
                         );
@@ -830,9 +879,7 @@ export function AgentQuestionBar({ question, theme, onAnswer, disabled = false }
             <div className="flex items-start gap-2 px-3 pt-2.5">
                 <HelpCircle className="mt-[1px] size-3.5 shrink-0" style={{ color: theme.accent.primary }} />
                 <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 text-[10px] opacity-55">
-                        {question.round && question.maxRounds ? `确认 ${question.round}/${question.maxRounds}` : "需要确认"}
-                    </div>
+                    <div className="flex items-center gap-2 text-[10px] opacity-55">{question.round && question.maxRounds ? `确认 ${question.round}/${question.maxRounds}` : "需要确认"}</div>
                     <div className="text-xs font-semibold leading-5">{question.question}</div>
                 </div>
             </div>
@@ -902,7 +949,14 @@ export const AGENT_SCENE_DEFS: Array<{ key: string; label: string; icon: typeof 
     { key: "others", label: "其他", icon: Shapes },
 ];
 
-export function AgentSceneCapsules({ buckets, installedIds, theme, disabled = false, onPick, onPickSkill }: {
+export function AgentSceneCapsules({
+    buckets,
+    installedIds,
+    theme,
+    disabled = false,
+    onPick,
+    onPickSkill,
+}: {
     buckets: AgentSceneBucket[];
     installedIds: Set<string>;
     theme: (typeof canvasThemes)[keyof typeof canvasThemes];
