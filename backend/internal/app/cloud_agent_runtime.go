@@ -1973,11 +1973,11 @@ func (s *Service) enqueueCloudAgentTask(run *model.CloudAgentExecution, state *c
 	approvalID, generationID := "", ""
 	if media != nil {
 		prepared = media.Prepared
+		if state.Approval != nil {
+			approvalID = state.Approval.ID
+		}
 		if prepared == nil && state.Approval != nil {
 			prepared = state.Approval.Prepared
-			if state.Approval != nil {
-				approvalID = state.Approval.ID
-			}
 		}
 		if prepared == nil {
 			return s.cloudAgentMediaError(run, state, "admission", false, false, creationConflict("缺少已批准的生成准备态，请重新申请审批；未提交任务"))

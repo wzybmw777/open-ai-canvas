@@ -52,9 +52,8 @@ func TestCloudAgentToolSchemaStaysCompact(t *testing.T) {
 		t.Fatal("canvas_apply_ops 未暴露")
 	}
 
-	// 合并布局、技能检索与分镜资产关联后，23 个工具实测 26,873 字节。
-	// 预算保留约 0.5% 余量；新增工具或字段时需重新测量，避免每步固定开销悄悄膨胀。
-	if len(raw) > 27000 {
-		t.Fatalf("平台工具 schema 体积 %d 字节超出预算 27000：请压缩描述或显式调整预算", len(raw))
+	// 合并后 25 个工具实测 29,720 字节；新增工具或字段时需重新测量固定开销。
+	if len(raw) > 30000 {
+		t.Fatalf("平台工具 schema 体积 %d 字节超出预算 30000：请压缩描述或显式调整预算", len(raw))
 	}
 }

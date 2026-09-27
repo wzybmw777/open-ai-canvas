@@ -155,7 +155,7 @@ func TestCloudAgentParallelMediaCapacityRecoveryAndResults(t *testing.T) {
 }
 
 func TestCloudAgentParallelMediaApprovalKeepsCollecting(t *testing.T) {
-	s, db, id := agentParallelFixture(t, 2, "auto", "video")
+	s, db, id := agentParallelFixture(t, 2, "request_approval", "video")
 	advanceAgentParallel(t, s, id, 1)
 	approveAgentMediaDraft(t, s, id)
 	advanceAgentParallel(t, s, id, 2)
