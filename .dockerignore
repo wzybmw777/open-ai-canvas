@@ -12,6 +12,7 @@ docs
 docs2
 data
 backend/data
+backups
 backend/*.db
 backend/cmd/server/server
 .serena
