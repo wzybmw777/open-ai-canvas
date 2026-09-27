@@ -54,12 +54,12 @@ type AgentSettingsProps = {
 const permissionOptions: Array<{ value: AgentPermissionMode; label: string; description: string; icon: typeof ShieldCheck; color: string }> = [
     { value: "read_only", label: "只读", description: "只分析和建议", icon: LockKeyhole, color: "#4f7cff" },
     { value: "request_approval", label: "请求审批", description: "写入和生成前确认", icon: ShieldCheck, color: "#b58336" },
-    { value: "auto", label: "自动执行", description: "自动编辑，生成仍需审批", icon: Sparkles, color: "#429477" },
+    { value: "auto", label: "自动执行", description: "服务端准入后直接编辑和生成", icon: Sparkles, color: "#429477" },
     { value: "full_access", label: "绝对权限", description: "图片、视频直接生成并计费", icon: Zap, color: "var(--primary)" },
 ];
 
 const contextOptions: Array<{ value: AgentContextKey; label: string; description: string }> = [
-    { value: "canvas", label: "已保存画布摘要", description: "最多 80 个节点的标题与文本片段，不含媒体正文或未同步修改" },
+    { value: "canvas", label: "画布节点目录", description: "每次请求只带节点 id、类型和标题；正文按页读取，不含媒体或未同步修改" },
 ];
 
 const reasoningOptions: Array<{ value: AgentReasoningMode; label: string; description: string }> = [
