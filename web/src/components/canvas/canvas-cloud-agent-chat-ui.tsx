@@ -142,7 +142,6 @@ export function agentControlMessage(id: string, text: string, meta?: string): Cl
     return { id, role: "system", text, meta };
 }
 
-
 const AGENT_FORM_FIELD_LABELS: Record<string, string> = {
     genre: "题材",
     aspectRatio: "画幅",
@@ -1002,7 +1001,17 @@ export function AgentQuestionBar({ question, theme, onAnswer, disabled = false }
             displayAnswers[field.id] = option?.label || value;
         }
         const fieldTitles = Object.fromEntries(fields.map((field) => [field.id, field.title]));
-        onAnswer(JSON.stringify({ type: "form_answer", questionId: question.questionId, answers, displayAnswers, fieldTitles, skippedFields: fields.filter((field) => !String(answers[field.id] || "").trim()).map((field) => field.id), useRecommendedDefaults: useDefaults }));
+        onAnswer(
+            JSON.stringify({
+                type: "form_answer",
+                questionId: question.questionId,
+                answers,
+                displayAnswers,
+                fieldTitles,
+                skippedFields: fields.filter((field) => !String(answers[field.id] || "").trim()).map((field) => field.id),
+                useRecommendedDefaults: useDefaults,
+            }),
+        );
     };
 
     const stop = (event: SyntheticEvent) => {
