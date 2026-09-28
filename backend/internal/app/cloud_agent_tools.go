@@ -437,28 +437,26 @@ func compileCloudAgentTools(req CloudAgentRequest, includeProfileTool bool) []ma
 		map[string]any{"items": map[string]any{"type": "array", "maxItems": 20, "items": map[string]any{"type": "object", "properties": map[string]any{"id": str("短标识，如 1"), "title": str("这一项要做什么"), "status": map[string]any{"type": "string", "enum": []string{"pending", "doing", "done"}}}, "required": []string{"id", "title", "status"}, "additionalProperties": false}}},
 		"items")
 	add("ask_user",
-		"创作需求存在会显著影响结果的歧义时才调用本工具。本轮只问一次：简单单项决策使用 options；多个相关参数（题材、画幅、画风、模型偏好、补充说明等）使用 fields 返回一张带推荐值、可编辑、可跳过非必填项的紧凑表单。已指定方向、授权自主决定、存在安全默认值或明确说“直接开始”时不要问，直接执行。本轮就此收尾，用户提交后自动续轮；服务端最多允许 2 轮确认。",
+		"需要确认关键创作决策时使用。单项用 options，多项用 fields；不能同传。已有方向或安全默认值时直接执行。提交后自动续轮。",
 		map[string]any{
-			"question":   str("要用户确认的主题，一句话说清"),
-			"questionId": str("可选的稳定问题标识"),
+			"question":   str("确认主题"),
+			"questionId": str("稳定标识，可选"),
 			"options": map[string]any{"type": "array", "minItems": 2, "maxItems": 6, "items": map[string]any{
 				"type":       "object",
-				"properties": map[string]any{"label": str("选项文字"), "detail": str("可选：一句补充说明")},
+				"properties": map[string]any{"label": str("选项"), "detail": str("补充说明")},
 				"required":   []string{"label"}, "additionalProperties": false,
 			}},
-			"fields": map[string]any{"type": "array", "minItems": 1, "maxItems": 6, "description": "多个相关创作参数组成的动态表单；与 options 二选一", "items": map[string]any{
+			"fields": map[string]any{"type": "array", "minItems": 1, "maxItems": 6, "items": map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"id": str("稳定字段 ID，如 aspectRatio"), "title": str("字段显示名称"),
+					"id": str("字段 ID"), "title": str("字段名"),
 					"type":         map[string]any{"type": "string", "enum": []string{"single_select", "segmented", "text", "textarea", "model_picker"}},
-					"options":      map[string]any{"type": "array", "maxItems": 8, "items": map[string]any{"type": "object", "properties": map[string]any{"id": str("稳定选项 ID"), "label": str("选项名称"), "detail": str("可选说明"), "recommended": map[string]any{"type": "boolean"}}, "required": []string{"label"}, "additionalProperties": false}},
-					"defaultValue": str("推荐默认值；可选"), "required": map[string]any{"type": "boolean"}, "allowCustom": map[string]any{"type": "boolean"}, "placeholder": str("可选输入提示"),
+					"options":      map[string]any{"type": "array", "maxItems": 8, "items": map[string]any{"type": "object", "properties": map[string]any{"id": str("选项 ID"), "label": str("选项名"), "detail": str("说明"), "recommended": map[string]any{"type": "boolean"}}, "required": []string{"label"}, "additionalProperties": false}},
+					"defaultValue": str("推荐值"), "required": map[string]any{"type": "boolean"}, "allowCustom": map[string]any{"type": "boolean"}, "placeholder": str("输入提示"),
 				},
 				"required": []string{"id", "title", "type"}, "additionalProperties": false,
 			}},
-			"allowFreeform": map[string]any{"type": "boolean", "description": "是否允许在表单外补充说明（默认允许）"},
-			"round":         map[string]any{"type": "integer", "minimum": 1, "maximum": cloudAgentMaxConfirmationRounds, "description": "可选确认轮次；服务端以持久化轮次为准"},
-			"maxRounds":     map[string]any{"type": "integer", "minimum": 1, "maximum": cloudAgentMaxConfirmationRounds, "description": "可选确认上限；服务端以固定上限为准"},
+			"allowFreeform": map[string]any{"type": "boolean", "description": "允许补充说明"},
 		},
 		"question")
 	if len(req.ContextScope) > 0 {
