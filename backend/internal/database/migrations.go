@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const CurrentSchemaVersion int64 = 41
+const CurrentSchemaVersion int64 = 42
 
 const baselineSchemaChecksum = "sha256:open-ai-canvas-schema-v1-20260830"
 const schemaMigrationAppliedAtIndexChecksum = "sha256:schema-migrations-applied-at-index-v2-20260830"
@@ -30,6 +30,9 @@ const skillLibraryCategoriesChecksum = "sha256:skill-library-categories-v39-2026
 const builtinSkillTombstonesChecksum = "sha256:builtin-skill-tombstones-v40-20260927"
 const authPhoneUniqueIndexChecksum = "sha256:auth-phone-unique-index-v41-20260927"
 const legacyAuthSMSVerificationChecksum = "sha256:auth-sms-verification-v35"
+const resourceThumbnailChecksum = "sha256:resource-thumbnail-v41-20260927"
+const resourceThumbnailV42Checksum = "sha256:resource-thumbnail-v42-20260928"
+const authPhoneUniqueIndexV42Checksum = "sha256:auth-phone-unique-index-v42-20260928"
 
 const postgresSchemaMigrationLockID int64 = 73123910420260830
 
@@ -137,9 +140,16 @@ var schemaMigrations = []migration{
 	{version: 40, name: "builtin_skill_tombstones", checksum: builtinSkillTombstonesChecksum, apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.BuiltinSkillTombstone{})
 	}},
-	{version: 41, name: "auth_phone_unique_index", checksum: authPhoneUniqueIndexChecksum, apply: func(tx *gorm.DB) error {
-		return tx.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone_nonempty ON users(phone) WHERE phone <> ''").Error
-	}},
+	{version: 41, name: "auth_phone_unique_index", checksum: authPhoneUniqueIndexChecksum, apply: migrateAuthPhoneUniqueIndex},
+	{version: 42, name: "resource_thumbnail", checksum: resourceThumbnailV42Checksum, apply: migrateResourceThumbnail},
+}
+
+func migrateAuthPhoneUniqueIndex(tx *gorm.DB) error {
+	return tx.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone_nonempty ON users(phone) WHERE phone <> ''").Error
+}
+
+func migrateResourceThumbnail(tx *gorm.DB) error {
+	return tx.AutoMigrate(&model.Resource{})
 }
 
 func migratePrefixedIDSequenceReconcile(tx *gorm.DB) error {
@@ -318,6 +328,25 @@ func migrationsForDatabase(db *gorm.DB) ([]migration, error) {
 			if item.version == 35 {
 				plan[index] = legacy
 				break
+			}
+		}
+	}
+	var v41Applied schemaMigration
+	err = db.First(&v41Applied, "version = ?", 41).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("读取数据库迁移 41：%w", err)
+	}
+	if err == nil && v41Applied.Name == "resource_thumbnail" {
+		upstream := migration{version: 41, name: "resource_thumbnail", checksum: resourceThumbnailChecksum, apply: migrateResourceThumbnail}
+		if err := validateMigrationRecord(v41Applied, upstream); err != nil {
+			return nil, err
+		}
+		for index, item := range plan {
+			switch item.version {
+			case 41:
+				plan[index] = upstream
+			case 42:
+				plan[index] = migration{version: 42, name: "auth_phone_unique_index", checksum: authPhoneUniqueIndexV42Checksum, apply: migrateAuthPhoneUniqueIndex}
 			}
 		}
 	}

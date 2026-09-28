@@ -168,6 +168,70 @@ func TestMigrateSchemaAcceptsLocalV35HistoryAndAddsPhoneIndex(t *testing.T) {
 	}
 }
 
+func TestMigrateSchemaUpgradesBothV41Histories(t *testing.T) {
+	for _, tt := range []struct {
+		name              string
+		v41Name           string
+		v41Checksum       string
+		v42Name           string
+		v42Checksum       string
+		dropPhoneIndex    bool
+		dropThumbnailData bool
+	}{
+		{name: "local phone index", v41Name: "auth_phone_unique_index", v41Checksum: authPhoneUniqueIndexChecksum, v42Name: "resource_thumbnail", v42Checksum: resourceThumbnailV42Checksum, dropThumbnailData: true},
+		{name: "upstream thumbnail", v41Name: "resource_thumbnail", v41Checksum: resourceThumbnailChecksum, v42Name: "auth_phone_unique_index", v42Checksum: authPhoneUniqueIndexV42Checksum, dropPhoneIndex: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			db, err := Open(Config{Driver: "sqlite", DSN: "file:" + t.Name() + "?mode=memory&cache=shared"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := MigrateSchema(db); err != nil {
+				t.Fatal(err)
+			}
+			if err := db.Where("version = ?", 42).Delete(&schemaMigration{}).Error; err != nil {
+				t.Fatal(err)
+			}
+			if err := db.Model(&schemaMigration{}).Where("version = ?", 41).Updates(map[string]any{"name": tt.v41Name, "checksum": tt.v41Checksum}).Error; err != nil {
+				t.Fatal(err)
+			}
+			if tt.dropPhoneIndex {
+				if err := db.Exec("DROP INDEX IF EXISTS idx_users_phone_nonempty").Error; err != nil {
+					t.Fatal(err)
+				}
+			}
+			if tt.dropThumbnailData {
+				for _, column := range []string{"ThumbnailStatus", "ThumbnailMimeType", "ThumbnailSize", "ThumbnailWidth", "ThumbnailHeight"} {
+					if err := db.Migrator().DropColumn(&model.Resource{}, column); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			for range 2 {
+				if err := MigrateSchema(db); err != nil {
+					t.Fatal(err)
+				}
+			}
+			status, err := ReadSchemaStatus(db)
+			if err != nil || !status.Ready || status.Current != CurrentSchemaVersion {
+				t.Fatalf("unexpected schema status: %#v, %v", status, err)
+			}
+			if !db.Migrator().HasIndex(&model.User{}, "idx_users_phone_nonempty") || !db.Migrator().HasColumn(&model.Resource{}, "thumbnail_status") {
+				t.Fatal("merged migrations did not preserve both schema changes")
+			}
+			for _, expected := range []schemaMigration{{Version: 41, Name: tt.v41Name, Checksum: tt.v41Checksum}, {Version: 42, Name: tt.v42Name, Checksum: tt.v42Checksum}} {
+				var applied schemaMigration
+				if err := db.First(&applied, "version = ?", expected.Version).Error; err != nil {
+					t.Fatal(err)
+				}
+				if applied.Name != expected.Name || applied.Checksum != expected.Checksum {
+					t.Fatalf("migration history changed: %+v", applied)
+				}
+			}
+		})
+	}
+}
+
 func TestMigrateSchemaV15UpgradesExistingDatabase(t *testing.T) {
 	db, err := Open(Config{Driver: "sqlite", DSN: "file:migration-agent-profiles-v15?mode=memory&cache=shared"})
 	if err != nil {
