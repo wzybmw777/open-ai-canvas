@@ -7,8 +7,8 @@ import { removeCreationConversationSnapshot, updateCreationConversationSnapshot 
 
 test("Create exposes one accessible copy action beside each displayed user prompt", async () => {
     const source = await Bun.file(new URL("../src/pages/create/creation-workspace.tsx", import.meta.url)).text();
-    expect(source).toContain('aria-label="复制提示词"');
-    expect(source).toContain('copyText(visiblePrompt, "提示词已复制")');
+    expect(source).toContain('aria-label={text("复制提示词", "Copy prompt")}');
+    expect(source).toContain('copyText(visiblePrompt, text("提示词已复制", "Prompt copied"))');
 });
 
 test("Create submit button does not forward the browser click event as retry context", async () => {

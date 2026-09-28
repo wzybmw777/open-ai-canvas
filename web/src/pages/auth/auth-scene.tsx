@@ -6,32 +6,11 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router";
 
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { SiteComplianceFooter } from "@/components/layout/site-compliance-footer";
+import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { aceternityMotion } from "@/lib/aceternity-motion";
-import { brandStudioLabel, useAppearanceStore } from "@/stores/use-appearance-store";
+import { useLocaleText } from "@/lib/i18n";
+import { brandStudioLabel, DEFAULT_PUBLIC_APPEARANCE, useAppearanceStore } from "@/stores/use-appearance-store";
 import { useThemeStore } from "@/stores/use-theme-store";
-
-const AUTH_TABS = [
-    { key: "login", label: "登录" },
-    { key: "register", label: "注册" },
-];
-
-const authCopy = {
-    login: {
-        eyebrow: "WELCOME BACK",
-        title: "进入创作现场",
-        description: "继续编辑你的画布、素材与生成任务。",
-    },
-    register: {
-        eyebrow: "CREATE ACCOUNT",
-        title: "建立你的创作空间",
-        description: "一个账号管理画布、素材、技能和模型偏好。",
-    },
-    recovery: {
-        eyebrow: "ACCOUNT RECOVERY",
-        title: "重新设置密码",
-        description: "验证账号邮箱后，设置一个新的登录密码。",
-    },
-} as const;
 
 export function LinuxDOIcon() {
     return (
@@ -47,6 +26,7 @@ export function LinuxDOIcon() {
 }
 
 export function AuthScene() {
+    const { text } = useLocaleText();
     const appearance = useAppearanceStore((state) => state.appearance);
     const theme = useThemeStore((state) => state.theme);
     const location = useLocation();
@@ -58,7 +38,11 @@ export function AuthScene() {
     const [failedPosterURL, setFailedPosterURL] = useState("");
     const recovery = location.pathname === "/forgot-password";
     const activeTab = location.pathname === "/register" ? "register" : "login";
-    const copy = recovery ? authCopy.recovery : activeTab === "register" ? authCopy.register : authCopy.login;
+    const copy = recovery
+        ? { eyebrow: "ACCOUNT RECOVERY", title: text("重新设置密码", "Reset your password"), description: text("验证账号邮箱后，设置一个新的登录密码。", "Verify your email address to set a new password.") }
+        : activeTab === "register"
+            ? { eyebrow: "CREATE ACCOUNT", title: text("建立你的创作空间", "Create your workspace"), description: text("一个账号管理画布、素材、技能和模型偏好。", "Manage your canvases, assets, skills, and models in one place.") }
+            : { eyebrow: "WELCOME BACK", title: text("进入创作现场", "Welcome back"), description: text("继续编辑你的画布、素材与生成任务。", "Continue working on your canvases, assets, and generations.") };
     const automaticVideoActive = appearance.authVideoAutoplay && !reducedMotion;
     const videoActive = Boolean(appearance.authVideoUrl && (automaticVideoActive || manualVideoActive));
 
@@ -77,7 +61,7 @@ export function AuthScene() {
     return (
         <main className="auth-scene h-dvh min-h-0 overflow-y-auto lg:overflow-hidden">
             <div className="grid min-h-full lg:h-full lg:grid-cols-[minmax(0,1.32fr)_minmax(520px,1fr)]">
-                <section className="auth-scene-hero relative min-h-[250px] overflow-hidden sm:min-h-[320px] lg:min-h-0" aria-label={`${appearance.brandName}品牌影片`}>
+                <section className="auth-scene-hero relative min-h-[250px] overflow-hidden sm:min-h-[320px] lg:min-h-0" aria-label={`${appearance.brandName} ${text("品牌影片", "brand film")}`}>
                     {videoActive && appearance.authVideoUrl ? <video ref={videoRef} className="absolute inset-0 size-full object-cover" src={appearance.authVideoUrl} poster={appearance.authVideoPosterUrl || undefined} autoPlay muted loop playsInline preload="metadata" onPlay={() => setVideoPlaying(true)} onPause={() => setVideoPlaying(false)} /> : appearance.authVideoPosterUrl && failedPosterURL !== appearance.authVideoPosterUrl ? <img className="absolute inset-0 size-full object-cover" src={appearance.authVideoPosterUrl} alt="" decoding="async" onError={() => setFailedPosterURL(appearance.authVideoPosterUrl)} /> : null}
                     <div aria-hidden className="auth-scene-hero-overlay absolute inset-0" />
                     <div aria-hidden className="auth-scene-video-blend absolute inset-y-0 right-0 hidden w-[clamp(120px,14vw,240px)] lg:block" />
@@ -88,7 +72,7 @@ export function AuthScene() {
                         </Link>
                         <button type="button" className="auth-scene-hero-control inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[var(--fs-label)] backdrop-blur-xl transition disabled:cursor-default" onClick={playVideo} disabled={videoPlaying || !appearance.authVideoUrl} aria-pressed={videoPlaying}>
                             <Play className="size-3 fill-current" />
-                            {videoPlaying ? "创作正在发生" : "播放品牌影片"}
+                            {videoPlaying ? text("创作正在发生", "Now playing") : text("播放品牌影片", "Play brand film")}
                         </button>
                     </div>
                     <motion.div
@@ -98,16 +82,19 @@ export function AuthScene() {
                         className="absolute inset-x-0 bottom-0 max-w-2xl p-5 sm:p-7 lg:p-10"
                     >
                         <p className="auth-scene-hero-muted text-xs font-semibold tracking-[0.18em]">{brandStudioLabel(appearance)}</p>
-                        <h1 className="auth-scene-hero-title mt-3 max-w-xl whitespace-pre-line text-3xl font-semibold leading-tight sm:text-4xl lg:text-5xl">{appearance.authHeroTitle}</h1>
+                        <h1 className="auth-scene-hero-title mt-3 max-w-xl whitespace-pre-line text-3xl font-semibold leading-tight sm:text-4xl lg:text-5xl">{appearance.authHeroTitle === DEFAULT_PUBLIC_APPEARANCE.authHeroTitle ? text(appearance.authHeroTitle, "Bring your story\nfrom script to screen.") : appearance.authHeroTitle}</h1>
                         {appearance.authHeroDescription ? <p className="auth-scene-hero-muted mt-4 max-w-xl whitespace-pre-line text-sm leading-6 sm:text-base sm:leading-7">{appearance.authHeroDescription}</p> : null}
                     </motion.div>
                 </section>
 
                 <section className="auth-scene-form-pane relative flex min-h-[660px] items-start justify-center overflow-y-auto px-4 pb-24 pt-20 sm:px-8 lg:min-h-0 lg:px-10 lg:pb-24 lg:pt-20">
-                    <Link to="/" className="auth-scene-return absolute right-5 top-5 z-20 inline-flex h-9 items-center gap-2 rounded-full px-4 text-xs backdrop-blur-xl transition lg:right-8 lg:top-8">
+                    <div className="absolute right-5 top-5 z-20 flex items-center gap-2 lg:right-8 lg:top-8">
+                    <LanguageSwitcher className="auth-scene-return inline-flex h-9 items-center gap-2 rounded-full px-3 text-xs backdrop-blur-xl transition" />
+                    <Link to="/" className="auth-scene-return inline-flex h-9 items-center gap-2 rounded-full px-4 text-xs backdrop-blur-xl transition">
                         <ArrowLeft className="size-3.5" />
-                        返回首页
+                        {text("返回首页", "Home")}
                     </Link>
+                    </div>
 
                     <motion.div
                         initial={reducedMotion ? false : { opacity: 0, y: 14 }}
@@ -125,7 +112,7 @@ export function AuthScene() {
                                 </header>
                                 {!recovery ? (
                                     <div className="px-6 sm:px-8">
-                                        <Tabs className="auth-card-tabs" activeKey={activeTab} items={AUTH_TABS} onChange={(key) => navigate({ pathname: key === "register" ? "/register" : "/login", search: location.search })} />
+                                        <Tabs className="auth-card-tabs" activeKey={activeTab} items={[{ key: "login", label: text("登录", "Sign in") }, { key: "register", label: text("注册", "Sign up") }]} onChange={(key) => navigate({ pathname: key === "register" ? "/register" : "/login", search: location.search })} />
                                     </div>
                                 ) : null}
                                 <div key={location.pathname} className={`${!recovery && activeTab === "login" ? "" : "flex-1"} px-6 py-6 sm:px-8 sm:py-7`}>

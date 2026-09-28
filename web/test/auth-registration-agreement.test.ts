@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 describe("注册服务协议", () => {
     test("确认密码后展示协议入口，默认未同意且保留注册限流", () => {
         const source = readFileSync(resolve(import.meta.dir, "../src/pages/auth/register.tsx"), "utf8");
-        const passwordIndex = source.indexOf('label="确认密码"');
+        const passwordIndex = source.indexOf('label={text("确认密码", "Confirm password")}');
         const agreementIndex = source.indexOf("Checkbox checked={agreementAccepted}");
         const submitIndex = source.indexOf('htmlType="submit"');
 
@@ -25,7 +25,7 @@ describe("注册服务协议", () => {
 
         expect(page).toContain("acceptedTerms: agreementAccepted");
         expect(page).toContain("agreementAccepted ? linuxDOLoginURL(next, true) : undefined");
-        expect(page).toContain("message.warning(`请先同意${agreementTitle}`)");
+        expect(page).toContain("message.warning(text(`请先同意${agreementTitle}`, `Please accept ${agreementTitle}`))");
         expect(login).toContain("linuxDOLoginURL(next)");
         expect(api).toContain("acceptedTerms: boolean");
         expect(api).toContain("acceptedTerms?: boolean");

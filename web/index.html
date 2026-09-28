@@ -57,6 +57,14 @@
         </style>
         <script>
             try {
+                var savedLocale = localStorage.getItem("infinite-canvas:locale");
+                var browserLocale = (navigator.languages && navigator.languages[0]) || navigator.language || "en";
+                var locale = savedLocale === "zh-CN" || savedLocale === "en-US" ? savedLocale : /^zh(?:-|$)/i.test(browserLocale) ? "zh-CN" : "en-US";
+                document.documentElement.lang = locale;
+                if (locale === "en-US") {
+                    document.title = "Loading";
+                    document.querySelector('meta[name="description"]').content = "AI film and short drama creation workspace";
+                }
                 var s = JSON.parse(localStorage.getItem("infinite-canvas:theme_store") || "{}");
                 var t = s.state && s.state.theme === "dark" ? "dark" : "light";
                 document.documentElement.classList.toggle("dark", t === "dark");

@@ -91,12 +91,12 @@ describe("creation library button", () => {
         expect(source).toContain('layout="position"');
         expect(source).toContain("isExpanded");
         expect(source).toContain("setReferencePanelExpanded");
-        expect(source).toContain("aria-label={`查看全部 ${props.attachments.length} 个参考内容`}");
-        expect(source).toContain('aria-label="收起素材面板"');
+        expect(source).toContain("aria-label={text(`查看全部 ${props.attachments.length} 个参考内容`, `Show all ${props.attachments.length} references`)}");
+        expect(source).toContain('aria-label={text("收起素材面板", "Collapse references")}');
         expect(source).toContain("清空全部素材");
         expect(source).toContain('role="group"');
         expect(source).toContain("aria-pressed={referenceFilter === filter.id}");
-        expect(source).toContain('{ id: "file", label: "文件", count: referenceCounts.file }');
+        expect(source).toContain('{ id: "file", label: text("文件", "Files"), count: referenceCounts.file }');
         expect(source).toContain("canDragReferences");
         expect(source).toContain("creation-reference-track-wrapper");
         expect(source).toContain("creation-reference-stack-card");

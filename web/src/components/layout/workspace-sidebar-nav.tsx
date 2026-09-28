@@ -18,6 +18,7 @@ import { WorkspaceAccountCard } from "./workspace-account-card";
 import { WorkspaceSidebarCheckin } from "./workspace-sidebar-checkin";
 import { WorkspaceSidebarStorageMeter } from "./workspace-sidebar-storage-meter";
 import { openWorkspaceWallet } from "@/lib/workspace-wallet";
+import { useLocaleText, type AppLocale } from "@/lib/i18n";
 
 export type WorkspaceNavItem = {
     id: string;
@@ -40,20 +41,21 @@ function toolItem(slug: NavigationToolSlug, to: string): WorkspaceNavItem {
     return { id: slug, title: tool?.label ?? slug, icon: tool?.icon, to };
 }
 
-function buildNav(features: FeatureAvailability): { groups: WorkspaceNavGroup[]; footer: WorkspaceNavItem[] } {
+function buildNav(features: FeatureAvailability, locale: AppLocale): { groups: WorkspaceNavGroup[]; footer: WorkspaceNavItem[] } {
+    const text = (zh: string, en: string) => locale === "en-US" ? en : zh;
     const groups: WorkspaceNavGroup[] = [
         {
             items: [
-                { ...toolItem("create", "/"), id: "home", title: "创作" },
+                { ...toolItem("create", "/"), id: "home", title: text("创作", "Create") },
                 { ...toolItem("projects", "/projects"), title: "短剧 Agent" },
-                { ...toolItem("canvas", "/canvas"), title: "自由画布" },
+                { ...toolItem("canvas", "/canvas"), title: text("自由画布", "Canvas") },
             ],
         },
         {
-            heading: "资源与工具",
-            items: [{ ...toolItem("assets", "/assets"), title: "资产" }, { ...toolItem("skills", "/skills"), title: "技能" }, ...(features.pluginCenterEnabled ? [{ ...toolItem("plugins", "/plugins"), title: "插件" }] : [])],
+            heading: text("资源与工具", "Resources & tools"),
+            items: [{ ...toolItem("assets", "/assets"), title: text("资产", "Assets") }, { ...toolItem("skills", "/skills"), title: text("技能", "Skills") }, ...(features.pluginCenterEnabled ? [{ ...toolItem("plugins", "/plugins"), title: text("插件", "Plugins") }] : [])],
         },
-        ...(features.taskCenterEnabled ? [{ items: [{ ...toolItem("tasks", "/tasks"), title: "创作历史", icon: HistoryIcon }] }] : []),
+        ...(features.taskCenterEnabled ? [{ items: [{ ...toolItem("tasks", "/tasks"), title: text("创作历史", "History"), icon: HistoryIcon }] }] : []),
     ];
 
     // 管理、设置和退出登录不再占据参考站式侧栏底部，而是通过用户卡片菜单进入。
@@ -62,15 +64,16 @@ function buildNav(features: FeatureAvailability): { groups: WorkspaceNavGroup[];
 }
 
 function WorkspaceSidebarProfile({ collapsed, user }: { collapsed: boolean; user: NonNullable<ReturnType<typeof useUserStore.getState>["user"]> | null }) {
+    const { text } = useLocaleText();
     const [failed, setFailed] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const avatarUrl = /^https?:\/\//i.test(user?.avatarUrl || "") ? user?.avatarUrl : "";
-    const profileName = user?.displayName || user?.username || "未登录";
+    const profileName = user?.displayName || user?.username || text("未登录", "Signed out");
 
     useEffect(() => setFailed(false), [avatarUrl]);
 
     if (!user) {
-        return <Link to="/login" className={cn("app-workspace-sidebar-profile", collapsed && "is-collapsed")} aria-label="登录" title="登录"><CircleUserRound className="size-5" /><span>登录</span></Link>;
+        return <Link to="/login" className={cn("app-workspace-sidebar-profile", collapsed && "is-collapsed")} aria-label={text("登录", "Sign in")} title={text("登录", "Sign in")}><CircleUserRound className="size-5" /><span>{text("登录", "Sign in")}</span></Link>;
     }
 
     const avatar = avatarUrl && !failed ? <img src={avatarUrl} alt="" referrerPolicy="no-referrer" onError={() => setFailed(true)} /> : <CircleUserRound aria-hidden />;
@@ -82,9 +85,9 @@ function WorkspaceSidebarProfile({ collapsed, user }: { collapsed: boolean; user
             <WorkspaceSidebarStorageMeter collapsed={collapsed} />
             <div className={cn("app-workspace-sidebar-profile-row", collapsed && "is-collapsed")}>
                 <Popover open={menuOpen} onOpenChange={setMenuOpen} trigger="click" placement="topLeft" arrow={false} rootClassName="workspace-account-popover" content={content}>
-                    <button type="button" className={cn("app-workspace-sidebar-profile", collapsed && "is-collapsed")} aria-label="打开账户菜单" title={profileName}>
+                    <button type="button" className={cn("app-workspace-sidebar-profile", collapsed && "is-collapsed")} aria-label={text("打开账户菜单", "Open account menu")} title={profileName}>
                         <span className="app-workspace-sidebar-profile-avatar">{avatar}</span>
-                        {!collapsed ? <span className="app-workspace-sidebar-profile-copy"><strong>{profileName}</strong><span>创作工作台</span></span> : null}
+                        {!collapsed ? <span className="app-workspace-sidebar-profile-copy"><strong>{profileName}</strong><span>{text("创作工作台", "Creator workspace")}</span></span> : null}
                     </button>
                 </Popover>
                 {!collapsed ? <SystemAnnouncementCenter userId={user.id} className="app-workspace-sidebar-notification" /> : <span className="app-workspace-sidebar-notification-spacer" aria-hidden />}
@@ -94,12 +97,13 @@ function WorkspaceSidebarProfile({ collapsed, user }: { collapsed: boolean; user
 }
 
 function WorkspaceSwitcher({ collapsed, onNavigate, onExpand, onCollapse }: { collapsed: boolean; onNavigate: () => void; onExpand: () => void; onCollapse: () => void }) {
+    const { text } = useLocaleText();
     const appearance = useAppearanceStore((state) => state.appearance);
 
     if (collapsed) {
         return (
             <div className="app-workspace-sidebar-rail-header shrink-0">
-                <button type="button" className="app-workspace-sidebar-rail-button" aria-label="展开侧栏菜单" title="展开侧栏菜单" onClick={onExpand}>
+                <button type="button" className="app-workspace-sidebar-rail-button" aria-label={text("展开侧栏菜单", "Expand sidebar")} title={text("展开侧栏菜单", "Expand sidebar")} onClick={onExpand}>
                     <PanelLeftOpen className="size-4" strokeWidth={1.7} />
                 </button>
             </div>
@@ -108,16 +112,16 @@ function WorkspaceSwitcher({ collapsed, onNavigate, onExpand, onCollapse }: { co
 
     return (
         <div className="app-workspace-sidebar-brand-row relative shrink-0 px-3 pt-3">
-            <Link to="/" onClick={onNavigate} className="app-workspace-sidebar-brand-button group" aria-label={`${appearance.brandName}首页`}>
+            <Link to="/" onClick={onNavigate} className="app-workspace-sidebar-brand-button group" aria-label={`${appearance.brandName} ${text("首页", "home")}`}>
                 <span className="flex min-w-0 items-center gap-2">
                     <BrandLogoFrame className="app-workspace-brand-mark grid size-8 shrink-0 place-items-center rounded-[var(--r-sm)] shadow-sm" logoClassName="size-5 object-contain" alt="" fallback={<InfinityIcon className="size-4" strokeWidth={2.2} />} />
                     <span className="flex min-w-0 flex-col">
                         <span className="app-workspace-brand-wordmark truncate text-[var(--fs-body)] leading-none font-semibold">{appearance.brandName}</span>
-                        <span className="mt-1 truncate text-[var(--fs-label)] leading-none text-foreground/60">创作工作台</span>
+                        <span className="mt-1 truncate text-[var(--fs-label)] leading-none text-foreground/60">{text("创作工作台", "Creator workspace")}</span>
                     </span>
                 </span>
             </Link>
-            <button type="button" className="app-workspace-sidebar-collapse-button" aria-label="收起侧栏" title="收起侧栏" onClick={onCollapse}>
+            <button type="button" className="app-workspace-sidebar-collapse-button" aria-label={text("收起侧栏", "Collapse sidebar")} title={text("收起侧栏", "Collapse sidebar")} onClick={onCollapse}>
                 <PanelLeftClose className="size-4" strokeWidth={1.7} />
             </button>
         </div>
@@ -141,6 +145,7 @@ function NavItem({
     level?: number;
     collapsed?: boolean;
 }) {
+    const { locale } = useLocaleText();
     const isActive = activeId === item.id || (item.id === "settings" && activeId.startsWith("settings:"));
     const hasChildren = Boolean(item.children?.length);
     const [isOpen, setIsOpen] = useState(false);
@@ -154,7 +159,7 @@ function NavItem({
     const Icon = item.icon;
     const rowStyle = collapsed ? undefined : ({ paddingLeft: `${level * 12 + 10}px` } as CSSProperties);
 
-    const collapsedTitle = item.id === "home" ? "创作" : item.id === "projects" ? "短剧" : item.id === "canvas" ? "画布" : item.id === "assets" ? "资产" : item.id === "skills" ? "技能" : item.id === "plugins" ? "插件" : item.id === "tasks" ? "历史" : item.title.slice(0, 2);
+    const collapsedTitle = locale === "en-US" ? item.title : item.id === "home" ? "创作" : item.id === "projects" ? "短剧" : item.id === "canvas" ? "画布" : item.id === "assets" ? "资产" : item.id === "skills" ? "技能" : item.id === "plugins" ? "插件" : item.id === "tasks" ? "历史" : item.title.slice(0, 2);
     const rowContent = (
         <>
             <span className="app-workspace-nav-main flex min-w-0 items-center gap-2.5">
@@ -285,12 +290,13 @@ function NavGroup({ group, activeId, onNavigate, onOpenSearch, onLogout, collaps
 }
 
 export function WorkspaceSidebarNav({ collapsed, onNavigate, onOpenSearch, onExpand, onCollapse }: { collapsed: boolean; onNavigate: () => void; onOpenSearch: () => void; onExpand: () => void; onCollapse: () => void }) {
+    const { locale } = useLocaleText();
     const { pathname } = useLocation();
     const [searchParams] = useSearchParams();
     const features = useUserStore((state) => state.features);
     const user = useUserStore((state) => state.user);
     const { handleLogout } = useWorkspaceLogout();
-    const { groups, footer } = useMemo(() => buildNav(features), [features]);
+    const { groups, footer } = useMemo(() => buildNav(features, locale), [features, locale]);
 
     const slug = pathname.split("/").filter(Boolean)[0] || "home";
     const section = searchParams.get("section");

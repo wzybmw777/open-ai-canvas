@@ -2,6 +2,7 @@ import type { GenerationRetryContext } from "@/lib/canvas/canvas-project-generat
 import { formatVideoResolutionLabel as videoResolutionLabel, VIDEO_RESOLUTION_OPTIONS } from "@/lib/video-generation-options";
 import type { CreationAttachment, CreationMode } from "./creation-assets";
 import type { CreationReference } from "./creation-references";
+import type { AppLocale } from "@/lib/i18n";
 
 export type { CreationMode };
 
@@ -38,6 +39,9 @@ export type CreationMessage = {
 export type CreationConversation = { id: string; title: string; updatedAt: string; canvasId?: string; messages: CreationMessage[] };
 
 export const modeLabels: Record<CreationMode, string> = { text: "文本", image: "图片", video: "视频" };
+export function creationModeLabel(mode: CreationMode, locale: AppLocale) {
+    return locale === "en-US" ? { text: "Text", image: "Image", video: "Video" }[mode] : modeLabels[mode];
+}
 export const defaultCreationMode: CreationMode = "image";
 export const shotScriptLabels: Record<CreationMode, string> = { text: "创作思路", image: "画面指令", video: "镜头脚本" };
 export const ratioOptions = [

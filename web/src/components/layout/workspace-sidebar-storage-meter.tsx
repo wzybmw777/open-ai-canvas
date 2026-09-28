@@ -5,6 +5,7 @@ import { useAccountFileStorageUsage } from "@/hooks/use-account-file-storage-usa
 import { accountStorageMeter } from "@/lib/account-storage-usage";
 import { cn } from "@/lib/utils";
 import { preloadWorkspaceRoute } from "@/lib/workspace-route-modules";
+import { useLocaleText } from "@/lib/i18n";
 
 function StorageGlyph() {
     return (
@@ -15,18 +16,19 @@ function StorageGlyph() {
 }
 
 export function WorkspaceSidebarStorageMeter({ collapsed }: { collapsed: boolean }) {
+    const { text } = useLocaleText();
     const query = useAccountFileStorageUsage();
     const meter = accountStorageMeter(query.data);
-    const usedText = query.data ? `已用 ${meter.usedLabel}` : query.isError ? "容量暂不可用" : "正在统计容量";
-    const remainingText = query.data ? (meter.full ? "容量已满" : `剩余 ${meter.remainingLabel}`) : "";
-    const totalText = query.data ? `共 ${meter.totalLabel}` : "";
+    const usedText = query.data ? text(`已用 ${meter.usedLabel}`, `Used ${meter.usedLabel}`) : query.isError ? text("容量暂不可用", "Storage unavailable") : text("正在统计容量", "Calculating storage");
+    const remainingText = query.data ? (meter.full ? text("容量已满", "Storage full") : text(`剩余 ${meter.remainingLabel}`, `${meter.remainingLabel} remaining`)) : "";
+    const totalText = query.data ? text(`共 ${meter.totalLabel}`, `of ${meter.totalLabel}`) : "";
     const summary = query.data ? `${usedText}，${remainingText}，${totalText}` : usedText;
 
     const track = (
         <span
             className="app-workspace-sidebar-storage-track"
             role="progressbar"
-            aria-label="账号文件容量使用进度"
+            aria-label={text("账号文件容量使用进度", "Account storage usage")}
             aria-valuemin={0}
             aria-valuemax={query.data?.totalBytes ?? 0}
             aria-valuenow={query.data ? Math.min(query.data.usedBytes, query.data.totalBytes) : 0}
@@ -40,15 +42,15 @@ export function WorkspaceSidebarStorageMeter({ collapsed }: { collapsed: boolean
         return (
             <div className={cn("app-workspace-sidebar-storage is-error", collapsed && "is-collapsed")}>
                 {collapsed ? (
-                    <button type="button" title="容量统计暂时不可用，点击重试" aria-label="重试加载账号容量" onClick={() => void query.refetch()}>
+                    <button type="button" title={text("容量统计暂时不可用，点击重试", "Storage unavailable. Retry")} aria-label={text("重试加载账号容量", "Retry account storage")} onClick={() => void query.refetch()}>
                         <StorageGlyph />
                     </button>
                 ) : (
                     <>
                         <StorageGlyph />
-                        <span>容量暂不可用</span>
+                        <span>{text("容量暂不可用", "Storage unavailable")}</span>
                         <button type="button" onClick={() => void query.refetch()}>
-                            重试
+                            {text("重试", "Retry")}
                         </button>
                     </>
                 )}
@@ -67,8 +69,8 @@ export function WorkspaceSidebarStorageMeter({ collapsed }: { collapsed: boolean
                 query.data?.usedBytes ? "has-usage" : null,
                 query.isPending && !query.data && "is-pending",
             )}
-            title={`${summary}。包含素材文件和 Agent 会话附件`}
-            aria-label={`账号容量，${summary}`}
+            title={text(`${summary}。包含素材文件和 Agent 会话附件`, `${summary}. Includes assets and Agent attachments`)}
+            aria-label={text(`账号容量，${summary}`, `Account storage, ${summary}`)}
             aria-busy={query.isPending && !query.data}
             onFocus={() => preloadWorkspaceRoute("/assets")}
             onPointerEnter={() => preloadWorkspaceRoute("/assets")}

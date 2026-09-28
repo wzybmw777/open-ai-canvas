@@ -8,8 +8,10 @@ import { useUserStore } from "@/stores/use-user-store";
 import { LinuxDOIcon } from "./auth-scene";
 import { VerificationFields } from "@/components/auth/verification-fields";
 import { emptyVerification, loginVerification, methodLabels, verificationMethods, type VerificationMethod } from "@/services/api/verification";
+import { localizedErrorMessage, useLocaleText } from "@/lib/i18n";
 
 export default function LoginPage() {
+    const { text } = useLocaleText();
     const navigate = useNavigate();
     const [params] = useSearchParams();
     const { message } = App.useApp();
@@ -50,15 +52,15 @@ export default function LoginPage() {
         try {
             if (method === "password") await login({ username, password });
             else {
-                if (!verification.ticket) throw new Error("请先获取本次登录验证码");
+                if (!verification.ticket) throw new Error(text("请先获取本次登录验证码", "Request a verification code first"));
                 await loginVerification(verification);
             }
             const { applyUserSession } = await import("@/lib/user-session");
             await applyUserSession(await getAuthSession());
-            message.success("登录成功");
+            message.success(text("登录成功", "Signed in"));
             navigate(next, { replace: true });
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "登录失败");
+            message.error(localizedErrorMessage(error, "登录失败", "Sign in failed"));
         } finally {
             setSubmitting(false);
         }
@@ -66,20 +68,20 @@ export default function LoginPage() {
 
     return (
         <form onSubmit={submit} className="space-y-5">
-            {methods.length > 0 && <Segmented block aria-label="登录方式" value={method} disabled={submitting} options={[{ value: "password", label: "密码登录" }, ...methods.map((value) => ({ value, label: methodLabels[value] }))]} onChange={(value) => { setMethod(value as typeof method); setVerification({ ...emptyVerification }); }} />}
+            {methods.length > 0 && <Segmented block aria-label={text("登录方式", "Sign-in method")} value={method} disabled={submitting} options={[{ value: "password", label: text("密码登录", "Password") }, ...methods.map((value) => ({ value, label: text(methodLabels[value], { sms: "SMS code", email: "Email code", sms_email: "SMS and email" }[value]) }))]} onChange={(value) => { setMethod(value as typeof method); setVerification({ ...emptyVerification }); }} />}
             {method !== "password" ? <VerificationFields key={method} purpose="login" method={method} value={verification} onChange={setVerification} disabled={submitting} /> : <>
-            <AuthField label="用户名 / 邮箱" htmlFor="login-account">
-                <Input id="login-account" size="large" prefix={<UserRound className="auth-scene-icon size-4" />} value={username} onChange={(event) => setUsername(event.target.value)} placeholder="用户名或邮箱" autoComplete="username" required />
+            <AuthField label={text("用户名 / 邮箱", "Username / email")} htmlFor="login-account">
+                <Input id="login-account" size="large" prefix={<UserRound className="auth-scene-icon size-4" />} value={username} onChange={(event) => setUsername(event.target.value)} placeholder={text("用户名或邮箱", "Username or email")} autoComplete="username" required />
             </AuthField>
             <AuthField
-                label="密码"
+                label={text("密码", "Password")}
                 htmlFor="login-password"
                 action={
                     <Link
                         to={forgotPasswordURL}
                         className="auth-scene-link -my-2 inline-flex min-h-8 items-center rounded-sm text-xs font-medium transition-colors"
                     >
-                        忘记密码？
+                        {text("忘记密码？", "Forgot password?")}
                     </Link>
                 }
             >
@@ -89,22 +91,22 @@ export default function LoginPage() {
                     prefix={<LockKeyhole className="auth-scene-icon size-4" />}
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    placeholder="请输入密码"
+                    placeholder={text("请输入密码", "Enter your password")}
                     autoComplete="current-password"
                     required
                 />
             </AuthField>
             </>}
             <Button type="primary" htmlType="submit" size="large" block loading={submitting} icon={<ArrowRight className="size-4" />} iconPlacement="end">
-                登录
+                {text("登录", "Sign in")}
             </Button>
             {linuxdoEnabled ? (
                 <>
                     <Divider plain className="auth-scene-divider">
-                        或
+                        {text("或", "or")}
                     </Divider>
                     <Button size="large" block icon={<LinuxDOIcon />} href={linuxDOLoginURL(next)}>
-                        使用 Linux.do 登录
+                        {text("使用 Linux.do 登录", "Sign in with Linux.do")}
                     </Button>
                 </>
             ) : null}
