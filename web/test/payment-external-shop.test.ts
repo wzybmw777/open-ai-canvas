@@ -1,4 +1,4 @@
-import { afterEach, expect, spyOn, test } from "bun:test";
+import { afterAll, afterEach, expect, spyOn, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { EmbeddedTopupShop } from "../src/components/layout/workspace-wallet-modal";
@@ -11,6 +11,11 @@ const put = spyOn(http, "put");
 afterEach(() => {
     get.mockReset();
     put.mockReset();
+});
+
+afterAll(() => {
+    get.mockRestore();
+    put.mockRestore();
 });
 
 test("external shop reads public status and persists admin configuration through payment API", async () => {
