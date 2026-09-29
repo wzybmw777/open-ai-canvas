@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { buildNodeGenerationContext } from "../src/components/canvas/canvas-node-generation";
 import { buildCanvasResourceReferences, getGenerationResourceNodes } from "../src/lib/canvas/canvas-resource-references";
+import { createStoryboardRow } from "../src/lib/canvas/canvas-project-domain";
 import { CanvasNodeType, type CanvasConnection, type CanvasNodeData } from "../src/types/canvas";
 
 function node(id: string, type: CanvasNodeType, content: string): CanvasNodeData {
@@ -33,6 +34,46 @@ function connection(fromNodeId: string): CanvasConnection {
 }
 
 describe("canvas node generation position mentions", () => {
+    test("分镜视频继承镜头绑定的图片，即使画布只有分镜到视频的连线", () => {
+        const target = targetNode();
+        target.metadata = { composerContent: "参考资产：@图片1 @图片2 @图片3\n院落中的父子近景" };
+        const script = node("storyboard", CanvasNodeType.Script, "");
+        script.metadata = {
+            storyboard: {
+                rows: [
+                    createStoryboardRow(1, { id: "row-1", assetBindings: [{ nodeId: "unrelated", role: "character", priority: 100 }] }),
+                    createStoryboardRow(2, {
+                        id: "row-2",
+                        videoNodeId: target.id,
+                        assetBindings: [
+                            { nodeId: "son", role: "character", priority: 100 },
+                            { nodeId: "father", role: "character", priority: 90 },
+                            { nodeId: "mother", role: "character", priority: 85 },
+                        ],
+                    }),
+                ],
+                visibleColumns: [],
+                referenceNodeIds: [],
+            },
+        };
+        const images = ["son", "father", "mother", "unrelated"].map((id) => node(id, CanvasNodeType.Image, `data:image/png;base64,${id}`));
+        const nodes = [script, target, ...images];
+        const connections: CanvasConnection[] = [{ id: "shot-video", fromNodeId: script.id, toNodeId: target.id, fromHandleId: "row:row-2" }];
+
+        expect(
+            buildCanvasResourceReferences(nodes, connections, target.id)
+                .filter((reference) => reference.active)
+                .map((reference) => [reference.nodeId, reference.label]),
+        ).toEqual([
+            ["son", "图片1"],
+            ["father", "图片2"],
+            ["mother", "图片3"],
+        ]);
+        const context = buildNodeGenerationContext(target.id, nodes, connections, target.metadata.composerContent!, [], true);
+        expect(context.referenceImages.map((image) => image.id)).toEqual(["son", "father", "mother"]);
+        expect(context.prompt).toContain("@图片1 @图片2 @图片3");
+    });
+
     test("父图无预览时仍可继承输入，显式子图输入优先且去重", () => {
         const a = node("a", CanvasNodeType.Image, "");
         a.metadata = { storageKey: "resource:a" };

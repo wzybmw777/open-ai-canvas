@@ -1,6 +1,7 @@
 import { imageReferenceLabel } from "@/lib/image-reference-prompt";
 import { canvasNodeVideoPreviewUrl, canvasVideoAssetPreviewUrl } from "@/lib/canvas/canvas-media-preview";
 import { writeCanvasNodePrompt } from "@/lib/canvas/canvas-node-prompt";
+import { storyboardRowReferenceNodeIds } from "@/lib/canvas/canvas-storyboard-reference-ids";
 import { getNodeResourceKind } from "@/lib/canvas/node-registry";
 import { seedanceReferenceLabel } from "@/lib/seedance-video";
 import type { Skill } from "@/services/api/skills";
@@ -414,6 +415,7 @@ export function buildCanvasNodeMentionReferenceMap(nodes: CanvasNodeData[], conn
 function buildCanvasResourceInputResolver(nodes: CanvasNodeData[], connections: CanvasConnection[]) {
     const nodeById = new Map(nodes.map((node) => [node.id, node]));
     const resourceInputsByTargetId = new Map<string, CanvasNodeData[]>();
+    const storyboardInputsByTargetId = new Map<string, CanvasNodeData[]>();
     const configTargetBySourceId = new Map<string, string>();
     for (const connection of connections) {
         const source = nodeById.get(connection.fromNodeId);
@@ -428,6 +430,23 @@ function buildCanvasResourceInputResolver(nodes: CanvasNodeData[], connections: 
             configTargetBySourceId.set(source.id, target.id);
         }
     }
+    for (const script of nodes) {
+        if (script.type !== CanvasNodeType.Script) continue;
+        for (const row of script.metadata?.storyboard?.rows || []) {
+            for (const { id, type } of [
+                { id: row.imageNodeId, type: CanvasNodeType.Image },
+                { id: row.videoNodeId, type: CanvasNodeType.Video },
+            ]) {
+                const target = id ? nodeById.get(id) : undefined;
+                if (!target || target.type !== type) continue;
+                const includeFirstFrame = target.type === CanvasNodeType.Video && target.metadata?.videoEditOperation === "image_to_video";
+                const references = storyboardRowReferenceNodeIds(script, row, nodes, connections, includeFirstFrame, target.id)
+                    .map((id) => nodeById.get(id))
+                    .filter((node): node is CanvasNodeData => Boolean(node && isResourceNode(node)));
+                storyboardInputsByTargetId.set(target.id, references);
+            }
+        }
+    }
 
     return function resolve(nodeId: string, includeSelf = false, visited = new Set<string>()): CanvasNodeData[] {
         if (visited.has(nodeId)) return [];
@@ -437,8 +456,9 @@ function buildCanvasResourceInputResolver(nodes: CanvasNodeData[], connections: 
         const configTargetId = configTargetBySourceId.get(nodeId);
         const configInputs = configTargetId ? (resourceInputsByTargetId.get(configTargetId) || []).filter((input) => input.id !== nodeId) : [];
         const ownInputs = (resourceInputsByTargetId.get(nodeId) || []).filter((input) => input.id !== nodeId);
+        const storyboardInputs = storyboardInputsByTargetId.get(nodeId) || [];
         if (configInputs.length) return uniqueCanvasNodes(configInputs);
-        if (ownInputs.length) return uniqueCanvasNodes(ownInputs);
+        if (storyboardInputs.length || ownInputs.length) return uniqueCanvasNodes([...storyboardInputs, ...ownInputs]);
         const batchRoot = node.metadata?.batchRootId ? nodeById.get(node.metadata.batchRootId) : undefined;
         if (batchRoot?.metadata?.isBatchRoot) return resolve(batchRoot.id, false, visited);
         return includeSelf && isResourceNode(node) ? [node] : [];
