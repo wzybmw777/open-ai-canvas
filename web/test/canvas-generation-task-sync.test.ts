@@ -24,20 +24,42 @@ describe("applyGeneratedMediaResultMetadata", () => {
     });
     test("clears the previous asset binding when a regenerated media result lands", () => {
         const node = videoNode("asset-old", "video:old");
-        const next = applyGeneratedMediaResultMetadata(node, videoMetadata({
-            url: "https://example.test/new.mp4",
-            storageKey: "video:new",
-            width: 1280,
-            height: 720,
-            bytes: 12,
-            mimeType: "video/mp4",
-            durationMs: 4000,
-        }), { prompt: "新提示词" });
+        const next = applyGeneratedMediaResultMetadata(
+            node,
+            videoMetadata({
+                url: "https://example.test/new.mp4",
+                storageKey: "video:new",
+                width: 1280,
+                height: 720,
+                bytes: 12,
+                mimeType: "video/mp4",
+                durationMs: 4000,
+            }),
+            { prompt: "新提示词" },
+        );
 
         expect(next.assetId).toBeUndefined();
         expect(next.storageKey).toBe("video:new");
         expect(next.content).toBe("https://example.test/new.mp4");
         expect(next.prompt).toBe("新提示词");
         expect(next.status).toBe("success");
+    });
+
+    test("restores a completed video from its durable resource without downloading the full file", async () => {
+        const node = { ...videoNode("", ""), metadata: { status: "error" as const, taskId: "task-video", errorDetails: "网络异常。" } };
+        const applied = await applyGenerationTaskResultToNodes([node], {
+            id: "task-video",
+            type: "canvas_video",
+            status: "succeeded",
+            prompt: "",
+            attempts: 1,
+            createdAt: "",
+            updatedAt: "",
+            resultJson: JSON.stringify({ mode: "video", video: { dataUrl: "/api/resources/resource-video/file", storageKey: "resource:resource-video", bytes: 50763831, mimeType: "video/mp4" } }),
+        });
+
+        expect(applied.updated).toBe(true);
+        expect(applied.node?.metadata).toMatchObject({ status: "success", content: "/api/resources/resource-video/file", storageKey: "resource:resource-video", bytes: 50763831 });
+        expect(applied.node?.metadata?.errorDetails).toBeUndefined();
     });
 });
