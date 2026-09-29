@@ -168,18 +168,25 @@ func TestMigrateSchemaAcceptsLocalV35HistoryAndAddsPhoneIndex(t *testing.T) {
 	}
 }
 
-func TestMigrateSchemaUpgradesBothV41Histories(t *testing.T) {
+func TestMigrateSchemaUpgradesV41AndV42Histories(t *testing.T) {
 	for _, tt := range []struct {
 		name              string
 		v41Name           string
 		v41Checksum       string
 		v42Name           string
 		v42Checksum       string
+		v42Missing        bool
+		v43Name           string
+		v43Checksum       string
 		dropPhoneIndex    bool
 		dropThumbnailData bool
+		dropPiSessions    bool
 	}{
-		{name: "local phone index", v41Name: "auth_phone_unique_index", v41Checksum: authPhoneUniqueIndexChecksum, v42Name: "resource_thumbnail", v42Checksum: resourceThumbnailV42Checksum, dropThumbnailData: true},
-		{name: "upstream thumbnail", v41Name: "resource_thumbnail", v41Checksum: resourceThumbnailChecksum, v42Name: "auth_phone_unique_index", v42Checksum: authPhoneUniqueIndexV42Checksum, dropPhoneIndex: true},
+		{name: "local phone index", v41Name: "auth_phone_unique_index", v41Checksum: authPhoneUniqueIndexChecksum, v42Name: "resource_thumbnail", v42Checksum: resourceThumbnailV42Checksum, v43Name: "cloud_agent_pi_sessions", v43Checksum: cloudAgentPiSessionsV43Checksum, dropPiSessions: true},
+		{name: "local phone index at v41", v41Name: "auth_phone_unique_index", v41Checksum: authPhoneUniqueIndexChecksum, v42Name: "resource_thumbnail", v42Checksum: resourceThumbnailV42Checksum, v42Missing: true, v43Name: "cloud_agent_pi_sessions", v43Checksum: cloudAgentPiSessionsV43Checksum, dropThumbnailData: true, dropPiSessions: true},
+		{name: "upstream pi sessions", v41Name: "resource_thumbnail", v41Checksum: resourceThumbnailChecksum, v42Name: "cloud_agent_pi_sessions", v42Checksum: cloudAgentPiSessionsV42Checksum, v43Name: "auth_phone_unique_index", v43Checksum: authPhoneUniqueIndexV43Checksum, dropPhoneIndex: true},
+		{name: "upstream thumbnail at v41", v41Name: "resource_thumbnail", v41Checksum: resourceThumbnailChecksum, v42Name: "cloud_agent_pi_sessions", v42Checksum: cloudAgentPiSessionsV42Checksum, v42Missing: true, v43Name: "auth_phone_unique_index", v43Checksum: authPhoneUniqueIndexV43Checksum, dropPhoneIndex: true, dropPiSessions: true},
+		{name: "previous merged phone index", v41Name: "resource_thumbnail", v41Checksum: resourceThumbnailChecksum, v42Name: "auth_phone_unique_index", v42Checksum: authPhoneUniqueIndexV42Checksum, v43Name: "cloud_agent_pi_sessions", v43Checksum: cloudAgentPiSessionsV43Checksum, dropPiSessions: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			db, err := Open(Config{Driver: "sqlite", DSN: "file:" + t.Name() + "?mode=memory&cache=shared"})
@@ -189,11 +196,20 @@ func TestMigrateSchemaUpgradesBothV41Histories(t *testing.T) {
 			if err := MigrateSchema(db); err != nil {
 				t.Fatal(err)
 			}
-			if err := db.Where("version = ?", 42).Delete(&schemaMigration{}).Error; err != nil {
+			if err := db.Where("version = ?", 43).Delete(&schemaMigration{}).Error; err != nil {
 				t.Fatal(err)
 			}
 			if err := db.Model(&schemaMigration{}).Where("version = ?", 41).Updates(map[string]any{"name": tt.v41Name, "checksum": tt.v41Checksum}).Error; err != nil {
 				t.Fatal(err)
+			}
+			if tt.v42Missing {
+				if err := db.Where("version = ?", 42).Delete(&schemaMigration{}).Error; err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if err := db.Model(&schemaMigration{}).Where("version = ?", 42).Updates(map[string]any{"name": tt.v42Name, "checksum": tt.v42Checksum}).Error; err != nil {
+					t.Fatal(err)
+				}
 			}
 			if tt.dropPhoneIndex {
 				if err := db.Exec("DROP INDEX IF EXISTS idx_users_phone_nonempty").Error; err != nil {
@@ -207,6 +223,11 @@ func TestMigrateSchemaUpgradesBothV41Histories(t *testing.T) {
 					}
 				}
 			}
+			if tt.dropPiSessions {
+				if err := db.Migrator().DropTable(&model.CloudAgentPiSession{}); err != nil {
+					t.Fatal(err)
+				}
+			}
 			for range 2 {
 				if err := MigrateSchema(db); err != nil {
 					t.Fatal(err)
@@ -216,10 +237,10 @@ func TestMigrateSchemaUpgradesBothV41Histories(t *testing.T) {
 			if err != nil || !status.Ready || status.Current != CurrentSchemaVersion {
 				t.Fatalf("unexpected schema status: %#v, %v", status, err)
 			}
-			if !db.Migrator().HasIndex(&model.User{}, "idx_users_phone_nonempty") || !db.Migrator().HasColumn(&model.Resource{}, "thumbnail_status") {
-				t.Fatal("merged migrations did not preserve both schema changes")
+			if !db.Migrator().HasIndex(&model.User{}, "idx_users_phone_nonempty") || !db.Migrator().HasColumn(&model.Resource{}, "thumbnail_status") || !db.Migrator().HasTable(&model.CloudAgentPiSession{}) {
+				t.Fatal("merged migrations did not preserve all schema changes")
 			}
-			for _, expected := range []schemaMigration{{Version: 41, Name: tt.v41Name, Checksum: tt.v41Checksum}, {Version: 42, Name: tt.v42Name, Checksum: tt.v42Checksum}} {
+			for _, expected := range []schemaMigration{{Version: 41, Name: tt.v41Name, Checksum: tt.v41Checksum}, {Version: 42, Name: tt.v42Name, Checksum: tt.v42Checksum}, {Version: 43, Name: tt.v43Name, Checksum: tt.v43Checksum}} {
 				var applied schemaMigration
 				if err := db.First(&applied, "version = ?", expected.Version).Error; err != nil {
 					t.Fatal(err)

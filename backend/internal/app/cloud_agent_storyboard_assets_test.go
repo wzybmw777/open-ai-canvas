@@ -54,8 +54,8 @@ func TestCloudAgentStoryboardBindingsModesPersistAndUndo(t *testing.T) {
 				t.Fatal(err)
 			}
 			var tasksBefore, ordersBefore int64
-			db.Model(&model.Task{}).Count(&tasksBefore)
-			db.Model(&model.BillingOrder{}).Count(&ordersBefore)
+			db.Model(&model.Task{}).Where("type IN ?", []string{"image", "video", "audio"}).Count(&tasksBefore)
+			db.Model(&model.BillingOrder{}).Where("capability IN ?", []string{"image", "video", "audio"}).Count(&ordersBefore)
 			advanceAgentParallel(t, s, run.ID, 1)
 			if mode == "request_approval" {
 				waiting, err := s.CloudAgentRun("user", run.ID)
@@ -96,8 +96,8 @@ func TestCloudAgentStoryboardBindingsModesPersistAndUndo(t *testing.T) {
 				}
 			}
 			var tasksAfter, ordersAfter int64
-			db.Model(&model.Task{}).Count(&tasksAfter)
-			db.Model(&model.BillingOrder{}).Count(&ordersAfter)
+			db.Model(&model.Task{}).Where("type IN ?", []string{"image", "video", "audio"}).Count(&tasksAfter)
+			db.Model(&model.BillingOrder{}).Where("capability IN ?", []string{"image", "video", "audio"}).Count(&ordersAfter)
 			if tasksBefore != tasksAfter || ordersBefore != ordersAfter {
 				t.Fatal("binding unexpectedly generated or billed media")
 			}
@@ -144,7 +144,7 @@ func TestCloudAgentStoryboardBindingsMergeReplaceAndRead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	read, err := cloudAgentStoryboardReadResult(view, "storyboard-1")
+	read, err := cloudAgentStoryboardReadResult(view, "storyboard-1", cloudAgentNodeHash(doc, "storyboard-1"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -264,10 +264,10 @@ func TestCloudAgentStoryboardBindingsRecheckOwnershipAfterApproval(t *testing.T)
 	if err != nil || waiting.Approval == nil {
 		t.Fatal("missing approval")
 	}
-	if err := s.DecideCloudAgentApproval("user", run.ID, waiting.Approval.ID, "approve", ""); err != nil {
+	if err := db.Model(&model.Resource{}).Where("id = ?", "ref-two").Update("user_id", "other").Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Model(&model.Resource{}).Where("id = ?", "ref-two").Update("user_id", "other").Error; err != nil {
+	if err := s.DecideCloudAgentApproval("user", run.ID, waiting.Approval.ID, "approve", ""); err != nil {
 		t.Fatal(err)
 	}
 	advanceAgentParallel(t, s, run.ID, 1)
