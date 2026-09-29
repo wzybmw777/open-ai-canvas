@@ -76,9 +76,7 @@ export function contextPressureRatio(reading: Record<string, unknown> | null): n
     if (!reading || reading.modelLimitConfigured !== true) return undefined;
     const contextWindow = finiteContextNumber(reading.contextWindowTokens);
     if (!contextWindow || contextWindow <= 0) return undefined;
-    const ratio = reading.tokenSource === "provider"
-        ? finiteContextNumber(reading.projectedPressureRatio)
-        : finiteContextNumber(reading.pressureRatio);
+    const ratio = reading.tokenSource === "provider" ? finiteContextNumber(reading.projectedPressureRatio) : finiteContextNumber(reading.pressureRatio);
     return ratio;
 }
 
@@ -175,7 +173,13 @@ export function presentAgentContextUsage(usage: AgentContextUsage): AgentContext
     const percent = Math.round(ratio * 100);
     const source = estimate ? "本地估算" : "模型实测校准";
     if (ratio >= line) {
-        return { ...base, phase: "compress", ring, label: `${percent}%`, detail: `已到压缩线（模型窗口的 ${Math.round(line * 100)}%）。下一次调用前会暂停，把历史收成检查点后再继续。当前 ${formatContextTokens(inputTokens)} / ${formatContextTokens(usableTokens)}（${source}）。` };
+        return {
+            ...base,
+            phase: "compress",
+            ring,
+            label: `${percent}%`,
+            detail: `已到压缩线（模型窗口的 ${Math.round(line * 100)}%）。下一次调用前会暂停，把历史收成检查点后再继续。当前 ${formatContextTokens(inputTokens)} / ${formatContextTokens(usableTokens)}（${source}）。`,
+        };
     }
     if (ring >= 0.72) {
         return { ...base, phase: "watch", ring, label: `${percent}%`, detail: `接近压缩。当前 ${formatContextTokens(inputTokens)} / ${formatContextTokens(usableTokens)}（${source}），到 ${formatContextTokens(compactAtTokens)} 时开始压缩。` };
