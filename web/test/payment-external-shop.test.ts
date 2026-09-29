@@ -33,7 +33,7 @@ test("external shop reads public status and persists admin configuration through
 
 test("storefront renders inside the wallet without a top-level redirect", () => {
     const html = renderToStaticMarkup(createElement(EmbeddedTopupShop, { url: "https://wzyp.cn/shop/69G55K8Q" }));
-    expect(html).toContain('<iframe title="链动小铺" src="https://wzyp.cn/shop/69G55K8Q"');
+    expect(html).toContain('<iframe title="Store" src="https://wzyp.cn/shop/69G55K8Q"');
     expect(html).toContain('sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"');
     expect(html).toContain('referrerPolicy="no-referrer"');
     expect(html).not.toContain('target="_blank"');

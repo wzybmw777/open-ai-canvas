@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/ui/product/empty-state";
 import { Link } from "react-router";
 
 import { formatShotOrdinal } from "@/lib/shot-label";
+import { localizedErrorMessage, useLocaleText } from "@/lib/i18n";
 import { saveProjectShot, type ProjectDetail } from "@/services/api/projects";
 
 import { AssetsStage, DeliveryStage, StoryStage } from "./workflow-stage-views";
@@ -21,6 +22,7 @@ type Props = {
 };
 
 export default function ProjectWorkflowView({ detail, projectId, unitId, stage }: Props) {
+    const { locale, text } = useLocaleText();
     const queryClient = useQueryClient();
     const { message } = App.useApp();
     const orderedUnits = useMemo(() => detail.units.slice().sort((left, right) => left.position - right.position), [detail.units]);
@@ -48,26 +50,26 @@ export default function ProjectWorkflowView({ detail, projectId, unitId, stage }
     };
     const addShot = useMutation({
         mutationFn: () => {
-            if (!unit) throw new Error("请先添加章节");
+            if (!unit) throw new Error(text("请先添加章节", "Add a chapter first"));
             return saveProjectShot(projectId, {
                 unitId: unit.id,
                 title: formatShotOrdinal(shots.length),
-                description: "待补充分镜画面",
+                description: text("待补充分镜画面", "Shot description pending"),
                 position: shots.length,
                 durationMs: 3000,
-                revision: { plotDescription: "待补充分镜画面", durationMs: 3000 },
+                revision: { plotDescription: text("待补充分镜画面", "Shot description pending"), durationMs: 3000 },
             });
         },
         onSuccess: async ({ shot }) => {
             setSelectedShotId(shot.id);
             sessionStorage.setItem(`project-workflow-selected-shot:${projectId}`, shot.id);
             await refresh();
-            message.success("已新增分镜");
+            message.success(text("已新增分镜", "Shot added"));
         },
-        onError: (error) => message.error(error instanceof Error ? error.message : "新增分镜失败"),
+        onError: (error) => message.error(localizedErrorMessage(error, "新增分镜失败", "Could not add shot", locale)),
     });
     if (!unit) {
-        return <div className="grid h-full place-items-center"><EmptyState title="先添加一个章节，再进入分镜制作" action={<Link to={`/projects/${projectId}/chapters`}><Button type="primary">添加章节</Button></Link>} /></div>;
+        return <div className="grid h-full place-items-center"><EmptyState title={text("先添加一个章节，再进入分镜制作", "Add a chapter before starting storyboard production")} action={<Link to={`/projects/${projectId}/chapters`}><Button type="primary">{text("添加章节", "Add chapter")}</Button></Link>} /></div>;
     }
 
     return (
@@ -75,7 +77,7 @@ export default function ProjectWorkflowView({ detail, projectId, unitId, stage }
             <main className={`workflow-stage-content ${productionStage ? "is-production" : ""}`}>
                 {activeStage === "story" ? <div className="workflow-overview-scroll thin-scrollbar"><StoryStage detail={detail} projectId={projectId} unitId={unit.id} /></div> : null}
                 {activeStage === "assets" ? <div className="workflow-overview-scroll thin-scrollbar"><AssetsStage detail={detail} projectId={projectId} unitId={unit.id} /></div> : null}
-                {productionStage ? <Suspense fallback={<div className="workflow-workbench-loading">正在准备分镜工作台…</div>}><WorkflowProductionWorkbench activeStage={activeStage} detail={detail} projectId={projectId} unitId={unit.id} workflowStep={activeStep} selectedShot={selectedShot} onSelectShot={setSelectedShotId} onRefresh={refresh} onAddShot={() => addShot.mutate()} addingShot={addShot.isPending} /></Suspense> : null}
+                {productionStage ? <Suspense fallback={<div className="workflow-workbench-loading">{text("正在准备分镜工作台…", "Preparing storyboard workspace...")}</div>}><WorkflowProductionWorkbench activeStage={activeStage} detail={detail} projectId={projectId} unitId={unit.id} workflowStep={activeStep} selectedShot={selectedShot} onSelectShot={setSelectedShotId} onRefresh={refresh} onAddShot={() => addShot.mutate()} addingShot={addShot.isPending} /></Suspense> : null}
                 {activeStage === "delivery" ? <div className="workflow-overview-scroll thin-scrollbar"><DeliveryStage detail={detail} unitId={unit.id} /></div> : null}
             </main>
         </div>

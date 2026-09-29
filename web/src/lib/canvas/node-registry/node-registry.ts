@@ -1,5 +1,6 @@
 import type { CanvasNodeData, CanvasNodeTypeId } from "@/types/canvas";
 import type { PluginCanvasNodeContribution } from "@/lib/plugins/plugin-types";
+import type { AppLocale } from "@/lib/i18n";
 
 import { canvasNodeDefinitionFromPlugin, type CanvasNodeDefinition } from "./node-definition";
 
@@ -65,11 +66,19 @@ export function getNodeLabel(type: CanvasNodeTypeId) {
 }
 
 /** 列表/搜索标签，缺省派生自 label */
-export function getNodeListLabel(type: CanvasNodeTypeId) {
+export function getNodeListLabel(type: CanvasNodeTypeId, locale: AppLocale = "zh-CN") {
     const def = definitions.get(type);
-    if (!def) return "未知节点";
+    if (!def) return locale === "en-US" ? "Unknown node" : "未知节点";
+    if (locale === "en-US" && englishNodeListLabels[type]) return englishNodeListLabels[type];
     return def.listLabel || `${def.label}节点`;
 }
+
+const englishNodeListLabels: Record<string, string> = {
+    image: "Image node", text: "Text node", drawing: "Drawing node", script: "Storyboard script node", skill: "Skill node",
+    config: "Generation settings node", video: "Video node", audio: "Audio node", frame: "Frame node", markdown: "Markdown node",
+    svg: "SVG node", html: "HTML node", panorama: "Panorama node", compare: "Comparison node", chart: "Chart node",
+    "batch-table": "Batch creation node", "media-conversion": "Media conversion node", colorgrade: "Color grading node",
+};
 
 export function getNodeIcon(type: CanvasNodeTypeId) {
     return definitions.get(type)?.icon ?? null;

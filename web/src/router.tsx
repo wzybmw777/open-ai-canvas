@@ -7,6 +7,7 @@ import { loadAssetsPage, loadCanvasPage, loadCanvasProjectPage, loadCreatePage, 
 import { CanvasRefreshShell } from "@/pages/canvas/canvas-refresh-shell";
 import { AuthScene } from "@/pages/auth/auth-scene";
 import RouteErrorPage from "@/pages/route-error";
+import { useLocaleText } from "@/lib/i18n";
 
 const AdminPage = lazy(() => import("@/pages/admin"));
 const AnalyticsPage = lazy(() => import("@/pages/admin/admin-route-pages").then((module) => ({ default: module.AnalyticsPage })));
@@ -60,13 +61,20 @@ function deferred(element: ReactNode) {
 }
 
 function fullScreenDeferred(element: ReactNode) {
-    return <Suspense fallback={<FullScreenLoader label="正在打开创作空间" detail="准备当前页面" />}>{element}</Suspense>;
+    return <Suspense fallback={<WorkspaceOpeningLoader />}>{element}</Suspense>;
+}
+
+function WorkspaceOpeningLoader() {
+    const { pathname } = useLocation();
+    const { text } = useLocaleText();
+    const adminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
+    return <FullScreenLoader label={adminRoute ? "正在打开创作空间" : text("正在打开创作空间", "Opening workspace")} detail={adminRoute ? "准备当前页面" : text("准备当前页面", "Preparing page")} />;
 }
 
 function AuthenticatedWorkspaceLayout() {
     const { pathname } = useLocation();
     const isCanvasProjectRoute = pathname.startsWith("/canvas/");
-    const fallback = isCanvasProjectRoute ? <CanvasRefreshShell /> : <FullScreenLoader label="正在打开创作空间" detail="准备当前页面" />;
+    const fallback = isCanvasProjectRoute ? <CanvasRefreshShell /> : <WorkspaceOpeningLoader />;
     return <RequireAuth><Suspense fallback={fallback}><UserLayout><Outlet /></UserLayout></Suspense></RequireAuth>;
 }
 

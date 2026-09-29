@@ -23,6 +23,7 @@ import { useUserStore } from "@/stores/use-user-store";
 import { PluginDetailsModal } from "./plugin-documentation-modals";
 import "./plugins.css";
 import { Select } from "@/components/ui/base/select";
+import { localeText, localizedErrorMessage, useLocaleText, type AppLocale } from "@/lib/i18n";
 
 const categoryLabels: Record<string, string> = {
     provider: "模型渠道",
@@ -36,6 +37,10 @@ const categoryLabels: Record<string, string> = {
     agent: "智能体",
     "import-export": "导入导出",
 };
+const englishCategoryLabels: Record<string, string> = {
+    provider: "Model provider", "payment-provider": "Payment provider", "canvas-node": "Canvas node", workflow: "Workflow",
+    transform: "Media transform", "asset-source": "Asset source", "ai-capability": "AI capability", "usage-observer": "Usage tracking", agent: "Agent", "import-export": "Import/export",
+};
 
 const surfaceLabels: Record<string, string> = {
     node: "画布节点",
@@ -43,6 +48,7 @@ const surfaceLabels: Record<string, string> = {
     hybrid: "混合接入",
     "asset-source": "素材库",
 };
+const englishSurfaceLabels: Record<string, string> = { node: "Canvas node", fullscreen: "Full-screen workspace", hybrid: "Hybrid", "asset-source": "Asset library" };
 
 const permissionLabels: Record<string, string> = {
     "canvas.read": "读取画布",
@@ -56,8 +62,10 @@ const permissionLabels: Record<string, string> = {
     "media.read": "读取输入媒体",
     "external.open": "打开外部详情",
 };
-
-const pluginDateFormatter = new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "short", day: "numeric" });
+const englishPermissionLabels: Record<string, string> = {
+    "canvas.read": "Read canvas", "canvas.write": "Edit canvas", "asset.read": "Read assets", "asset.search": "Search assets", "asset.import": "Import assets",
+    "asset.upload": "Upload assets", "generation.run": "Run generation", "ai.text": "Use configured text/vision models", "media.read": "Read input media", "external.open": "Open external details",
+};
 
 const protocolSectionMeta = [
     { key: "text", label: "文本协议", description: "对话、推理与流式响应", icon: MessageSquareText },
@@ -68,6 +76,7 @@ const protocolSectionMeta = [
 ] as const;
 
 export default function PluginsPage() {
+    const { locale, text } = useLocaleText();
     const { message } = App.useApp();
     const navigate = useNavigate();
     const brandName = useAppearanceStore((state) => state.appearance.brandName);
@@ -108,7 +117,7 @@ export default function PluginsPage() {
             setBackendPlugins(result.plugins);
             setPluginStates(result.states);
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "读取插件中心失败");
+            message.error(localizedErrorMessage(error, "读取插件中心失败", "Could not load plugins", locale));
             setBackendPlugins([]);
         } finally {
             setBackendPluginsLoading(false);
@@ -206,9 +215,9 @@ export default function PluginsPage() {
             if (next.pluginId === RUNNINGHUB_PLUGIN_ID) {
                 setRuntimeStatuses({ ...usePluginStore.getState().runtimeStatuses, [next.pluginId]: next.effectiveEnabled ? "enabled" : "disabled" });
             }
-            message.success(`${plugin.manifest.name}${enabled ? "已启用" : "已停用"}`);
+            message.success(locale === "en-US" ? `${plugin.manifest.name} ${enabled ? "enabled" : "disabled"}` : `${plugin.manifest.name}${enabled ? "已启用" : "已停用"}`);
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "更新插件状态失败");
+            message.error(localizedErrorMessage(error, "更新插件状态失败", "Could not update plugin status", locale));
         }
     };
 
@@ -219,7 +228,7 @@ export default function PluginsPage() {
             const result = await getEagleLibrary(url.trim().replace(/\/$/, ""));
             setEagleFolders(result.library.folders || []);
         } catch (reason) {
-            setEagleFoldersError(reason instanceof Error ? reason.message : "读取 Eagle 文件夹失败");
+            setEagleFoldersError(localizedErrorMessage(reason, "读取 Eagle 文件夹失败", "Could not load Eagle folders", locale));
             setEagleFolders([]);
         } finally {
             setEagleFoldersLoading(false);
@@ -229,26 +238,26 @@ export default function PluginsPage() {
     const saveEagleConfig = () => {
         const baseUrl = eagleBaseUrl.trim().replace(/\/$/, "");
         if (!/^https?:\/\//i.test(baseUrl)) {
-            message.error("Eagle 地址必须以 http:// 或 https:// 开头");
+            message.error(text("Eagle 地址必须以 http:// 或 https:// 开头", "Eagle URL must start with http:// or https://"));
             return;
         }
         updateConfig(EAGLE_PLUGIN_ID, { baseUrl, autoUploadGenerated: eagleAutoUploadGenerated, generatedFolderId: eagleGeneratedFolderId });
-        message.success("Eagle 插件配置已保存");
+        message.success(text("Eagle 插件配置已保存", "Eagle settings saved"));
     };
 
     return (
         <main className="app-workspace-page plugins-page flex h-full min-h-0 flex-col text-foreground">
             <div ref={scrollContainerRef} className="app-workspace-scroll min-h-0 flex-1 overflow-y-auto">
                 <div className="plugins-page-layout">
-                    <aside className="plugins-sidebar" aria-label="插件分类">
+                    <aside className="plugins-sidebar" aria-label={text("插件分类", "Plugin categories")}>
                         <div className="plugins-sidebar-heading">
-                            <PageHeader title="插件中心" description="连接模型、素材与工作流，拓展你的创作工具。" />
+                            <PageHeader title={text("插件中心", "Plugin center")} description={text("连接模型、素材与工作流，拓展你的创作工具。", "Connect models, assets, and workflows to your creative tools.")} />
                         </div>
                         <nav className="plugins-sidebar-nav">
                             <button type="button" className={`plugins-sidebar-item${categoryFilter === "all" ? " is-active" : ""}`} aria-current={categoryFilter === "all" ? "page" : undefined} onClick={() => selectCategory("all")}>
                                 <span className="plugins-sidebar-item-label">
                                     <PlugZap className="size-4" />
-                                    全部插件
+                                    {text("全部插件", "All plugins")}
                                 </span>
                                 <span>{categoryCounts.all}</span>
                             </button>
@@ -264,7 +273,7 @@ export default function PluginsPage() {
                                     >
                                         <span className="plugins-sidebar-item-label">
                                             <SectionIcon className="size-4" />
-                                            {section.label}
+                                            {locale === "en-US" ? ({ text: "Text protocol", image: "Image protocol", video: "Video protocol", audio: "Audio protocol", payment: "Payment protocol" } as Record<string, string>)[section.key] : section.label}
                                         </span>
                                         <span>{categoryCounts[section.key] || 0}</span>
                                     </button>
@@ -273,20 +282,20 @@ export default function PluginsPage() {
                             <button type="button" className={`plugins-sidebar-item${categoryFilter === "other" ? " is-active" : ""}`} aria-current={categoryFilter === "other" ? "page" : undefined} onClick={() => selectCategory("other")}>
                                 <span className="plugins-sidebar-item-label">
                                     <PlugZap className="size-4" />
-                                    应用插件
+                                    {text("应用插件", "Applications")}
                                 </span>
                                 <span>{categoryCounts.other}</span>
                             </button>
                         </nav>
                     </aside>
                     <div className="plugins-page-content">
-                        <CollectionToolbar label="插件筛选" trailing={<div className="plugins-toolbar-actions">
+                        <CollectionToolbar label={text("插件筛选", "Plugin filters")} trailing={<div className="plugins-toolbar-actions">
                                 <Button icon={<RefreshCw className="size-4" />} loading={backendPluginsLoading} onClick={() => void reloadBackendPlugins()}>
-                                    刷新插件
+                                    {text("刷新插件", "Refresh plugins")}
                                 </Button>
                                 {user?.role === "admin" ? (
                                     <Button type="primary" onClick={() => navigate("/admin/plugins")}>
-                                        管理员插件管理
+                                        {text("管理员插件管理", "Manage plugins")}
                                     </Button>
                                 ) : null}
                             </div>}>
@@ -295,29 +304,29 @@ export default function PluginsPage() {
                                 prefix={<Search className="size-4 text-foreground/38" aria-hidden="true" />}
                                 value={search}
                                 allowClear
-                                placeholder="搜索插件名称、描述或作者"
+                                placeholder={text("搜索插件名称、描述或作者", "Search plugins, descriptions, or authors")}
                                 onChange={(event) => setSearch(event.target.value)}
                             />
                             <Select
                                 className="plugins-filter"
                                 value={statusFilter}
                                 options={[
-                                    { value: "all", label: "全部状态" },
-                                    { value: "enabled", label: "已启用" },
-                                    { value: "disabled", label: "已停用" },
+                                    { value: "all", label: text("全部状态", "All statuses") },
+                                    { value: "enabled", label: text("已启用", "Enabled") },
+                                    { value: "disabled", label: text("已停用", "Disabled") },
                                 ]}
                                 onChange={(value) => setStatusFilter(value as "all" | "enabled" | "disabled")}
-                                aria-label="按状态筛选"
+                                aria-label={text("按状态筛选", "Filter by status")}
                             />
                             <Select
                                 className="plugins-filter"
                                 value={trustFilter}
                                 options={[
-                                    { value: "all", label: "全部来源" },
-                                    { value: "trusted", label: "可信插件" },
+                                    { value: "all", label: text("全部来源", "All sources") },
+                                    { value: "trusted", label: text("可信插件", "Trusted plugins") },
                                 ]}
                                 onChange={(value) => setTrustFilter(value as "all" | "trusted")}
-                                aria-label="按来源筛选"
+                                aria-label={text("按来源筛选", "Filter by source")}
                             />
                         </CollectionToolbar>
 
@@ -337,8 +346,8 @@ export default function PluginsPage() {
                                                     <SectionIcon className="size-4" />
                                                 </span>
                                                 <div>
-                                                    <h2>{section.label}</h2>
-                                                    <p>{section.description}</p>
+                                                    <h2>{section.key === "other" ? text("应用插件", "Applications") : locale === "en-US" ? ({ text: "Text protocol", image: "Image protocol", video: "Video protocol", audio: "Audio protocol", payment: "Payment protocol" } as Record<string, string>)[section.key] : section.label}</h2>
+                                                    <p>{locale === "en-US" ? ({ text: "Chat, reasoning, and streaming", image: "Generation, editing, and references", video: "Tasks, polling, and media results", audio: "Speech and asynchronous audio", payment: "Payment, orders, and reconciliation", other: "Canvas, asset, and workflow extensions" } as Record<string, string>)[section.key] : section.description}</p>
                                                 </div>
                                                 <span className="plugin-section-count">{section.plugins.length}</span>
                                             </header>
@@ -350,14 +359,14 @@ export default function PluginsPage() {
                                                         const enabled = isPluginEnabled(plugin, installation);
                                                         const trusted = Boolean(plugin.manifest.trusted);
                                                         const state = pluginStates[plugin.manifest.id];
-                                                        const sourceLabel = pluginSourceLabel(plugin, state);
+                                                        const sourceLabel = pluginSourceLabel(plugin, state, locale);
                                                         const canConfigure = canConfigurePlugin(plugin);
                                                         return (
                                                             <section key={plugin.manifest.id} className={`product-collection-card plugin-card library-card-surface${trusted ? " is-trusted" : ""}`}>
                                                                 <button
                                                                     type="button"
                                                                     className="plugin-card-main"
-                                                                    aria-label={`查看${plugin.manifest.name}文档`}
+                                                                    aria-label={locale === "en-US" ? `View ${plugin.manifest.name} documentation` : `查看${plugin.manifest.name}文档`}
                                                                     onClick={(event) => {
                                                                         const openedByKeyboard = event.detail === 0;
                                                                         setDetailsRestoreFocus(openedByKeyboard);
@@ -375,16 +384,16 @@ export default function PluginsPage() {
                                                                                 <span className="plugin-version">v{plugin.manifest.version}</span>
                                                                             </div>
                                                                             <div className="plugin-card-labels">
-                                                                                <span className={`plugin-source-label${sourceLabel === "系统插件" ? " is-system" : ""}`}>{sourceLabel}</span>
+                                                                                <span className={`plugin-source-label${sourceLabel === text("系统插件", "System plugin") ? " is-system" : ""}`}>{sourceLabel}</span>
                                                                                 {trusted ? (
                                                                                     <span className="plugin-trust-label">
                                                                                         <ShieldCheck className="size-3.5" />
-                                                                                        可信插件
+                                                                                        {text("可信插件", "Trusted plugin")}
                                                                                     </span>
                                                                                 ) : null}
                                                                                 <span className="plugin-category-label">
                                                                                     {contributionKindsFor(plugin.manifest)
-                                                                                        .map((kind) => categoryLabels[kind] ?? kind)
+                                                                                        .map((kind) => (locale === "en-US" ? englishCategoryLabels : categoryLabels)[kind] ?? kind)
                                                                                         .join(" · ")}
                                                                                 </span>
                                                                             </div>
@@ -396,37 +405,37 @@ export default function PluginsPage() {
                                                                     <div className="plugin-card-meta">
                                                                         <span>
                                                                             <CalendarDays className="size-3.5" />
-                                                                            发布 {formatPluginDate(plugin.manifest.publishedAt)}
+                                                                            {text("发布", "Published")} {formatPluginDate(plugin.manifest.publishedAt, locale)}
                                                                         </span>
                                                                         <span>
                                                                             <Clock3 className="size-3.5" />
-                                                                            更新 {formatPluginDate(plugin.manifest.updatedAt)}
+                                                                            {text("更新", "Updated")} {formatPluginDate(plugin.manifest.updatedAt, locale)}
                                                                         </span>
                                                                     </div>
 
                                                                     <div className="plugin-card-tags">
                                                                         {(plugin.manifest.surfaces || []).map((surface) => (
-                                                                            <span key={surface}>{surfaceLabels[surface] ?? surface}</span>
+                                                                            <span key={surface}>{(locale === "en-US" ? englishSurfaceLabels : surfaceLabels)[surface] ?? surface}</span>
                                                                         ))}
                                                                         {providerCapabilitiesFor(plugin.manifest).map((capability) => (
-                                                                            <span key={capability}>{capabilityLabel(capability)}</span>
+                                                                            <span key={capability}>{capabilityLabel(capability, locale)}</span>
                                                                         ))}
-                                                                        {plugin.manifest.contributes.providers?.some((provider) => provider.poll) ? <span>异步轮询</span> : null}
-                                                                        <span>{plugin.manifest.permissions.length} 项能力</span>
+                                                                        {plugin.manifest.contributes.providers?.some((provider) => provider.poll) ? <span>{text("异步轮询", "Async polling")}</span> : null}
+                                                                        <span>{plugin.manifest.permissions.length} {text("项能力", "permissions")}</span>
                                                                     </div>
                                                                 </button>
 
                                                                 <div className="plugin-card-actions">
                                                                     <span role="status" className={`settings-channel-status ${enabled ? "is-ready" : ""}`}>
                                                                         <i aria-hidden="true" />
-                                                                        {!state?.platformAvailable && state?.blockedReason ? state.blockedReason : enabled ? "已启用" : "已停用"}
+                                                                        {!state?.platformAvailable && state?.blockedReason ? locale === "en-US" && /[\u3400-\u9fff]/.test(state.blockedReason) ? "Unavailable on this platform" : state.blockedReason : enabled ? text("已启用", "Enabled") : text("已停用", "Disabled")}
                                                                     </span>
                                                                     <Switch
                                                                         className="plugin-state-switch"
                                                                         disabled={!state?.canToggle}
                                                                         checked={enabled}
-                                                                        aria-label={`${plugin.manifest.name}，当前${enabled ? "已启用，点击停用" : "已停用，点击启用"}`}
-                                                                        title={state?.blockedReason}
+                                                                        aria-label={locale === "en-US" ? `${plugin.manifest.name}, currently ${enabled ? "enabled. Click to disable" : "disabled. Click to enable"}` : `${plugin.manifest.name}，当前${enabled ? "已启用，点击停用" : "已停用，点击启用"}`}
+                                                                        title={state?.blockedReason && locale === "en-US" && /[\u3400-\u9fff]/.test(state.blockedReason) ? "Unavailable on this platform" : state?.blockedReason}
                                                                         onChange={(checked) => void togglePlugin(plugin, checked)}
                                                                     />
                                                                     {canConfigure ? (
@@ -437,7 +446,7 @@ export default function PluginsPage() {
                                                                             aria-haspopup="dialog"
                                                                             onClick={() => setSettingsPluginId(plugin.manifest.id)}
                                                                         >
-                                                                            设置
+                                                                            {text("设置", "Settings")}
                                                                         </Button>
                                                                     ) : null}
                                                                 </div>
@@ -453,7 +462,7 @@ export default function PluginsPage() {
                                                 </div>
                                             ) : (
                                                 <div className="plugin-section-empty-hint">
-                                                    <span>暂无该类型的插件</span>
+                                                    <span>{text("暂无该类型的插件", "No plugins in this category")}</span>
                                                 </div>
                                             )}
                                         </section>
@@ -464,8 +473,8 @@ export default function PluginsPage() {
                             <EmptyState
                                 className="min-h-[260px] rounded-[var(--plugins-card-radius)] bg-foreground/[0.03]"
                                 icon={SlidersHorizontal}
-                                title="没有匹配的插件"
-                                description="试试清空搜索词，或放宽筛选条件。"
+                                title={text("没有匹配的插件", "No matching plugins")}
+                                description={text("试试清空搜索词，或放宽筛选条件。", "Clear your search or try broader filters.")}
                                 action={
                                     <Button
                                         onClick={() => {
@@ -475,7 +484,7 @@ export default function PluginsPage() {
                                             setTrustFilter("all");
                                         }}
                                     >
-                                        清除筛选
+                                        {text("清除筛选", "Clear filters")}
                                     </Button>
                                 }
                             />
@@ -483,7 +492,7 @@ export default function PluginsPage() {
 
                         <Modal
                             className="workspace-modal workspace-modal-wide plugin-settings-modal"
-                            title={settingsPlugin ? `${settingsPlugin.manifest.name} 设置` : null}
+                            title={settingsPlugin ? `${settingsPlugin.manifest.name} ${text("设置", "settings")}` : null}
                             open={Boolean(settingsPlugin)}
                             centered
                             footer={null}
@@ -495,15 +504,15 @@ export default function PluginsPage() {
                                 <div className="plugin-settings-panel plugin-settings-modal-panel">
                                     <div className="plugin-settings-heading">
                                         <div>
-                                            <p>只展示这个插件实际支持的配置项。</p>
+                                            <p>{text("只展示这个插件实际支持的配置项。", "Only settings supported by this plugin are shown.")}</p>
                                         </div>
                                         {settingsPlugin.manifest.trusted ? (
                                             <span className="plugin-trust-label">
                                                 <ShieldCheck className="size-3.5" />
-                                                可信插件
+                                                {text("可信插件", "Trusted plugin")}
                                             </span>
                                         ) : (
-                                            <span className="plugin-category-label">第三方插件</span>
+                                            <span className="plugin-category-label">{text("第三方插件", "Third-party plugin")}</span>
                                         )}
                                     </div>
 
@@ -511,58 +520,58 @@ export default function PluginsPage() {
                                         <>
                                             <div className="plugin-settings-fields">
                                                 <div className="min-w-0">
-                                                    <label htmlFor="eagle-base-url">Eagle 本地 API 地址</label>
-                                                    <Input id="eagle-base-url" aria-label="Eagle 本地 API 地址" value={eagleBaseUrl} onChange={(event) => setEagleBaseUrl(event.target.value)} placeholder="http://localhost:41595" />
-                                                    <p>Eagle 必须在本机运行；{brandName}通过插件直接读取和写入 Eagle 原始文件。</p>
+                                                    <label htmlFor="eagle-base-url">{text("Eagle 本地 API 地址", "Eagle local API URL")}</label>
+                                                    <Input id="eagle-base-url" aria-label={text("Eagle 本地 API 地址", "Eagle local API URL")} value={eagleBaseUrl} onChange={(event) => setEagleBaseUrl(event.target.value)} placeholder="http://localhost:41595" />
+                                                    <p>{locale === "en-US" ? `Eagle must run on this computer. ${brandName} reads and writes Eagle files through the plugin.` : `Eagle 必须在本机运行；${brandName}通过插件直接读取和写入 Eagle 原始文件。`}</p>
                                                 </div>
                                                 <div className="min-w-0">
                                                     <div className="plugin-setting-label-row">
-                                                        <label htmlFor="eagle-auto-upload-generated">自动归档生成结果</label>
-                                                        <Switch id="eagle-auto-upload-generated" checked={eagleAutoUploadGenerated} onChange={setEagleAutoUploadGenerated} aria-label="自动归档生成结果到 Eagle" />
+                                                        <label htmlFor="eagle-auto-upload-generated">{text("自动归档生成结果", "Archive generated results automatically")}</label>
+                                                        <Switch id="eagle-auto-upload-generated" checked={eagleAutoUploadGenerated} onChange={setEagleAutoUploadGenerated} aria-label={text("自动归档生成结果到 Eagle", "Archive generated results in Eagle automatically")} />
                                                     </div>
-                                                    <p>图片、视频和音频生成成功后，自动写入 Eagle；{brandName}本地素材仍会保留。</p>
+                                                    <p>{locale === "en-US" ? `Successful image, video, and audio results are added to Eagle. Local ${brandName} assets remain available.` : `图片、视频和音频生成成功后，自动写入 Eagle；${brandName}本地素材仍会保留。`}</p>
                                                 </div>
                                                 <div className="min-w-0">
                                                     <div className="plugin-setting-label-row">
-                                                        <label htmlFor="eagle-generated-folder">生成结果写入文件夹</label>
+                                                        <label htmlFor="eagle-generated-folder">{text("生成结果写入文件夹", "Destination folder for generated results")}</label>
                                                         <Button type="link" size="small" loading={eagleFoldersLoading} onClick={() => void loadEagleFolders()}>
-                                                            读取文件夹
+                                                            {text("读取文件夹", "Load folders")}
                                                         </Button>
                                                     </div>
                                                     <Select
                                                         id="eagle-generated-folder"
-                                                        aria-label="生成结果写入文件夹"
+                                                        aria-label={text("生成结果写入文件夹", "Destination folder for generated results")}
                                                         showSearch
                                                         allowClear
                                                         value={eagleGeneratedFolderId || undefined}
-                                                        placeholder="Eagle 根目录"
+                                                        placeholder={text("Eagle 根目录", "Eagle root")}
                                                         optionFilterProp="label"
-                                                        options={[{ value: "__root__", label: "Eagle 根目录" }, ...eagleFolderOptions(eagleFolders)]}
+                                                        options={[{ value: "__root__", label: text("Eagle 根目录", "Eagle root") }, ...eagleFolderOptions(eagleFolders, locale)]}
                                                         onChange={(value) => setEagleGeneratedFolderId(value === "__root__" || !value ? "" : value)}
                                                     />
-                                                    <p>{eagleFoldersError || "默认写入 Eagle 根目录；选择文件夹后按 Eagle 原始目录归档。"}</p>
+                                                    <p>{eagleFoldersError || text("默认写入 Eagle 根目录；选择文件夹后按 Eagle 原始目录归档。", "Defaults to the Eagle root. Choose a folder to preserve its original organization.")}</p>
                                                 </div>
                                             </div>
                                             <div className="plugin-settings-actions">
                                                 <Button type="primary" icon={<CheckCircle2 className="size-4" />} onClick={saveEagleConfig}>
-                                                    保存配置
+                                                    {text("保存配置", "Save settings")}
                                                 </Button>
                                                 <Button icon={<FolderOpen className="size-4" />} disabled={!settingsEnabled} onClick={() => navigate("/plugins/eagle")}>
-                                                    打开 Eagle 素材库
+                                                    {text("打开 Eagle 素材库", "Open Eagle library")}
                                                 </Button>
                                                 <Button icon={<ExternalLink className="size-4" />} href="https://api.eagle.cool/" target="_blank">
-                                                    查看 API
+                                                    {text("查看 API", "View API")}
                                                 </Button>
                                             </div>
                                         </>
                                     ) : settingsPlugin.manifest.id === PROMPT_OPTIMIZER_PLUGIN_ID ? (
                                         <div className="rounded-[var(--r-md)] border border-border/60 bg-muted/25 px-3 py-3 text-[var(--fs-body)] leading-6 text-foreground/70">
-                                            <p>在创作页或图片、视频节点的提示词编辑器中使用“优化”按钮，即可让当前文本模型整理提示词。</p>
-                                            <p className="mt-2 text-[var(--fs-micro)] text-foreground/50">插件不会自动覆盖原提示词，只有点击“采用”后才会回填到当前输入框。</p>
+                                            <p>{text("在创作页或图片、视频节点的提示词编辑器中使用“优化”按钮，即可让当前文本模型整理提示词。", "Use Optimize in the creation page or an image/video prompt editor to refine prompts with your text model.")}</p>
+                                            <p className="mt-2 text-[var(--fs-micro)] text-foreground/50">{text("插件不会自动覆盖原提示词，只有点击“采用”后才会回填到当前输入框。", "The original prompt changes only when you accept the suggestion.")}</p>
                                         </div>
                                     ) : settingsPlugin.manifest.id === RUNNINGHUB_PLUGIN_ID ? (
                                         <div className="plugin-settings-empty">
-                                            <p>RunningHub 的 API Key、Workflow / App 和字段映射在宿主设置页维护。</p>
+                                            <p>{text("RunningHub 的 API Key、Workflow / App 和字段映射在宿主设置页维护。", "Configure the RunningHub API key, Workflow / App, and field mapping in Settings.")}</p>
                                             <Button
                                                 type="primary"
                                                 icon={<ExternalLink className="size-4" />}
@@ -571,27 +580,27 @@ export default function PluginsPage() {
                                                     navigate("/settings?section=runninghub");
                                                 }}
                                             >
-                                                打开工作流设置
+                                                {text("打开工作流设置", "Open workflow settings")}
                                             </Button>
                                         </div>
                                     ) : (
                                         <div className="plugin-settings-empty">
-                                            {`贡献能力：${
+                                            {`${text("贡献能力：", "Capabilities: ")}${
                                                 contributionKindsFor(settingsPlugin.manifest)
-                                                    .map((kind) => categoryLabels[kind] || kind)
-                                                    .join("、") || "未声明"
-                                            }。当前接入位置和权限会根据插件清单自动生效。`}
+                                                    .map((kind) => (locale === "en-US" ? englishCategoryLabels : categoryLabels)[kind] || kind)
+                                                    .join(locale === "en-US" ? ", " : "、") || text("未声明", "None declared")
+                                            }${text("。当前接入位置和权限会根据插件清单自动生效。", ". Surfaces and permissions follow the plugin manifest.")}`}
                                         </div>
                                     )}
 
                                     <div className="plugin-permissions">
                                         <div>
-                                            <span>接入位置</span>
-                                            {(settingsPlugin.manifest.surfaces || []).map((surface) => surfaceLabels[surface] ?? surface).join("、") || "由贡献点决定"}
+                                            <span>{text("接入位置", "Surfaces")}</span>
+                                            {(settingsPlugin.manifest.surfaces || []).map((surface) => (locale === "en-US" ? englishSurfaceLabels : surfaceLabels)[surface] ?? surface).join(locale === "en-US" ? ", " : "、") || text("由贡献点决定", "Determined by contribution")}
                                         </div>
                                         <div>
-                                            <span>插件能力</span>
-                                            {settingsPlugin.manifest.permissions.map((permission) => permissionLabels[permission] ?? permission).join("、")}
+                                            <span>{text("插件能力", "Permissions")}</span>
+                                            {settingsPlugin.manifest.permissions.map((permission) => (locale === "en-US" ? englishPermissionLabels : permissionLabels)[permission] ?? permission).join(locale === "en-US" ? ", " : "、")}
                                         </div>
                                     </div>
                                 </div>
@@ -605,21 +614,21 @@ export default function PluginsPage() {
     );
 }
 
-function formatPluginDate(value?: string) {
-    if (!value) return "未记录";
+function formatPluginDate(value: string | undefined, locale: AppLocale) {
+    if (!value) return localeText("未记录", "Not recorded", locale);
     const timestamp = Date.parse(value);
-    return Number.isFinite(timestamp) ? pluginDateFormatter.format(timestamp) : "未记录";
+    return Number.isFinite(timestamp) ? new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric" }).format(timestamp) : localeText("未记录", "Not recorded", locale);
 }
 
 function toRegisteredPlugin(plugin: BackendPlugin): RegisteredPlugin {
     return { manifest: plugin.manifest, source: plugin.source };
 }
 
-function pluginSourceLabel(plugin: RegisteredPlugin, state?: PluginState) {
-    if (plugin.source === "uploaded") return "自定义插件";
-    if (plugin.source === "system") return "系统插件";
-    if (state?.canToggle || isOfficialApplicationPluginId(plugin.manifest.id)) return "官方插件";
-    return "系统插件";
+function pluginSourceLabel(plugin: RegisteredPlugin, state: PluginState | undefined, locale: AppLocale) {
+    if (plugin.source === "uploaded") return localeText("自定义插件", "Custom plugin", locale);
+    if (plugin.source === "system") return localeText("系统插件", "System plugin", locale);
+    if (state?.canToggle || isOfficialApplicationPluginId(plugin.manifest.id)) return localeText("官方插件", "Official plugin", locale);
+    return localeText("系统插件", "System plugin", locale);
 }
 
 function contributionKindsFor(manifest: PluginManifest | PluginManifestV2): string[] {
@@ -650,11 +659,11 @@ function pluginMatchesCategory(manifest: PluginManifest | PluginManifestV2, cate
     return providerCapabilities.includes(category as "text" | "image" | "video" | "audio");
 }
 
-function capabilityLabel(value: string) {
-    return ({ text: "文本", image: "图片", video: "视频", audio: "音频" } as Record<string, string>)[value] || value;
+function capabilityLabel(value: string, locale: AppLocale) {
+    return ((locale === "en-US" ? { text: "Text", image: "Image", video: "Video", audio: "Audio" } : { text: "文本", image: "图片", video: "视频", audio: "音频" }) as Record<string, string>)[value] || value;
 }
 
-function eagleFolderOptions(folders: EagleFolder[]) {
+function eagleFolderOptions(folders: EagleFolder[], locale: AppLocale) {
     const byId = new Map(folders.map((folder) => [folder.id, folder]));
     const pathFor = (folder: EagleFolder) => {
         const path: string[] = [];
@@ -667,5 +676,5 @@ function eagleFolderOptions(folders: EagleFolder[]) {
         }
         return path.join(" / ");
     };
-    return folders.map((folder) => ({ value: folder.id, label: pathFor(folder) })).sort((left, right) => left.label.localeCompare(right.label, "zh-CN"));
+    return folders.map((folder) => ({ value: folder.id, label: pathFor(folder) })).sort((left, right) => left.label.localeCompare(right.label, locale));
 }

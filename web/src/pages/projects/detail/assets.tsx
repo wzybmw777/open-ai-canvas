@@ -13,6 +13,7 @@ import { useExternalAssetSources } from "@/hooks/use-external-asset-sources";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { CanvasFolderPreview } from "@/components/canvas/canvas-folder-preview";
 import { CANVAS_FOLDER_THEME_OPTIONS, resolveCanvasFolderTheme } from "@/lib/canvas/canvas-folder-theme";
+import { localizedErrorMessage, useLocaleText, type AppLocale } from "@/lib/i18n";
 import { resolveProjectCanvasStyle } from "@/components/canvas/canvas-style-picker-modal";
 import { CHARACTER_VOICE_FORMAT_LABEL, CHARACTER_VOICE_UPLOAD_ACCEPT, characterVoiceFormatName, characterVoiceTitleFromFileName, isSupportedCharacterVoiceFile } from "@/lib/character-voice-formats";
 import { ASSET_CATEGORIES, defaultAssetCategoryForKind, normalizeAssetCategory } from "@/lib/asset-category";
@@ -65,6 +66,7 @@ const characterFields = [
 type CharacterForm = { name: string } & Record<(typeof characterFields)[number][0], string>;
 
 export default function ProjectAssetsView({ detail, refreshProject }: ProjectDetailViewProps) {
+    const { locale, text } = useLocaleText();
     const { message, modal } = App.useApp();
     const personalAssets = useAssetStore((state) => state.assets);
     const addAsset = useAssetStore((state) => state.addAsset);
@@ -117,7 +119,7 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
     });
     // 章节提取会产出角色、场景和道具三类候选；待确认列表必须跟随当前分类，否则非角色候选永远无法确认。
     const candidateCategory = category === "all" ? undefined : category;
-    const candidateLabel = category === "all" ? "资产" : categoryLabel(category);
+    const candidateLabel = category === "all" ? text("资产", "assets") : categoryLabel(category, locale);
     const showPendingCandidates = folderId === ALL_FOLDERS;
     const candidatesQuery = useQuery({
         queryKey: ["project", detail.project.id, "asset-candidates", candidatePage, candidatePageSize, candidateCategory || "all", "pending_confirmation", debouncedKeyword],
@@ -180,7 +182,7 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
             id: asset.id,
             title: asset.title,
             category: normalizeAssetCategory(asset.category, defaultAssetCategoryForKind(asset.kind)),
-            kindLabel: "图片",
+            kindLabel: text("图片", "Image"),
             asset,
             searchText: (asset.tags || []).join(" "),
         })),
@@ -192,7 +194,7 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
     const visibleAssets = assets;
     const folderPath = useMemo(() => projectAssetFolderPath(assetFolders, folderId), [assetFolders, folderId]);
     const folderMoveItems = useMemo(() => [
-        { key: "", label: "素材库 / 根目录" },
+        { key: "", label: text("素材库 / 根目录", "Asset library / Root") },
         ...assetFolders.map((folder) => ({ key: folder.id, label: projectAssetFolderLabel(assetFolders, folder) })),
     ], [assetFolders]);
     const categoryCounts = categories.map((value) => ({
@@ -206,13 +208,13 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
             if (asset.kind !== "audio") return [];
             const resourceId = resourceIdFromStorageKey(asset.data.storageKey);
             if (!resourceId) return [];
-            return [{ id: asset.id, title: asset.title, category: "audio", kindLabel: `${characterVoiceFormatName(asset.data.mimeType)} 音频`, asset, description: asset.note || "素材库音频", searchText: (asset.tags || []).join(" ") }];
+            return [{ id: asset.id, title: asset.title, category: "audio", kindLabel: text(`${characterVoiceFormatName(asset.data.mimeType)} 音频`, `${characterVoiceFormatName(asset.data.mimeType)} audio`), asset, description: asset.note || text("素材库音频", "Library audio"), searchText: (asset.tags || []).join(" ") }];
         });
         const projectItems = assets.flatMap((asset) => {
             if (asset.mediaType !== "audio") return [];
             const resourceId = resourceIdFromStorageKey(asset.storageKey);
             if (!resourceId || localItems.some((item) => item.id === asset.id)) return [];
-            return [{ id: asset.id, title: asset.title, category: "audio", kindLabel: "音频素材", description: asset.previewText || "项目音频素材", searchText: asset.title, disabledReason: undefined, folderId: asset.folderId, imageUrl: undefined }];
+            return [{ id: asset.id, title: asset.title, category: "audio", kindLabel: text("音频素材", "Audio asset"), description: asset.previewText || text("项目音频素材", "Project audio asset"), searchText: asset.title, disabledReason: undefined, folderId: asset.folderId, imageUrl: undefined }];
         });
         return [...localItems, ...projectItems];
     }, [assets, personalAssets]);
@@ -227,7 +229,7 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
     const generatingAssetIds = new Set(generatingAssets.map((asset) => asset?.id).filter((id): id is string => Boolean(id)));
 
     const done = (content: string) => { refreshProject(); message.success(content); };
-    const failed = (fallback: string) => (error: unknown) => message.error(error instanceof Error ? error.message : fallback);
+    const failed = (chineseFallback: string, englishFallback: string) => (error: unknown) => message.error(localizedErrorMessage(error, chineseFallback, englishFallback, locale));
     const addMutation = useMutation({
         mutationFn: async ({ ids, nextFolderId }: { ids: string[]; nextFolderId?: string }) => {
             const result = await linkSelectedProjectAssets(ids, async (id) => {
@@ -242,7 +244,7 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
                     });
                 }
                 const selected = pickerItem?.asset || useAssetStore.getState().assets.find((asset) => asset.id === id);
-                if (!selected) throw new Error("所选素材已不存在，请重新选择");
+                if (!selected) throw new Error(text("所选素材已不存在，请重新选择", "The selected asset no longer exists. Select it again."));
                 return linkProjectAsset(detail.project.id, {
                     assetId: selected.id,
                     category: normalizeAssetCategory(selected.category, defaultAssetCategoryForKind(selected.kind)),
@@ -258,58 +260,58 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
             assets.forEach((asset) => updatePersonalAsset(asset.id, { category: asset.category as AssetCategory, status: asset.status as AssetStatus, primaryVersionId: asset.primaryVersionId }));
             setAddOpen(false);
             refreshProject();
-            if (failedCount) message.warning(`已引用 ${assets.length} 个素材，${failedCount} 个素材引用失败`);
-            else message.success(`已引用 ${assets.length} 个素材`);
+            if (failedCount) message.warning(text(`已引用 ${assets.length} 个素材，${failedCount} 个素材引用失败`, `Linked ${assets.length} assets; ${failedCount} failed`));
+            else message.success(text(`已引用 ${assets.length} 个素材`, `Linked ${assets.length} assets`));
         },
-        onError: failed("资产引用失败"),
+        onError: failed("资产引用失败", "Could not link assets"),
     });
-    const versionMutation = useMutation({ mutationFn: (id: string) => createProjectAssetVersion(detail.project.id, id, {}), onSuccess: () => done("已创建新版本"), onError: failed("版本创建失败") });
-    const unlinkMutation = useMutation({ mutationFn: (id: string) => unlinkProjectAsset(detail.project.id, id), onSuccess: () => done("资产已移出项目"), onError: failed("资产移除失败") });
-    const categoryMutation = useMutation({ mutationFn: ({ id, next }: { id: string; next: AssetCategory }) => updateProjectAssetCategory(detail.project.id, id, next), onSuccess: ({ asset }) => { updatePersonalAsset(asset.id, { category: asset.category }); done("资产分类已更新"); }, onError: failed("资产分类更新失败") });
-    const moveMutation = useMutation({ mutationFn: ({ id, nextFolderId }: { id: string; nextFolderId: string }) => moveProjectAsset(detail.project.id, id, nextFolderId), onSuccess: () => done("资产已移动"), onError: failed("资产移动失败") });
+    const versionMutation = useMutation({ mutationFn: (id: string) => createProjectAssetVersion(detail.project.id, id, {}), onSuccess: () => done(text("已创建新版本", "New version created")), onError: failed("版本创建失败", "Could not create version") });
+    const unlinkMutation = useMutation({ mutationFn: (id: string) => unlinkProjectAsset(detail.project.id, id), onSuccess: () => done(text("资产已移出项目", "Asset removed from project")), onError: failed("资产移除失败", "Could not remove asset") });
+    const categoryMutation = useMutation({ mutationFn: ({ id, next }: { id: string; next: AssetCategory }) => updateProjectAssetCategory(detail.project.id, id, next), onSuccess: ({ asset }) => { updatePersonalAsset(asset.id, { category: asset.category }); done(text("资产分类已更新", "Asset category updated")); }, onError: failed("资产分类更新失败", "Could not update asset category") });
+    const moveMutation = useMutation({ mutationFn: ({ id, nextFolderId }: { id: string; nextFolderId: string }) => moveProjectAsset(detail.project.id, id, nextFolderId), onSuccess: () => done(text("资产已移动", "Asset moved")), onError: failed("资产移动失败", "Could not move asset") });
     const createFolderMutation = useMutation({
         mutationFn: ({ name, parentId }: { name: string; parentId: string }) => createProjectAssetFolder(detail.project.id, { name, parentId: parentId || undefined }),
-        onSuccess: ({ folder }) => { setFolderEditor(null); setFolderName(""); setFolderId(folder.parentId || ""); done("文件夹已创建"); },
-        onError: failed("文件夹创建失败"),
+        onSuccess: ({ folder }) => { setFolderEditor(null); setFolderName(""); setFolderId(folder.parentId || ""); done(text("文件夹已创建", "Folder created")); },
+        onError: failed("文件夹创建失败", "Could not create folder"),
     });
     const renameFolderMutation = useMutation({
         mutationFn: ({ id, name }: { id: string; name: string }) => updateProjectAssetFolder(detail.project.id, id, { name }),
-        onSuccess: () => { setFolderEditor(null); setFolderName(""); done("文件夹已重命名"); },
-        onError: failed("文件夹重命名失败"),
+        onSuccess: () => { setFolderEditor(null); setFolderName(""); done(text("文件夹已重命名", "Folder renamed")); },
+        onError: failed("文件夹重命名失败", "Could not rename folder"),
     });
     const styleFolderMutation = useMutation({
         mutationFn: ({ id, style }: { id: string; style: CanvasFolderStyle }) => updateProjectAssetFolder(detail.project.id, id, { style }),
-        onSuccess: () => done("文件夹样式已更新"),
-        onError: failed("文件夹样式更新失败"),
+        onSuccess: () => done(text("文件夹样式已更新", "Folder style updated")),
+        onError: failed("文件夹样式更新失败", "Could not update folder style"),
     });
     const themeFolderMutation = useMutation({
         mutationFn: ({ id, theme }: { id: string; theme: CanvasFolderTheme }) => updateProjectAssetFolder(detail.project.id, id, { theme }),
-        onSuccess: () => done("文件夹主题已更新"),
-        onError: failed("文件夹主题更新失败"),
+        onSuccess: () => done(text("文件夹主题已更新", "Folder theme updated")),
+        onError: failed("文件夹主题更新失败", "Could not update folder theme"),
     });
     const moveFolderMutation = useMutation({
         mutationFn: ({ id, parentId }: { id: string; parentId: string }) => updateProjectAssetFolder(detail.project.id, id, { parentId }),
-        onSuccess: () => done("文件夹已移动"),
-        onError: failed("文件夹移动失败"),
+        onSuccess: () => done(text("文件夹已移动", "Folder moved")),
+        onError: failed("文件夹移动失败", "Could not move folder"),
     });
     const deleteFolderMutation = useMutation({
         mutationFn: (id: string) => deleteProjectAssetFolder(detail.project.id, id),
-        onSuccess: (_, deletedId) => { if (folderId === deletedId) setFolderId(""); done("文件夹已删除"); },
-        onError: failed("文件夹删除失败"),
+        onSuccess: (_, deletedId) => { if (folderId === deletedId) setFolderId(""); done(text("文件夹已删除", "Folder deleted")); },
+        onError: failed("文件夹删除失败", "Could not delete folder"),
     });
     const confirmMutation = useMutation({
         mutationFn: ({ candidateId, targetAssetId }: { candidateId: string; targetAssetId?: string }) => confirmProjectAssetCandidate(detail.project.id, candidateId, targetAssetId),
         onSuccess: ({ asset }, variables) => {
             if (asset.category === "character") syncPersonalCharacterProjection(asset);
-            const label = asset.category === "character" ? "角色卡" : categoryLabel(asset.category);
+            const label = asset.category === "character" ? text("角色卡", "Character card") : categoryLabel(asset.category, locale);
             // 确认会改变候选、资产列表和左侧计数三处数据，必须一并失效缓存，否则计数与列表滞后。
             void Promise.all([
                 queryClient.invalidateQueries({ queryKey: ["project", detail.project.id, "asset-candidates"] }),
                 queryClient.invalidateQueries({ queryKey: ["project", detail.project.id, "assets"] }),
             ]);
-            done(variables.targetAssetId ? `候选信息已归并到${label}新版本` : `${label}已创建`);
+            done(variables.targetAssetId ? text(`候选信息已归并到${label}新版本`, `Candidate merged into a new ${label} version`) : text(`${label}已创建`, `${label} created`));
         },
-        onError: failed("资产确认失败"),
+        onError: failed("资产确认失败", "Could not confirm asset"),
     });
     const confirmingCandidateId = confirmMutation.isPending ? confirmMutation.variables?.candidateId || "" : "";
     const saveCharacter = useMutation({
@@ -317,40 +319,40 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
             const definition = characterDefinition(values);
             return editorAsset === "new" ? createProjectCharacter(detail.project.id, { name: values.name, definition }) : updateProjectCharacter(detail.project.id, editorAsset!.id, { name: values.name, definition });
         },
-        onSuccess: (result) => { syncPersonalCharacterProjection(result.asset); setEditorAsset(null); done(editorAsset === "new" ? "角色卡已创建" : "角色设定已保存并生成新版本"); },
-        onError: failed("角色保存失败"),
+        onSuccess: (result) => { syncPersonalCharacterProjection(result.asset); setEditorAsset(null); done(editorAsset === "new" ? text("角色卡已创建", "Character card created") : text("角色设定已保存并生成新版本", "Character details saved as a new version")); },
+        onError: failed("角色保存失败", "Could not save character"),
     });
     const generateMutation = useMutation({
         mutationKey: ["project-character-turnaround", detail.project.id],
         mutationFn: async (asset: ProjectAsset) => {
-            if (!asset.character) throw new Error("角色版本信息不完整");
+            if (!asset.character) throw new Error(text("角色版本信息不完整", "Character version is incomplete"));
             const model = effectiveConfig.imageModel || effectiveConfig.model;
             const config = { ...effectiveConfig, model };
-            if (!isAiConfigReady(config, model)) throw new Error("请先在设置中配置可用的图片模型");
+            if (!isAiConfigReady(config, model)) throw new Error(text("请先在设置中配置可用的图片模型", "Configure an image model in Settings first"));
             const projectStyle = resolveProjectCanvasStyle(detail.project.stylePresetId, detail.project.styleProfileJson);
             await generateCharacterTurnaround({ projectId: detail.project.id, assetId: asset.id, versionId: asset.character.versionId, name: asset.title, definition: asset.character.definition, projectStyle, config });
             return getProjectCharacter(detail.project.id, asset.id);
         },
-        onSuccess: (result) => { syncPersonalCharacterProjection(result.asset); done("三视图已生成并绑定到新角色版本"); },
-        onError: failed("三视图生成失败"),
+        onSuccess: (result) => { syncPersonalCharacterProjection(result.asset); done(text("三视图已生成并绑定到新角色版本", "Character turnaround generated and linked to a new version")); },
+        onError: failed("三视图生成失败", "Could not generate character turnaround"),
     });
     const bindImagesMutation = useMutation({
         mutationFn: async (selectedAssetId: string) => {
-            if (!imageAsset) throw new Error("未选择角色");
+            if (!imageAsset) throw new Error(text("未选择角色", "Select a character"));
             await saveRemoteUserDataNow();
             const latest = useAssetStore.getState().assets;
             const pickerItem = imagePickerItems.find((item) => item.id === selectedAssetId);
             const selected = latest.find((asset) => asset.id === selectedAssetId) || (pickerItem?.external ? await externalAssetSources.importExternalAsset(pickerItem.external) : undefined);
-            if (selected?.kind !== "image") throw new Error("请选择一张包含正面、侧面和背面的三视图设定图");
+            if (selected?.kind !== "image") throw new Error(text("请选择一张包含正面、侧面和背面的三视图设定图", "Select an image showing the front, side and back views"));
             const resourceId = resourceIdFromStorageKey((selected as ImageAsset).data.storageKey);
-            if (!resourceId) throw new Error("所选图片尚未同步到后端资源库");
+            if (!resourceId) throw new Error(text("所选图片尚未同步到后端资源库", "The selected image has not synced to the server"));
             return replaceProjectCharacterRepresentations(detail.project.id, imageAsset.id, [{ role: "turnaround_sheet", resourceId, metadata: { sourceAssetId: selected.id } }, { role: "primary", resourceId, metadata: { source: "turnaround_sheet", sourceAssetId: selected.id } }]);
         },
-        onSuccess: (result) => { syncPersonalCharacterProjection(result.asset); setImageAsset(null); done("三视图已绑定到新角色版本"); },
-        onError: failed("三视图绑定失败"),
+        onSuccess: (result) => { syncPersonalCharacterProjection(result.asset); setImageAsset(null); done(text("三视图已绑定到新角色版本", "Character turnaround linked to a new version")); },
+        onError: failed("三视图绑定失败", "Could not link character turnaround"),
     });
-    const bindVoiceMutation = useMutation({ mutationFn: () => voiceAsset && voiceSample ? bindProjectCharacterVoice(detail.project.id, voiceAsset.id, { sampleResourceId: voiceSample.resourceId, voiceName: voiceSample.name, instructions: voiceInstructions }) : Promise.reject(new Error("请选择一份声音素材")), onSuccess: (result) => { syncPersonalCharacterProjection(result.asset); setVoiceAsset(null); setVoiceSample(null); done("声音素材已绑定到新角色版本"); }, onError: failed("声音绑定失败") });
-    const unbindVoiceMutation = useMutation({ mutationFn: () => voiceAsset ? unbindProjectCharacterVoice(detail.project.id, voiceAsset.id) : Promise.reject(new Error("未选择角色")), onSuccess: (result) => { syncPersonalCharacterProjection(result.asset); setVoiceAsset(null); done("声音绑定已解除并生成新角色版本"); }, onError: failed("声音解绑失败") });
+    const bindVoiceMutation = useMutation({ mutationFn: () => voiceAsset && voiceSample ? bindProjectCharacterVoice(detail.project.id, voiceAsset.id, { sampleResourceId: voiceSample.resourceId, voiceName: voiceSample.name, instructions: voiceInstructions }) : Promise.reject(new Error(text("请选择一份声音素材", "Select a voice asset"))), onSuccess: (result) => { syncPersonalCharacterProjection(result.asset); setVoiceAsset(null); setVoiceSample(null); done(text("声音素材已绑定到新角色版本", "Voice asset linked to a new character version")); }, onError: failed("声音绑定失败", "Could not link voice") });
+    const unbindVoiceMutation = useMutation({ mutationFn: () => voiceAsset ? unbindProjectCharacterVoice(detail.project.id, voiceAsset.id) : Promise.reject(new Error(text("未选择角色", "Select a character"))), onSuccess: (result) => { syncPersonalCharacterProjection(result.asset); setVoiceAsset(null); done(text("声音绑定已解除并生成新角色版本", "Voice unlinked in a new character version")); }, onError: failed("声音解绑失败", "Could not unlink voice") });
 
     const openCharacterEditor = (asset: ProjectAsset | "new") => {
         setEditorAsset(asset);
@@ -358,7 +360,7 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
         form.setFieldsValue({ name: asset === "new" ? "" : asset.title, ...Object.fromEntries(characterFields.map(([key]) => [key, fieldValue(definition[key])])) } as CharacterForm);
     };
     const openImages = (asset: ProjectAsset) => setImageAsset(asset);
-    const openVoice = (asset: ProjectAsset) => { const sampleResourceId = asset.character?.voice?.profile.sampleResourceId || ""; setVoiceAsset(asset); setVoiceSample(sampleResourceId ? { resourceId: sampleResourceId, name: asset.character?.voice?.profile.name || "当前声音", url: resourceFileUrl(sampleResourceId) } : null); setVoiceInstructions(asset.character?.voice?.instructions || ""); };
+    const openVoice = (asset: ProjectAsset) => { const sampleResourceId = asset.character?.voice?.profile.sampleResourceId || ""; setVoiceAsset(asset); setVoiceSample(sampleResourceId ? { resourceId: sampleResourceId, name: asset.character?.voice?.profile.name || text("当前声音", "Current voice"), url: resourceFileUrl(sampleResourceId) } : null); setVoiceInstructions(asset.character?.voice?.instructions || ""); };
     const openFolderEditor = (folder?: ProjectAssetFolder, parentId = folderId === ALL_FOLDERS ? "" : folderId) => {
         setFolderEditor({ folder, parentId: folder?.parentId || parentId });
         setFolderName(folder?.name || "");
@@ -366,7 +368,7 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
     const saveFolder = () => {
         const name = folderName.trim();
         if (!name) {
-            message.warning("请输入文件夹名称");
+            message.warning(text("请输入文件夹名称", "Enter a folder name"));
             return;
         }
         if (folderEditor?.folder) renameFolderMutation.mutate({ id: folderEditor.folder.id, name });
@@ -388,12 +390,12 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
             }
             const remoteUrl = projectAssetRemoteUrl(asset);
             if (!remoteUrl) {
-                message.warning("当前资产没有可下载的媒体文件");
+                message.warning(text("当前资产没有可下载的媒体文件", "No downloadable media is available for this asset"));
                 return;
             }
             await downloadBrowserMedia({ storageKey: asset.storageKey, url: remoteUrl, fileName: `${asset.title || "asset"}.${projectAssetFileExtension(asset.mediaType)}` });
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "下载失败");
+            message.error(localizedErrorMessage(error, "下载失败", "Download failed", locale));
         }
     };
     return (
@@ -402,48 +404,48 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
                 <div className="flex min-w-0 items-center gap-3">
                     <div className="min-w-0">
                         <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-                            <h2 className="text-[var(--fs-heading-lg)] font-semibold leading-6">角色与资产</h2>
-                            <span className="rounded bg-foreground/[.055] px-1.5 py-1 text-[var(--fs-tiny)] font-medium tabular-nums text-foreground/45">{totalAssetCount} 项已确认</span>
+                            <h2 className="text-[var(--fs-heading-lg)] font-semibold leading-6">{text("角色与资产", "Characters & Assets")}</h2>
+                            <span className="rounded bg-foreground/[.055] px-1.5 py-1 text-[var(--fs-tiny)] font-medium tabular-nums text-foreground/45">{text(`${totalAssetCount} 项已确认`, `${totalAssetCount} confirmed`)}</span>
                         </div>
                         <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[var(--fs-label)] text-foreground/48">
-                            <span className="inline-flex items-center gap-1.5"><UserRound className="size-3.5" />{characterAssetCount} 个角色</span>
-                            <span className="inline-flex items-center gap-1.5"><Box className="size-3.5" />{mediaAssetCount} 项媒体</span>
-                            {(candidatesQuery.data?.total || 0) ? <span className="inline-flex items-center gap-1.5 text-foreground/55"><Sparkles className="size-3.5" />{candidatesQuery.data?.total || 0} 个待确认</span> : null}
+                            <span className="inline-flex items-center gap-1.5"><UserRound className="size-3.5" />{text(`${characterAssetCount} 个角色`, `${characterAssetCount} characters`)}</span>
+                            <span className="inline-flex items-center gap-1.5"><Box className="size-3.5" />{text(`${mediaAssetCount} 项媒体`, `${mediaAssetCount} media assets`)}</span>
+                            {(candidatesQuery.data?.total || 0) ? <span className="inline-flex items-center gap-1.5 text-foreground/55"><Sparkles className="size-3.5" />{text(`${candidatesQuery.data?.total || 0} 个待确认`, `${candidatesQuery.data?.total || 0} pending`)}</span> : null}
                         </div>
                     </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-1.5 sm:pl-4">
-                    <Button type="text" className="!h-9 !px-3" icon={<FolderPlus className="size-3.5" />} onClick={() => openFolderEditor()}>新建文件夹</Button>
-                    <Button type="text" className="!h-9 !px-3" icon={<Link2 className="size-3.5" />} onClick={() => setAddOpen(true)}>引用素材</Button>
-                    <Button type="primary" className="!h-9 !px-3.5" icon={<Plus className="size-3.5" />} onClick={() => openCharacterEditor("new")}>新建角色</Button>
+                <div className="flex shrink-0 flex-wrap items-center gap-1.5 sm:pl-4">
+                    <Button type="text" className="!h-9 !px-3" icon={<FolderPlus className="size-3.5" />} onClick={() => openFolderEditor()}>{text("新建文件夹", "New folder")}</Button>
+                    <Button type="text" className="!h-9 !px-3" icon={<Link2 className="size-3.5" />} onClick={() => setAddOpen(true)}>{text("引用素材", "Link assets")}</Button>
+                    <Button type="primary" className="!h-9 !px-3.5" icon={<Plus className="size-3.5" />} onClick={() => openCharacterEditor("new")}>{text("新建角色", "New character")}</Button>
                 </div>
             </header>
             <div className="project-assets-layout mt-3 grid gap-3">
-                <nav className="space-y-0.5 pr-2" aria-label="素材目录与资产分类">
-                    <div className="mb-1 flex h-8 items-center justify-between px-2 text-[var(--fs-tiny)] font-medium text-foreground/42"><span>素材目录</span><button type="button" className="rounded p-1 hover:bg-surface-hover" aria-label="新建根目录文件夹" onClick={() => openFolderEditor(undefined, "")}><FolderPlus className="size-3.5" /></button></div>
-                    <button type="button" onClick={() => selectFolder("")} className={`flex h-11 w-full items-center gap-2 rounded-md px-2 text-left text-xs ${folderId === "" ? "bg-surface-active font-medium" : "text-foreground/55 hover:bg-surface-hover"}`}><FolderOpen className="size-4 shrink-0" /><span className="min-w-0 flex-1 truncate">素材库</span><span className="text-[var(--fs-tiny)] tabular-nums text-foreground/42">{folderCountMap[""] || 0}</span></button>
+                <nav className="space-y-0.5 pr-2" aria-label={text("素材目录与资产分类", "Asset folders and categories")}>
+                    <div className="mb-1 flex h-8 items-center justify-between px-2 text-[var(--fs-tiny)] font-medium text-foreground/42"><span>{text("素材目录", "Folders")}</span><button type="button" className="rounded p-1 hover:bg-surface-hover" aria-label={text("新建根目录文件夹", "Create root folder")} onClick={() => openFolderEditor(undefined, "")}><FolderPlus className="size-3.5" /></button></div>
+                    <button type="button" onClick={() => selectFolder("")} className={`flex h-11 w-full items-center gap-2 rounded-md px-2 text-left text-xs ${folderId === "" ? "bg-surface-active font-medium" : "text-foreground/55 hover:bg-surface-hover"}`}><FolderOpen className="size-4 shrink-0" /><span className="min-w-0 flex-1 truncate">{text("素材库", "Asset library")}</span><span className="text-[var(--fs-tiny)] tabular-nums text-foreground/42">{folderCountMap[""] || 0}</span></button>
                     <ProjectAssetFolderTree folders={assetFolders} folderCounts={folderCountMap} selectedId={folderId} onSelect={selectFolder} />
                     <div className="my-2 h-px bg-foreground/[.08]" />
-                    <div className="mb-1 h-8 px-2 text-[var(--fs-tiny)] font-medium leading-8 text-foreground/42">分类筛选</div>
-                    {categoryCounts.map((item) => <button key={item.value} type="button" onClick={() => selectCategory(item.value)} className={`flex h-11 w-full items-center justify-between rounded-md px-2 text-left text-xs ${folderId === ALL_FOLDERS && category === item.value ? "bg-surface-active font-medium" : "text-foreground/55 hover:bg-surface-hover"}`}><span>{item.value === "all" ? "全部资产" : categoryLabels[item.value]}</span><span className="min-w-5 rounded bg-foreground/[.05] px-1 text-center text-[var(--fs-tiny)] tabular-nums">{item.count}</span></button>)}
+                    <div className="mb-1 h-8 px-2 text-[var(--fs-tiny)] font-medium leading-8 text-foreground/42">{text("分类筛选", "Categories")}</div>
+                    {categoryCounts.map((item) => <button key={item.value} type="button" onClick={() => selectCategory(item.value)} className={`flex h-11 w-full items-center justify-between rounded-md px-2 text-left text-xs ${folderId === ALL_FOLDERS && category === item.value ? "bg-surface-active font-medium" : "text-foreground/55 hover:bg-surface-hover"}`}><span>{item.value === "all" ? text("全部资产", "All assets") : categoryLabel(item.value, locale)}</span><span className="min-w-5 rounded bg-foreground/[.05] px-1 text-center text-[var(--fs-tiny)] tabular-nums">{item.count}</span></button>)}
                 </nav>
                 <div className="min-w-0">
                     <div className="mb-3 flex min-h-9 flex-wrap items-center justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-1 text-xs text-foreground/48">
-                            <button type="button" className="truncate rounded px-1.5 py-1 hover:bg-surface-hover" onClick={() => selectFolder("")}>素材库</button>
-                            {folderId === ALL_FOLDERS ? <><span>/</span><span className="font-medium text-foreground">全部资产</span></> : folderPath.map((folder) => <span key={folder.id} className="contents"><span>/</span><button type="button" className="truncate rounded px-1.5 py-1 font-medium text-foreground hover:bg-surface-hover" onClick={() => selectFolder(folder.id)}>{folder.name}</button></span>)}
+                            <button type="button" className="truncate rounded px-1.5 py-1 hover:bg-surface-hover" onClick={() => selectFolder("")}>{text("素材库", "Asset library")}</button>
+                            {folderId === ALL_FOLDERS ? <><span>/</span><span className="font-medium text-foreground">{text("全部资产", "All assets")}</span></> : folderPath.map((folder) => <span key={folder.id} className="contents"><span>/</span><button type="button" className="truncate rounded px-1.5 py-1 font-medium text-foreground hover:bg-surface-hover" onClick={() => selectFolder(folder.id)}>{folder.name}</button></span>)}
                         </div>
                         <div className="flex items-center gap-2">
-                            <Input allowClear value={keyword} onChange={(event) => setKeyword(event.target.value)} prefix={<Search className="size-3.5 text-foreground/35" />} placeholder="搜索资产名称" aria-label="搜索项目资产" className="w-52" />
-                            {folderId !== ALL_FOLDERS ? <Button type="text" size="small" icon={<FolderPlus className="size-3.5" />} onClick={() => openFolderEditor(undefined, folderId)}>新建子文件夹</Button> : null}
+                            <Input allowClear value={keyword} onChange={(event) => setKeyword(event.target.value)} prefix={<Search className="size-3.5 text-foreground/35" />} placeholder={text("搜索资产名称", "Search assets")} aria-label={text("搜索项目资产", "Search project assets")} className="w-52" />
+                            {folderId !== ALL_FOLDERS ? <Button type="text" size="small" icon={<FolderPlus className="size-3.5" />} onClick={() => openFolderEditor(undefined, folderId)}>{text("新建子文件夹", "New subfolder")}</Button> : null}
                         </div>
                     </div>
-                    {childFolders.length ? <div className="project-asset-folder-grid mb-5">{childFolders.map((folder) => <ProjectAssetFolderCard key={folder.id} folder={folder} folders={assetFolders} assets={assets} folderCounts={folderCountMap} personalAssets={personalAssets} onOpen={() => selectFolder(folder.id)} onRename={() => openFolderEditor(folder)} onMove={(parentId) => moveFolderMutation.mutate({ id: folder.id, parentId })} onStyle={(style) => styleFolderMutation.mutate({ id: folder.id, style })} onTheme={(theme) => themeFolderMutation.mutate({ id: folder.id, theme })} onDelete={() => modal.confirm({ title: `删除文件夹“${folder.name}”？`, content: "仅空文件夹可以删除，素材和子文件夹不会被级联删除。", okText: "删除", okButtonProps: { danger: true }, cancelText: "取消", onOk: () => deleteFolderMutation.mutateAsync(folder.id) })} deleting={(deleteFolderMutation.isPending && deleteFolderMutation.variables === folder.id) || (moveFolderMutation.isPending && moveFolderMutation.variables?.id === folder.id) || (styleFolderMutation.isPending && styleFolderMutation.variables?.id === folder.id) || (themeFolderMutation.isPending && themeFolderMutation.variables?.id === folder.id)} />)}</div> : null}
+                    {childFolders.length ? <div className="project-asset-folder-grid mb-5">{childFolders.map((folder) => <ProjectAssetFolderCard key={folder.id} folder={folder} folders={assetFolders} assets={assets} folderCounts={folderCountMap} personalAssets={personalAssets} onOpen={() => selectFolder(folder.id)} onRename={() => openFolderEditor(folder)} onMove={(parentId) => moveFolderMutation.mutate({ id: folder.id, parentId })} onStyle={(style) => styleFolderMutation.mutate({ id: folder.id, style })} onTheme={(theme) => themeFolderMutation.mutate({ id: folder.id, theme })} onDelete={() => modal.confirm({ title: text(`删除文件夹“${folder.name}”？`, `Delete folder "${folder.name}"?`), content: text("仅空文件夹可以删除，素材和子文件夹不会被级联删除。", "Only empty folders can be deleted. Assets and subfolders are retained."), okText: text("删除", "Delete"), okButtonProps: { danger: true }, cancelText: text("取消", "Cancel"), onOk: () => deleteFolderMutation.mutateAsync(folder.id) })} deleting={(deleteFolderMutation.isPending && deleteFolderMutation.variables === folder.id) || (moveFolderMutation.isPending && moveFolderMutation.variables?.id === folder.id) || (styleFolderMutation.isPending && styleFolderMutation.variables?.id === folder.id) || (themeFolderMutation.isPending && themeFolderMutation.variables?.id === folder.id)} />)}</div> : null}
                     {showPendingCandidates && pendingCandidates.length ? (
-                        <section className="mb-4" aria-label={`待确认${candidateLabel}`}>
+                        <section className="mb-4" aria-label={text(`待确认${candidateLabel}`, `Pending ${candidateLabel}`)}>
                             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                                <div className="flex items-center gap-1.5 text-xs font-medium"><Sparkles className="size-3.5 text-foreground/50" />剧情识别出的{candidateLabel}</div>
-                                <span className="text-[var(--fs-tiny)] tabular-nums text-foreground/42">剩余 {candidatesQuery.data?.total || 0} 个待确认</span>
+                                <div className="flex items-center gap-1.5 text-xs font-medium"><Sparkles className="size-3.5 text-foreground/50" />{text(`剧情识别出的${candidateLabel}`, `${candidateLabel} found in the story`)}</div>
+                                <span className="text-[var(--fs-tiny)] tabular-nums text-foreground/42">{text(`剩余 ${candidatesQuery.data?.total || 0} 个待确认`, `${candidatesQuery.data?.total || 0} awaiting confirmation`)}</span>
                             </div>
                             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                                 {pendingCandidates.map((candidate) => {
@@ -454,21 +456,21 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
                                             <span className="grid size-12 shrink-0 place-items-center rounded-md bg-foreground/[.045] text-foreground/25">{isCharacter ? <UserRound className="size-5" /> : <Box className="size-5" />}</span>
                                             <div className="min-w-0 flex-1">
                                                 <div className="truncate text-xs font-semibold">{candidate.name}</div>
-                                                <div className="mt-1 text-[var(--fs-tiny)] text-foreground/42">待确认{categoryLabel(candidate.category)} · 来自章节分析</div>
+                                                <div className="mt-1 text-[var(--fs-tiny)] text-foreground/42">{text(`待确认${categoryLabel(candidate.category, locale)} · 来自章节分析`, `Pending ${categoryLabel(candidate.category, locale)} · from chapter analysis`)}</div>
                                                 <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1">
-                                                    <Button type="text" size="small" icon={<Check className="size-3.5" />} loading={confirming} disabled={Boolean(confirmingCandidateId) && !confirming} onClick={() => confirmMutation.mutate({ candidateId: candidate.id })}>{isCharacter ? "确认新角色" : "确认新增"}</Button>
-                                                    {isCharacter && characterAssets.length ? <Dropdown trigger={["click"]} menu={{ items: characterAssets.map((asset) => ({ key: asset.id, label: asset.title })), onClick: ({ key }) => confirmMutation.mutate({ candidateId: candidate.id, targetAssetId: key }) }}><Button type="text" size="small" disabled={Boolean(confirmingCandidateId)}>归并到角色<ChevronDown className="size-3" /></Button></Dropdown> : null}
+                                                    <Button type="text" size="small" icon={<Check className="size-3.5" />} loading={confirming} disabled={Boolean(confirmingCandidateId) && !confirming} onClick={() => confirmMutation.mutate({ candidateId: candidate.id })}>{isCharacter ? text("确认新角色", "Confirm character") : text("确认新增", "Confirm new")}</Button>
+                                                    {isCharacter && characterAssets.length ? <Dropdown trigger={["click"]} menu={{ items: characterAssets.map((asset) => ({ key: asset.id, label: asset.title })), onClick: ({ key }) => confirmMutation.mutate({ candidateId: candidate.id, targetAssetId: key }) }}><Button type="text" size="small" disabled={Boolean(confirmingCandidateId)}>{text("归并到角色", "Merge into character")}<ChevronDown className="size-3" /></Button></Dropdown> : null}
                                                 </div>
                                             </div>
                                         </article>
                                     );
                                 })}
                             </div>
-                            <PaginationBar current={candidatePage} pageSize={candidatePageSize} total={candidatesQuery.data?.total || 0} itemLabel="项" pageSizeOptions={[candidatePageSize]} onChange={(nextPage) => setCandidatePage(nextPage)} />
+                            <PaginationBar current={candidatePage} pageSize={candidatePageSize} total={candidatesQuery.data?.total || 0} itemLabel={text("项", "items")} pageSizeOptions={[candidatePageSize]} onChange={(nextPage) => setCandidatePage(nextPage)} />
                         </section>
                     ) : null}
-                    <div className="mb-2 flex items-center justify-between text-xs text-foreground/45"><span>{currentFolder?.name || (folderId === ALL_FOLDERS ? (category === "all" ? "全部资产" : categoryLabel(category)) : "根目录内容")}</span><span>{assetsQuery.data?.total || 0} 项已确认</span></div>
-                    {assetsQuery.isLoading ? <WorkspaceState icon="assets" compact title="正在读取资产" description="按当前目录、分类和关键词加载这一页。" /> : visibleAssets.length ? <><div className="project-assets-grid assets-library-grid">{visibleAssets.map((asset) => asset.category === "character" ? <ProjectCharacterCard key={asset.id} asset={asset} folderItems={folderMoveItems} generating={generatingAssetIds.has(asset.id)} removing={(moveMutation.isPending && moveMutation.variables?.id === asset.id) || (unlinkMutation.isPending && unlinkMutation.variables === asset.id)} onOpen={() => setPreviewAsset(asset)} onEdit={() => openCharacterEditor(asset)} onGenerate={() => generateMutation.mutate(asset)} onBindImages={() => openImages(asset)} onBindVoice={() => openVoice(asset)} onMove={(nextFolderId) => moveMutation.mutate({ id: asset.id, nextFolderId })} onRemove={() => unlinkMutation.mutate(asset.id)} /> : <MediaAssetCard key={asset.id} asset={asset} personalAsset={personalAssets.find((item) => item.id === asset.id)} folderItems={folderMoveItems} onOpen={() => setPreviewAsset(asset)} onMove={(nextFolderId) => moveMutation.mutate({ id: asset.id, nextFolderId })} onCategoryChange={(next) => categoryMutation.mutate({ id: asset.id, next })} onVersion={() => versionMutation.mutate(asset.id)} onRemove={() => unlinkMutation.mutate(asset.id)} loading={(moveMutation.isPending && moveMutation.variables?.id === asset.id) || (categoryMutation.isPending && categoryMutation.variables?.id === asset.id) || (versionMutation.isPending && versionMutation.variables === asset.id) || (unlinkMutation.isPending && unlinkMutation.variables === asset.id)} />)}</div><PaginationBar current={page} pageSize={pageSize} total={assetsQuery.data?.total || 0} itemLabel="项" pageSizeOptions={[20, 40, 80]} onChange={(nextPage, nextPageSize) => { setPage(nextPageSize !== pageSize ? 1 : nextPage); setPageSize(nextPageSize); }} /></> : childFolders.length || (showPendingCandidates && pendingCandidates.length) ? null : <WorkspaceState icon="assets" compact title={debouncedKeyword ? "没有找到匹配资产" : "这个文件夹还没有内容"} description={debouncedKeyword ? "换一个关键词，或调整左侧分类与目录筛选。" : "可以新建子文件夹、引用个人素材，或把画布产物归档到这里。"} />}
+                    <div className="mb-2 flex items-center justify-between text-xs text-foreground/45"><span>{currentFolder?.name || (folderId === ALL_FOLDERS ? (category === "all" ? text("全部资产", "All assets") : categoryLabel(category, locale)) : text("根目录内容", "Root folder"))}</span><span>{text(`${assetsQuery.data?.total || 0} 项已确认`, `${assetsQuery.data?.total || 0} confirmed`)}</span></div>
+                    {assetsQuery.isLoading ? <WorkspaceState icon="assets" compact title={text("正在读取资产", "Loading assets")} description={text("按当前目录、分类和关键词加载这一页。", "Loading the current folder, category and search results.")} /> : visibleAssets.length ? <><div className="project-assets-grid assets-library-grid">{visibleAssets.map((asset) => asset.category === "character" ? <ProjectCharacterCard key={asset.id} asset={asset} folderItems={folderMoveItems} generating={generatingAssetIds.has(asset.id)} removing={(moveMutation.isPending && moveMutation.variables?.id === asset.id) || (unlinkMutation.isPending && unlinkMutation.variables === asset.id)} onOpen={() => setPreviewAsset(asset)} onEdit={() => openCharacterEditor(asset)} onGenerate={() => generateMutation.mutate(asset)} onBindImages={() => openImages(asset)} onBindVoice={() => openVoice(asset)} onMove={(nextFolderId) => moveMutation.mutate({ id: asset.id, nextFolderId })} onRemove={() => unlinkMutation.mutate(asset.id)} /> : <MediaAssetCard key={asset.id} asset={asset} personalAsset={personalAssets.find((item) => item.id === asset.id)} folderItems={folderMoveItems} onOpen={() => setPreviewAsset(asset)} onMove={(nextFolderId) => moveMutation.mutate({ id: asset.id, nextFolderId })} onCategoryChange={(next) => categoryMutation.mutate({ id: asset.id, next })} onVersion={() => versionMutation.mutate(asset.id)} onRemove={() => unlinkMutation.mutate(asset.id)} loading={(moveMutation.isPending && moveMutation.variables?.id === asset.id) || (categoryMutation.isPending && categoryMutation.variables?.id === asset.id) || (versionMutation.isPending && versionMutation.variables === asset.id) || (unlinkMutation.isPending && unlinkMutation.variables === asset.id)} />)}</div><PaginationBar current={page} pageSize={pageSize} total={assetsQuery.data?.total || 0} itemLabel={text("项", "items")} pageSizeOptions={[20, 40, 80]} onChange={(nextPage, nextPageSize) => { setPage(nextPageSize !== pageSize ? 1 : nextPage); setPageSize(nextPageSize); }} /></> : childFolders.length || (showPendingCandidates && pendingCandidates.length) ? null : <WorkspaceState icon="assets" compact title={debouncedKeyword ? text("没有找到匹配资产", "No matching assets") : text("这个文件夹还没有内容", "This folder is empty")} description={debouncedKeyword ? text("换一个关键词，或调整左侧分类与目录筛选。", "Try another search term or change the filters.") : text("可以新建子文件夹、引用个人素材，或把画布产物归档到这里。", "Create a subfolder, link personal assets, or save canvas output here.")} />}
                 </div>
             </div>
 
@@ -477,14 +479,14 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
                 remoteLibrary
                 mediaKinds={["image", "video", "audio", "text"]}
                 items={availablePickerItems}
-                categoryLabels={{ ...pickerCategoryLabels, ...externalAssetSources.categoryLabels }}
+                categoryLabels={{ ...Object.fromEntries(Object.keys(pickerCategoryLabels).map((key) => [key, key === "all" ? text("全部素材", "All assets") : categoryLabel(key, locale)])), ...externalAssetSources.categoryLabels }}
                 folders={externalAssetSources.folders}
                 footerNote={externalAssetSources.error || undefined}
                 multiple
-                title="素材库"
-                confirmLabel={(count) => `加入项目${count ? `（${count}）` : ""}`}
-                emptyTitle="没有可引用的素材"
-                emptyDescription="本地素材已全部加入项目，或切换到插件来源选择外部素材。"
+                title={text("素材库", "Asset library")}
+                confirmLabel={(count) => text(`加入项目${count ? `（${count}）` : ""}`, `Add to project${count ? ` (${count})` : ""}`)}
+                emptyTitle={text("没有可引用的素材", "No assets available to link")}
+                emptyDescription={text("本地素材已全部加入项目，或切换到插件来源选择外部素材。", "All local assets are already linked. You can also select an external source.")}
                 onClose={() => setAddOpen(false)}
                 onConfirm={async (ids) => {
                     await addMutation.mutateAsync({ ids, nextFolderId: folderId === ALL_FOLDERS ? undefined : folderId });
@@ -492,26 +494,26 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
             />
             <ProjectAssetPreviewModal asset={previewAsset} personalAsset={previewAsset ? personalAssets.find((item) => item.id === previewAsset.id) : undefined} onClose={() => setPreviewAsset(null)} onDownload={() => previewAsset && downloadPreviewAsset(previewAsset)} onReplaceImage={() => { if (!previewAsset || previewAsset.category !== "character") return; setPreviewAsset(null); openImages(previewAsset); }} />
             <CharacterEditorModal open={Boolean(editorAsset)} editing={editorAsset !== "new"} form={form} loading={saveCharacter.isPending} onClose={() => setEditorAsset(null)} onSave={() => form.validateFields().then((values) => saveCharacter.mutate(values))} />
-            <Modal className="workspace-modal workspace-modal-compact" title={folderEditor?.folder ? "重命名文件夹" : "新建文件夹"} open={Boolean(folderEditor)} okText={folderEditor?.folder ? "保存" : "创建"} cancelText="取消" okButtonProps={{ loading: createFolderMutation.isPending || renameFolderMutation.isPending }} onCancel={() => { setFolderEditor(null); setFolderName(""); }} onOk={saveFolder}>
-                <div className="grid gap-2"><span className="text-[var(--fs-label)] text-foreground/48">位置：{folderEditor ? projectAssetFolderParentLabel(assetFolders, folderEditor.parentId) : ""}</span><Input autoFocus maxLength={60} value={folderName} placeholder="输入文件夹名称" onChange={(event) => setFolderName(event.target.value)} onPressEnter={saveFolder} /></div>
+            <Modal className="workspace-modal workspace-modal-compact" title={folderEditor?.folder ? text("重命名文件夹", "Rename folder") : text("新建文件夹", "New folder")} open={Boolean(folderEditor)} okText={folderEditor?.folder ? text("保存", "Save") : text("创建", "Create")} cancelText={text("取消", "Cancel")} okButtonProps={{ loading: createFolderMutation.isPending || renameFolderMutation.isPending }} onCancel={() => { setFolderEditor(null); setFolderName(""); }} onOk={saveFolder}>
+                <div className="grid gap-2"><span className="text-[var(--fs-label)] text-foreground/48">{text("位置：", "Location: ")}{folderEditor ? projectAssetFolderParentLabel(assetFolders, folderEditor.parentId, locale) : ""}</span><Input autoFocus maxLength={60} value={folderName} placeholder={text("输入文件夹名称", "Enter folder name")} onChange={(event) => setFolderName(event.target.value)} onPressEnter={saveFolder} /></div>
             </Modal>
             <AssetLibraryPickerModal
                 open={Boolean(imageAsset)}
                 remoteLibrary
                 remoteKind="image"
                 items={imagePickerItems}
-                categoryLabels={{ ...pickerCategoryLabels, ...externalAssetSources.categoryLabels }}
+                categoryLabels={{ ...Object.fromEntries(Object.keys(pickerCategoryLabels).map((key) => [key, key === "all" ? text("全部素材", "All assets") : categoryLabel(key, locale)])), ...externalAssetSources.categoryLabels }}
                 folders={externalAssetSources.folders}
                 footerNote={externalAssetSources.error || undefined}
                 multiple={false}
-                eyebrow="绑定图片"
-                title={imageAsset?.title || "角色三视图"}
-                confirmLabel={() => "绑定并生成新版本"}
-                emptyTitle="没有可绑定的图片"
-                emptyDescription="需要一张包含正面、侧面、背面的角色设定图。"
+                eyebrow={text("绑定图片", "Link image")}
+                title={imageAsset?.title || text("角色三视图", "Character turnaround")}
+                confirmLabel={() => text("绑定并生成新版本", "Link as new version")}
+                emptyTitle={text("没有可绑定的图片", "No images available to link")}
+                emptyDescription={text("需要一张包含正面、侧面、背面的角色设定图。", "Choose a character sheet showing front, side and back views.")}
                 onClose={() => setImageAsset(null)}
                 onConfirm={async (ids) => {
-                    if (!ids[0]) throw new Error("请选择一张三视图设定图");
+                    if (!ids[0]) throw new Error(text("请选择一张三视图设定图", "Select a character turnaround image"));
                     await bindImagesMutation.mutateAsync(ids[0]);
                 }}
             />
@@ -520,21 +522,21 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
                 remoteLibrary
                 remoteKind="audio"
                 items={audioPickerItems}
-                categoryLabels={{ all: "全部音频", audio: "声音素材" }}
+                categoryLabels={{ all: text("全部音频", "All audio"), audio: text("声音素材", "Voice assets") }}
                 initialCategory="audio"
                 multiple={false}
-                eyebrow="声音素材"
-                title="从素材库选择"
-                confirmLabel={() => "使用这份声音"}
-                emptyTitle="素材库还没有可用音频"
-                emptyDescription="可以从底部上传声音素材，上传后会自动选中。"
-                upload={{ accept: CHARACTER_VOICE_UPLOAD_ACCEPT, description: `支持 ${CHARACTER_VOICE_FORMAT_LABEL}；上传后保存到素材库`, onUpload: async (files) => {
+                eyebrow={text("声音素材", "Voice asset")}
+                title={text("从素材库选择", "Choose from asset library")}
+                confirmLabel={() => text("使用这份声音", "Use this voice")}
+                emptyTitle={text("素材库还没有可用音频", "No audio available")}
+                emptyDescription={text("可以从底部上传声音素材，上传后会自动选中。", "Upload a voice asset below to select it automatically.")}
+                upload={{ accept: CHARACTER_VOICE_UPLOAD_ACCEPT, description: text(`支持 ${CHARACTER_VOICE_FORMAT_LABEL}；上传后保存到素材库`, `Supports ${CHARACTER_VOICE_FORMAT_LABEL}; uploads are saved to the asset library`), onUpload: async (files) => {
                     const ids: string[] = [];
                     for (const file of Array.from(files)) {
-                        if (!isSupportedCharacterVoiceFile(file)) throw new Error(`声音素材支持 ${CHARACTER_VOICE_FORMAT_LABEL}`);
+                        if (!isSupportedCharacterVoiceFile(file)) throw new Error(text(`声音素材支持 ${CHARACTER_VOICE_FORMAT_LABEL}`, `Supported voice formats: ${CHARACTER_VOICE_FORMAT_LABEL}`));
                         const uploaded = await uploadMediaFile(file, "character-voice");
                         const resourceId = resourceIdFromStorageKey(uploaded.storageKey);
-                        if (!resourceId) throw new Error("声音上传未同步到服务端资源库，请检查后端连接");
+                        if (!resourceId) throw new Error(text("声音上传未同步到服务端资源库，请检查后端连接", "Voice upload has not synced to the server. Check the connection."));
                         ids.push(addAsset({ kind: "audio", title: characterVoiceTitleFromFileName(file.name), coverUrl: "", tags: ["角色声音"], status: "confirmed", source: "角色卡", data: { url: uploaded.url, storageKey: uploaded.storageKey, durationMs: uploaded.durationMs, bytes: uploaded.bytes, mimeType: uploaded.mimeType || file.type || "application/octet-stream" } }));
                     }
                     return ids;
@@ -543,20 +545,20 @@ export default function ProjectAssetsView({ detail, refreshProject }: ProjectDet
                 onConfirm={(ids) => {
                     const id = ids[0];
                     const resourceId = id ? audioResourceByItemId.get(id) : "";
-                    if (!resourceId) throw new Error("所选声音素材尚未同步到服务端资源库");
+                    if (!resourceId) throw new Error(text("所选声音素材尚未同步到服务端资源库", "The selected voice has not synced to the server"));
                     const item = audioPickerItems.find((entry) => entry.id === id);
-                    setVoiceSample({ resourceId, name: item?.title || "角色声音", url: resourceFileUrl(resourceId) });
+                    setVoiceSample({ resourceId, name: item?.title || text("角色声音", "Character voice"), url: resourceFileUrl(resourceId) });
                     setVoicePickerOpen(false);
                 }}
             />
-            <Modal className="workspace-modal workspace-modal-compact" title={`绑定声音素材 · ${voiceAsset?.title || ""}`} open={Boolean(voiceAsset)} okText="绑定并生成新版本" cancelText="取消" okButtonProps={{ loading: bindVoiceMutation.isPending, disabled: !voiceSample }} onCancel={() => { setVoiceAsset(null); setVoiceSample(null); }} onOk={() => bindVoiceMutation.mutate()}>
+            <Modal className="workspace-modal workspace-modal-compact" title={text(`绑定声音素材 · ${voiceAsset?.title || ""}`, `Link voice asset · ${voiceAsset?.title || ""}`)} open={Boolean(voiceAsset)} okText={text("绑定并生成新版本", "Link as new version")} cancelText={text("取消", "Cancel")} okButtonProps={{ loading: bindVoiceMutation.isPending, disabled: !voiceSample }} onCancel={() => { setVoiceAsset(null); setVoiceSample(null); }} onOk={() => bindVoiceMutation.mutate()}>
                 <div className="grid gap-3">
                     <div className="rounded-md border border-border/70 bg-foreground/[.025] p-3">
-                        <div className="flex items-center justify-between gap-3"><div className="min-w-0"><div className="text-[var(--fs-label)] text-foreground/48">当前声音素材</div><div className="mt-1 truncate text-sm font-medium">{voiceSample?.name || "尚未选择声音素材"}</div></div><Button icon={<FolderOpen className="size-3.5" />} onClick={() => setVoicePickerOpen(true)}>选择或上传音频</Button></div>
-                        {voiceSample ? <audio className="mt-3 w-full" src={voiceSample.url} controls preload="metadata" /> : <div className="mt-2 text-[var(--fs-tiny)] text-foreground/42">从素材库选择已有音频，或上传 {CHARACTER_VOICE_FORMAT_LABEL} 格式的声音样本。</div>}
+                        <div className="flex flex-wrap items-center justify-between gap-3"><div className="min-w-0"><div className="text-[var(--fs-label)] text-foreground/48">{text("当前声音素材", "Current voice asset")}</div><div className="mt-1 truncate text-sm font-medium">{voiceSample?.name || text("尚未选择声音素材", "No voice selected")}</div></div><Button icon={<FolderOpen className="size-3.5" />} onClick={() => setVoicePickerOpen(true)}>{text("选择或上传音频", "Choose or upload audio")}</Button></div>
+                        {voiceSample ? <audio className="mt-3 w-full" src={voiceSample.url} controls preload="metadata" /> : <div className="mt-2 text-[var(--fs-tiny)] text-foreground/42">{text(`从素材库选择已有音频，或上传 ${CHARACTER_VOICE_FORMAT_LABEL} 格式的声音样本。`, `Choose audio from the library or upload a sample in ${CHARACTER_VOICE_FORMAT_LABEL} format.`)}</div>}
                     </div>
-                    <Input.TextArea rows={3} value={voiceInstructions} placeholder="表演指令，例如：克制、温暖、语速稍慢" onChange={(event) => setVoiceInstructions(event.target.value)} />
-                    {voiceAsset?.character && voiceAsset.character.voiceStatus !== "missing" ? <div className="flex items-center justify-between pt-1"><span className="text-[var(--fs-label)] text-foreground/45">当前绑定：{voiceAsset.character.voice?.profile.name || "声音素材不可用"}</span><Popconfirm title="解除当前声音绑定？" description="该操作会保留历史版本，并创建一个未绑定声音的新版本。" okText="解除" cancelText="取消" onConfirm={() => unbindVoiceMutation.mutate()}><Button type="text" danger size="small" loading={unbindVoiceMutation.isPending} icon={<VolumeX className="size-3.5" />}>解除声音</Button></Popconfirm></div> : null}
+                    <Input.TextArea rows={3} value={voiceInstructions} placeholder={text("表演指令，例如：克制、温暖、语速稍慢", "Performance notes, e.g. restrained, warm, slow-paced")} onChange={(event) => setVoiceInstructions(event.target.value)} />
+                    {voiceAsset?.character && voiceAsset.character.voiceStatus !== "missing" ? <div className="flex flex-wrap items-center justify-between gap-2 pt-1"><span className="text-[var(--fs-label)] text-foreground/45">{text("当前绑定：", "Current: ")}{voiceAsset.character.voice?.profile.name || text("声音素材不可用", "Voice unavailable")}</span><Popconfirm title={text("解除当前声音绑定？", "Unlink current voice?")} description={text("该操作会保留历史版本，并创建一个未绑定声音的新版本。", "Earlier versions are retained. A new version without a voice will be created.")} okText={text("解除", "Unlink")} cancelText={text("取消", "Cancel")} onConfirm={() => unbindVoiceMutation.mutate()}><Button type="text" danger size="small" loading={unbindVoiceMutation.isPending} icon={<VolumeX className="size-3.5" />}>{text("解除声音", "Unlink voice")}</Button></Popconfirm></div> : null}
                 </div>
             </Modal>
         </div>
@@ -576,11 +578,12 @@ function ProjectAssetFolderTree({ folders, folderCounts, selectedId, onSelect }:
 }
 
 function ProjectAssetFolderCard({ folder, folders, assets, folderCounts, personalAssets, onOpen, onRename, onMove, onStyle, onTheme, onDelete, deleting }: { folder: ProjectAssetFolder; folders: ProjectAssetFolder[]; assets: ProjectAsset[]; folderCounts: Record<string, number>; personalAssets: Asset[]; onOpen: () => void; onRename: () => void; onMove: (parentId: string) => void; onStyle: (style: CanvasFolderStyle) => void; onTheme: (theme: CanvasFolderTheme) => void; onDelete: () => void; deleting: boolean }) {
+    const { locale, text } = useLocaleText();
     const directAssets = assets.filter((asset) => (asset.folderId || "") === folder.id);
     const totalCount = projectAssetFolderDescendantAssetCount(folders, folderCounts, folder.id);
     const directCount = folderCounts[folder.id] || 0;
     const childFolderCount = folders.filter((item) => item.parentId === folder.id).length;
-    const moveItems = projectAssetFolderMoveItems(folders, folder);
+    const moveItems = projectAssetFolderMoveItems(folders, folder, locale);
     const data: CanvasNodeData = {
         id: folder.id,
         type: CanvasNodeType.Frame,
@@ -594,10 +597,10 @@ function ProjectAssetFolderCard({ folder, folders, assets, folderCounts, persona
         },
     };
     const childNodes = directAssets.slice(0, 3).map((asset, index) => projectAssetCanvasPreviewNode(asset, personalAssets.find((item) => item.id === asset.id), index));
-    return <article className="project-asset-folder-card" aria-label={`${folder.name} 文件夹，共 ${totalCount} 项`}>
-        <button type="button" className="project-asset-folder-open" aria-label={`打开文件夹 ${folder.name}`} onClick={onOpen} />
+    return <article className="project-asset-folder-card" aria-label={text(`${folder.name} 文件夹，共 ${totalCount} 项`, `${folder.name} folder, ${totalCount} items`)}>
+        <button type="button" className="project-asset-folder-open" aria-label={text(`打开文件夹 ${folder.name}`, `Open folder ${folder.name}`)} onClick={onOpen} />
         <div className="project-asset-folder-visual"><CanvasFolderPreview data={data} childNodes={childNodes} active={false} isDropTarget={false} readOnly onToggleCollapsed={onOpen} onTitleChange={() => undefined} onStyleChange={() => undefined} onThemeChange={() => undefined} /></div>
-        <div className="project-asset-folder-card-footer"><span>{directCount} 项内容{childFolderCount ? ` · ${childFolderCount} 个子文件夹` : ""}</span><Dropdown trigger={["click"]} menu={{ selectedKeys: [`style:${folder.style}`, `theme:${resolveCanvasFolderTheme(folder.theme)}`], items: [{ key: "rename", label: "重命名", icon: <Pencil className="size-3.5" /> }, { key: "move", label: "移动到", icon: <MoveRight className="size-3.5" />, children: moveItems }, { key: "style", label: "切换样式", children: [{ key: "style:glass", label: "流光玻璃" }, { key: "style:stacked", label: "内容陈列" }, { key: "style:midnight", label: "午夜封面" }, { key: "style:paper", label: "纸感收藏" }, { key: "style:cinema", label: "电影胶片" }, { key: "style:compact", label: "紧凑资料" }] }, { key: "theme", label: "切换主题", children: CANVAS_FOLDER_THEME_OPTIONS.map((item) => ({ key: `theme:${item.key}`, label: item.label })) }, { key: "delete", label: "删除空文件夹", icon: <Trash2 className="size-3.5" />, danger: true }], onClick: ({ key, domEvent }) => { domEvent.stopPropagation(); if (key === "rename") onRename(); else if (key.startsWith("move:")) onMove(key === "move:root" ? "" : key.slice(5)); else if (key.startsWith("style:")) onStyle(key.slice(6) as CanvasFolderStyle); else if (key.startsWith("theme:")) onTheme(key.slice(6) as CanvasFolderTheme); else if (key === "delete") onDelete(); } }}><button type="button" className="project-asset-folder-menu" disabled={deleting} aria-label={`${folder.name} 文件夹操作`} onClick={(event) => event.stopPropagation()}><MoreHorizontal className="size-4" /></button></Dropdown></div>
+        <div className="project-asset-folder-card-footer"><span>{text(`${directCount} 项内容${childFolderCount ? ` · ${childFolderCount} 个子文件夹` : ""}`, `${directCount} items${childFolderCount ? ` · ${childFolderCount} subfolders` : ""}`)}</span><Dropdown trigger={["click"]} menu={{ selectedKeys: [`style:${folder.style}`, `theme:${resolveCanvasFolderTheme(folder.theme)}`], items: [{ key: "rename", label: text("重命名", "Rename"), icon: <Pencil className="size-3.5" /> }, { key: "move", label: text("移动到", "Move to"), icon: <MoveRight className="size-3.5" />, children: moveItems }, { key: "style", label: text("切换样式", "Change style"), children: [{ key: "style:glass", label: text("流光玻璃", "Glass") }, { key: "style:stacked", label: text("内容陈列", "Stacked") }, { key: "style:midnight", label: text("午夜封面", "Midnight") }, { key: "style:paper", label: text("纸感收藏", "Paper") }, { key: "style:cinema", label: text("电影胶片", "Cinema") }, { key: "style:compact", label: text("紧凑资料", "Compact") }] }, { key: "theme", label: text("切换主题", "Change theme"), children: CANVAS_FOLDER_THEME_OPTIONS.map((item) => ({ key: `theme:${item.key}`, label: locale === "en-US" ? ({ aurora: "Aurora", obsidian: "Obsidian", ember: "Ember", pearl: "Pearl" } as Record<string, string>)[item.key] : item.label })) }, { key: "delete", label: text("删除空文件夹", "Delete empty folder"), icon: <Trash2 className="size-3.5" />, danger: true }], onClick: ({ key, domEvent }) => { domEvent.stopPropagation(); if (key === "rename") onRename(); else if (key.startsWith("move:")) onMove(key === "move:root" ? "" : key.slice(5)); else if (key.startsWith("style:")) onStyle(key.slice(6) as CanvasFolderStyle); else if (key.startsWith("theme:")) onTheme(key.slice(6) as CanvasFolderTheme); else if (key === "delete") onDelete(); } }}><button type="button" className="project-asset-folder-menu" disabled={deleting} aria-label={text(`${folder.name} 文件夹操作`, `Actions for folder ${folder.name}`)} onClick={(event) => event.stopPropagation()}><MoreHorizontal className="size-4" /></button></Dropdown></div>
     </article>;
 }
 
@@ -651,12 +654,12 @@ function projectAssetFolderLabel(folders: ProjectAssetFolder[], folder: ProjectA
     return projectAssetFolderPath(folders, folder.id).map((item) => item.name).join(" / ");
 }
 
-function projectAssetFolderParentLabel(folders: ProjectAssetFolder[], parentId: string) {
+function projectAssetFolderParentLabel(folders: ProjectAssetFolder[], parentId: string, locale: AppLocale) {
     const path = parentId ? projectAssetFolderPath(folders, parentId).map((item) => item.name) : [];
-    return ["素材库", ...path].join(" / ");
+    return [locale === "en-US" ? "Asset library" : "素材库", ...path].join(" / ");
 }
 
-function projectAssetFolderMoveItems(folders: ProjectAssetFolder[], movingFolder: ProjectAssetFolder) {
+function projectAssetFolderMoveItems(folders: ProjectAssetFolder[], movingFolder: ProjectAssetFolder, locale: AppLocale) {
     const blocked = new Set([movingFolder.id]);
     let changed = true;
     while (changed) {
@@ -668,7 +671,7 @@ function projectAssetFolderMoveItems(folders: ProjectAssetFolder[], movingFolder
         }
     }
     return [
-        { key: "move:root", label: "素材库 / 根目录", disabled: !movingFolder.parentId },
+        { key: "move:root", label: locale === "en-US" ? "Asset library / Root" : "素材库 / 根目录", disabled: !movingFolder.parentId },
         ...folders.filter((folder) => !blocked.has(folder.id)).map((folder) => ({ key: `move:${folder.id}`, label: projectAssetFolderLabel(folders, folder), disabled: movingFolder.parentId === folder.id })),
     ];
 }
@@ -688,19 +691,22 @@ function projectAssetFolderDescendantAssetCount(folders: ProjectAssetFolder[], f
 }
 
 function CharacterEditorModal({ open, editing, form, loading, onClose, onSave }: { open: boolean; editing: boolean; form: FormInstance<CharacterForm>; loading: boolean; onClose: () => void; onSave: () => void }) {
+    const { text } = useLocaleText();
     const field = (key: CharacterFormKey) => characterFields.find(([name]) => name === key)!;
-    const textArea = (key: CharacterFormKey, rows = 3) => <Form.Item name={key} label={field(key)[1]}><Input.TextArea rows={rows} placeholder={key === "appearance" ? "先描述用户能看到的稳定特征…" : undefined} /></Form.Item>;
-    const input = (key: CharacterFormKey) => <Form.Item name={key} label={field(key)[1]}><Input /></Form.Item>;
-    return <Modal className="workspace-modal workspace-modal-wide library-modal" title={null} open={open} forceRender okText={editing ? "保存角色设定" : "创建角色卡"} cancelText="取消" okButtonProps={{ loading }} onCancel={onClose} onOk={onSave} styles={{ body: { paddingTop: 0 } }}>
-        <div className="mb-1 pb-4"><div className="text-[var(--fs-label)] font-medium text-foreground/52">角色设定</div><h2 className="mt-1 text-xl font-semibold">{editing ? "调整角色设定" : "建立一张角色卡"}</h2></div>
-        <Form form={form} layout="vertical" requiredMark={false} className="pt-2"><Form.Item name="name" label="角色名称" rules={[{ required: true, message: "请输入角色名称" }]}><Input size="large" placeholder="例如：林默" /></Form.Item><Tabs items={[{ key: "identity", label: "身份与外观", forceRender: true, children: <div className="grid gap-x-5 sm:grid-cols-2">{input("role")}{input("aliases")}{textArea("appearance", 4)}{input("physique")}{input("clothing")}{input("props")}{textArea("consistencyPrompt", 4)}{textArea("multiViewPrompt", 3)}</div> }, { key: "performance", label: "表演与声音", forceRender: true, children: <div className="grid gap-x-5 sm:grid-cols-2">{textArea("personality", 4)}{input("voiceLanguage")}{input("voiceAge")}{input("voiceTimbre")}</div> }]} /></Form>
+    const fieldLabel = (key: CharacterFormKey) => text(field(key)[1], ({ role: "Story role and relationships", aliases: "Aliases", appearance: "Consistent appearance", physique: "Height and build", clothing: "Default outfit", personality: "Personality and performance", props: "Signature props", consistencyPrompt: "Cross-shot consistency", multiViewPrompt: "Turnaround notes", voiceLanguage: "Language and accent", voiceAge: "Voice age", voiceTimbre: "Voice quality" } satisfies Record<CharacterFormKey, string>)[key]);
+    const textArea = (key: CharacterFormKey, rows = 3) => <Form.Item name={key} label={fieldLabel(key)}><Input.TextArea rows={rows} placeholder={key === "appearance" ? text("先描述用户能看到的稳定特征…", "Describe the character's visible, consistent features...") : undefined} /></Form.Item>;
+    const input = (key: CharacterFormKey) => <Form.Item name={key} label={fieldLabel(key)}><Input /></Form.Item>;
+    return <Modal className="workspace-modal workspace-modal-wide library-modal" title={null} open={open} forceRender okText={editing ? text("保存角色设定", "Save character") : text("创建角色卡", "Create character card")} cancelText={text("取消", "Cancel")} okButtonProps={{ loading }} onCancel={onClose} onOk={onSave} styles={{ body: { paddingTop: 0 } }}>
+        <div className="mb-1 pb-4"><div className="text-[var(--fs-label)] font-medium text-foreground/52">{text("角色设定", "Character details")}</div><h2 className="mt-1 text-xl font-semibold">{editing ? text("调整角色设定", "Edit character details") : text("建立一张角色卡", "Create a character card")}</h2></div>
+        <Form form={form} layout="vertical" requiredMark={false} className="pt-2"><Form.Item name="name" label={text("角色名称", "Character name")} rules={[{ required: true, message: text("请输入角色名称", "Enter a character name") }]}><Input size="large" placeholder={text("例如：林默", "e.g. Morgan")}/></Form.Item><Tabs items={[{ key: "identity", label: text("身份与外观", "Identity & appearance"), forceRender: true, children: <div className="grid gap-x-5 sm:grid-cols-2">{input("role")}{input("aliases")}{textArea("appearance", 4)}{input("physique")}{input("clothing")}{input("props")}{textArea("consistencyPrompt", 4)}{textArea("multiViewPrompt", 3)}</div> }, { key: "performance", label: text("表演与声音", "Performance & voice"), forceRender: true, children: <div className="grid gap-x-5 sm:grid-cols-2">{textArea("personality", 4)}{input("voiceLanguage")}{input("voiceAge")}{input("voiceTimbre")}</div> }]} /></Form>
     </Modal>;
 }
 
 type CharacterFormKey = (typeof characterFields)[number][0];
 
 function MediaAssetCard({ asset, personalAsset, folderItems, onOpen, onMove, onCategoryChange, onVersion, onRemove, loading }: { asset: ProjectAsset; personalAsset?: Asset; folderItems: Array<{ key: string; label: string }>; onOpen: () => void; onMove: (folderId: string) => void; onCategoryChange: (category: AssetCategory) => void; onVersion: () => void; onRemove: () => void; loading: boolean }) {
-    return <AssetLibraryCard className="project-asset-library-card"><AssetLibraryCardMedia className="relative aspect-[4/3] overflow-hidden bg-foreground/[.05]"><button type="button" className="project-asset-media-button" onClick={onOpen} aria-label={`查看资产：${asset.title}`}><ProjectAssetMedia asset={asset} personalAsset={personalAsset} /><div className="absolute inset-x-2 top-2 flex items-center justify-between"><StatusPill status={asset.status} /><span className="rounded bg-black/50 px-1.5 py-0.5 text-[var(--fs-micro)] text-white">{mediaLabel(asset.mediaType)}</span></div></button></AssetLibraryCardMedia><div className="p-2.5"><button type="button" className="project-asset-title-button" onClick={onOpen}><span className="min-w-0 truncate text-xs font-medium">{asset.title}</span><span className="shrink-0 text-[var(--fs-micro)] text-foreground/38">{formatTime(asset.updatedAt)}</span></button><div className="mt-1 flex items-center gap-1.5 text-[var(--fs-tiny)] text-foreground/42"><Dropdown trigger={["click"]} menu={{ selectedKeys: [asset.category], items: Object.entries(categoryLabels).filter(([value]) => value !== "character").map(([value, label]) => ({ key: value, label })), onClick: ({ key }) => onCategoryChange(normalizeAssetCategory(key)) }}><button type="button" disabled={loading} className="inline-flex h-6 items-center gap-1 rounded px-1.5 text-[var(--fs-tiny)] text-foreground/50 hover:bg-surface-hover"><span>{categoryLabel(asset.category)}</span><ChevronDown className="size-3" /></button></Dropdown><span>·</span><span>v{Math.max(1, asset.versionCount)}</span><Link2 className="ml-auto size-3.5 shrink-0 text-foreground/42" /></div><div className="mt-2 flex items-center justify-between gap-2 pt-1"><span className="text-[var(--fs-micro)] text-foreground/38">{mediaLabel(asset.mediaType)}</span><div className="flex items-center"><Dropdown trigger={["click"]} menu={{ selectedKeys: [asset.folderId || ""], items: folderItems, onClick: ({ key }) => onMove(key) }}><Button type="text" size="small" icon={<MoveRight className="size-3.5" />} loading={loading} aria-label={`移动 ${asset.title}`} /></Dropdown><Button type="text" size="small" icon={<RefreshCw className="size-3.5" />} loading={loading} onClick={onVersion} aria-label={`为 ${asset.title} 创建版本`} /><Popconfirm title="移出项目资产？" okText="移出" cancelText="取消" onConfirm={onRemove}><Button type="text" danger size="small" icon={<Trash2 className="size-3.5" />} loading={loading} aria-label={`移出 ${asset.title}`} /></Popconfirm></div></div></div></AssetLibraryCard>;
+    const { locale, text } = useLocaleText();
+    return <AssetLibraryCard className="project-asset-library-card"><AssetLibraryCardMedia className="relative aspect-[4/3] overflow-hidden bg-foreground/[.05]"><button type="button" className="project-asset-media-button" onClick={onOpen} aria-label={text(`查看资产：${asset.title}`, `View asset: ${asset.title}`)}><ProjectAssetMedia asset={asset} personalAsset={personalAsset} /><div className="absolute inset-x-2 top-2 flex items-center justify-between"><StatusPill status={asset.status} /><span className="rounded bg-black/50 px-1.5 py-0.5 text-[var(--fs-micro)] text-white">{mediaLabel(asset.mediaType, locale)}</span></div></button></AssetLibraryCardMedia><div className="p-2.5"><button type="button" className="project-asset-title-button" onClick={onOpen}><span className="min-w-0 truncate text-xs font-medium">{asset.title}</span><span className="shrink-0 text-[var(--fs-micro)] text-foreground/38">{formatTime(asset.updatedAt, locale)}</span></button><div className="mt-1 flex items-center gap-1.5 text-[var(--fs-tiny)] text-foreground/42"><Dropdown trigger={["click"]} menu={{ selectedKeys: [asset.category], items: Object.keys(categoryLabels).filter((value) => value !== "character").map((value) => ({ key: value, label: categoryLabel(value, locale) })), onClick: ({ key }) => onCategoryChange(normalizeAssetCategory(key)) }}><button type="button" disabled={loading} className="inline-flex h-6 items-center gap-1 rounded px-1.5 text-[var(--fs-tiny)] text-foreground/50 hover:bg-surface-hover"><span>{categoryLabel(asset.category, locale)}</span><ChevronDown className="size-3" /></button></Dropdown><span>·</span><span>v{Math.max(1, asset.versionCount)}</span><Link2 className="ml-auto size-3.5 shrink-0 text-foreground/42" /></div><div className="mt-2 flex items-center justify-between gap-2 pt-1"><span className="text-[var(--fs-micro)] text-foreground/38">{mediaLabel(asset.mediaType, locale)}</span><div className="flex items-center"><Dropdown trigger={["click"]} menu={{ selectedKeys: [asset.folderId || ""], items: folderItems, onClick: ({ key }) => onMove(key) }}><Button type="text" size="small" icon={<MoveRight className="size-3.5" />} loading={loading} aria-label={text(`移动 ${asset.title}`, `Move ${asset.title}`)} /></Dropdown><Button type="text" size="small" icon={<RefreshCw className="size-3.5" />} loading={loading} onClick={onVersion} aria-label={text(`为 ${asset.title} 创建版本`, `Create version for ${asset.title}`)} /><Popconfirm title={text("移出项目资产？", "Remove from project assets?")} okText={text("移出", "Remove")} cancelText={text("取消", "Cancel")} onConfirm={onRemove}><Button type="text" danger size="small" icon={<Trash2 className="size-3.5" />} loading={loading} aria-label={text(`移出 ${asset.title}`, `Remove ${asset.title}`)} /></Popconfirm></div></div></div></AssetLibraryCard>;
 }
 
 function ProjectAssetMedia({ asset, personalAsset }: { asset: ProjectAsset; personalAsset?: Asset }) {
@@ -713,22 +719,23 @@ function ProjectAssetMedia({ asset, personalAsset }: { asset: ProjectAsset; pers
 }
 
 function ProjectAssetPreviewModal({ asset, personalAsset, onClose, onDownload, onReplaceImage }: { asset: ProjectAsset | null; personalAsset?: Asset; onClose: () => void; onDownload: () => void; onReplaceImage: () => void }) {
+    const { locale, text } = useLocaleText();
     const characterCover = projectCharacterCover(asset?.character?.representations);
     const remoteUrl = asset ? projectAssetRemoteUrl(asset) : "";
     const canDownload = Boolean(personalAsset && ["image", "video", "audio", "model"].includes(personalAsset.kind)) || Boolean(characterCover) || Boolean(remoteUrl);
     const previewKind = personalAsset?.kind || asset?.mediaType;
     const previewClass = asset?.category === "character" ? "is-character" : previewKind === "video" ? "is-video" : previewKind === "audio" ? "is-audio" : previewKind === "text" ? "is-text" : "is-image";
     return (
-        <Modal className="workspace-modal workspace-modal-wide library-modal project-asset-preview-modal" title={asset?.category === "character" ? "角色卡预览" : "资产预览"} open={Boolean(asset)} onCancel={onClose} footer={<div className="flex justify-end gap-2"><Button onClick={onClose}>关闭</Button>{asset?.category === "character" ? <Button onClick={onReplaceImage}>替换图片</Button> : null}{canDownload ? <Button type="primary" icon={<Download className="size-3.5" />} onClick={onDownload}>下载</Button> : null}</div>}>
+        <Modal className="workspace-modal workspace-modal-wide library-modal project-asset-preview-modal" title={asset?.category === "character" ? text("角色卡预览", "Character preview") : text("资产预览", "Asset preview")} open={Boolean(asset)} onCancel={onClose} footer={<div className="flex justify-end gap-2"><Button onClick={onClose}>{text("关闭", "Close")}</Button>{asset?.category === "character" ? <Button onClick={onReplaceImage}>{text("替换图片", "Replace image")}</Button> : null}{canDownload ? <Button type="primary" icon={<Download className="size-3.5" />} onClick={onDownload}>{text("下载", "Download")}</Button> : null}</div>}>
             {asset ? <div className="project-asset-preview-layout">
                 <div className={`project-asset-preview-stage ${previewClass}`}>
                     {asset.category === "character" ? characterCover ? <CachedResourceImage storageKey={`resource:${characterCover.resourceId}`} src={resourceFileUrl(characterCover.resourceId)} alt={asset.title} className="project-asset-preview-media" fallback={<div className="grid min-h-48 place-items-center text-foreground/35"><UserRound className="size-12" /></div>} /> : <div className="grid min-h-48 place-items-center text-foreground/35"><UserRound className="size-12" /></div> : personalAsset?.kind === "video" ? <video src={personalAsset.data.url} controls className="project-asset-preview-media" /> : personalAsset?.kind === "audio" ? <audio src={personalAsset.data.url} controls className="project-asset-preview-audio" /> : personalAsset?.kind === "image" ? <AssetMediaPreview asset={personalAsset} alt={asset.title} className="project-asset-preview-media" /> : personalAsset?.kind === "text" ? <p className="project-asset-preview-text">{personalAsset.data.content}</p> : asset.mediaType === "video" && remoteUrl ? <video src={remoteUrl} controls className="project-asset-preview-media" /> : asset.mediaType === "audio" && remoteUrl ? <audio src={remoteUrl} controls className="project-asset-preview-audio" /> : asset.mediaType === "image" && remoteUrl ? <img src={remoteUrl} alt={asset.title} className="project-asset-preview-media" /> : asset.mediaType === "text" && asset.previewText ? <p className="project-asset-preview-text">{asset.previewText}</p> : <div className="grid min-h-48 place-items-center text-foreground/35"><MediaIcon kind={asset.mediaType} /></div>}
                 </div>
                 <aside className="project-asset-preview-details">
-                    <div className="project-asset-preview-eyebrow">{asset.category === "character" ? "角色卡" : mediaLabel(asset.mediaType)}</div>
+                    <div className="project-asset-preview-eyebrow">{asset.category === "character" ? text("角色卡", "Character card") : mediaLabel(asset.mediaType, locale)}</div>
                     <h3 className="project-asset-preview-title">{asset.title}</h3>
-                    <p className="project-asset-preview-meta">更新于 {formatTime(asset.updatedAt)}</p>
-                    {asset.character ? <div className="project-asset-preview-sections"><section><span>剧情定位</span><p>{textValue(asset.character.definition.role) || "未填写"}</p></section><section><span>外观设定</span><p>{textValue(asset.character.definition.appearance) || textValue(asset.character.definition.consistencyPrompt) || "未填写"}</p></section><div className="project-asset-preview-status">形象：{asset.character.visualStatus === "ready" ? "已绑定" : "待完善"} · 声音：{asset.character.voiceStatus === "ready" ? "已绑定" : "未绑定"}</div></div> : <div className="project-asset-preview-facts"><span>版本 <strong>v{Math.max(1, asset.versionCount)}</strong></span><span>{asset.usages.length} 处引用</span></div>}
+                    <p className="project-asset-preview-meta">{text("更新于", "Updated")} {formatTime(asset.updatedAt, locale)}</p>
+                    {asset.character ? <div className="project-asset-preview-sections"><section><span>{text("剧情定位", "Story role")}</span><p>{textValue(asset.character.definition.role) || text("未填写", "Not set")}</p></section><section><span>{text("外观设定", "Appearance")}</span><p>{textValue(asset.character.definition.appearance) || textValue(asset.character.definition.consistencyPrompt) || text("未填写", "Not set")}</p></section><div className="project-asset-preview-status">{text("形象：", "Visual: ")}{asset.character.visualStatus === "ready" ? text("已绑定", "Linked") : text("待完善", "Incomplete")} · {text("声音：", "Voice: ")}{asset.character.voiceStatus === "ready" ? text("已绑定", "Linked") : text("未绑定", "Not linked")}</div></div> : <div className="project-asset-preview-facts"><span>{text("版本", "Version")} <strong>v{Math.max(1, asset.versionCount)}</strong></span><span>{text(`${asset.usages.length} 处引用`, `${asset.usages.length} references`)}</span></div>}
                 </aside>
             </div> : null}
         </Modal>

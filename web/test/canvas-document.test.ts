@@ -33,6 +33,14 @@ Epilogue: 重逢
         expect(chapters[0].title).toBe("第 1 章");
         expect(chapters[0].plainText).toBe(text);
     });
+
+    test("English imports use English fallback chapter names", () => {
+        expect(splitTextIntoChapters("An opening without a heading.", "en-US")).toEqual([{ title: "Chapter 1", plainText: "An opening without a heading." }]);
+        expect(splitTextIntoChapters("A note from the author\nChapter 1: Arrival\nThe story begins.", "en-US")).toEqual([
+            { title: "Prologue", plainText: "A note from the author" },
+            { title: "Chapter 1: Arrival", plainText: "The story begins." },
+        ]);
+    });
 });
 
 describe("decodeNovelText", () => {

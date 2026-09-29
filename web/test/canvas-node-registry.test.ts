@@ -11,6 +11,11 @@ function node(type: CanvasNodeType, metadata?: CanvasNodeMetadata, id = type): C
 const ALL_TYPES = Object.values(CanvasNodeType);
 
 describe("节点注册表——覆盖完整性", () => {
+    test("English labels are available for built-in nodes", () => {
+        expect(getNodeListLabel(CanvasNodeType.Image, "en-US")).toBe("Image node");
+        expect(getNodeListLabel(CanvasNodeType.Video, "en-US")).toBe("Video node");
+        expect(getNodeListLabel(CanvasNodeType.Image)).toBe("图片节点");
+    });
     test("每种节点类型都有定义", () => {
         expect(ALL_TYPES.every((type) => Boolean(getNodeDefinition(type)))).toBe(true);
         for (const type of ALL_TYPES) expect(getNodeMinSize(type)).toBeDefined();

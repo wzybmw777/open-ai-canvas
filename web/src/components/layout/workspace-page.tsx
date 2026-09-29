@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
 import { Select } from "@/components/ui/base/select";
+import { useLocaleText } from "@/lib/i18n";
 
 export function WorkspacePage({ children, className, grid = false, fluid = false, scroll = true }: { children: ReactNode; className?: string; grid?: boolean; fluid?: boolean; scroll?: boolean }) {
     return (
@@ -51,6 +52,7 @@ export function ListToolbar({
     className?: string;
 }) {
     const [filtersOpen, setFiltersOpen] = useState(false);
+    const { text } = useLocaleText();
 
     useEffect(() => {
         if (active) setFiltersOpen(true);
@@ -64,7 +66,7 @@ export function ListToolbar({
                     <>
                         {!filtersAlwaysVisible ? (
                             <Button type="default" className="admin-filter-toggle" aria-expanded={filtersOpen} icon={<ListFilter className="size-3.5" />} onClick={() => setFiltersOpen((open) => !open)}>
-                                筛选{active ? <span className="admin-filter-active-dot" aria-label="有已应用筛选" /> : null}
+                                {text("筛选", "Filter")}{active ? <span className="admin-filter-active-dot" aria-label={text("有已应用筛选", "Filters applied")} /> : null}
                             </Button>
                         ) : null}
                         <div className={cn("admin-list-toolbar-filters flex flex-wrap items-center gap-2", (filtersAlwaysVisible || filtersOpen) && "is-open")}>{filters}</div>
@@ -75,7 +77,7 @@ export function ListToolbar({
             <div className="admin-list-toolbar-actions flex shrink-0 flex-wrap items-center gap-2">
                 {active && onReset ? (
                     <Button type="text" icon={<RotateCcw className="size-3.5" />} onClick={onReset}>
-                        重置
+                        {text("重置", "Reset")}
                     </Button>
                 ) : null}
                 {trailing}
@@ -107,7 +109,7 @@ export function PaginationBar({
     onChange,
     pageSizeOptions = [20, 50, 100],
     alwaysShow = false,
-    itemLabel = "条",
+    itemLabel,
 }: {
     current: number;
     pageSize: number;
@@ -117,6 +119,8 @@ export function PaginationBar({
     alwaysShow?: boolean;
     itemLabel?: string;
 }) {
+    const { locale, text } = useLocaleText();
+    const unit = itemLabel ?? text("条", "items");
     if (!alwaysShow && total <= pageSize && current === 1) return null;
     const pages = Math.max(1, Math.ceil(total / pageSize));
     const start = total === 0 ? 0 : (current - 1) * pageSize + 1;
@@ -124,10 +128,10 @@ export function PaginationBar({
     const items = pageItems(current, pages);
     return (
         <div className="app-pagination-bar admin-pagination-bar mt-4 flex min-h-10 min-w-0 items-center justify-end gap-2 px-2 py-1.5">
-            <span className="admin-pagination-total">{total === 0 ? `共 0 ${itemLabel}` : `${start}-${end} / 共 ${total} ${itemLabel}`}</span>
-            <Select size="small" value={pageSize} className="app-pagination-size" options={pageSizeOptions.map((size) => ({ value: size, label: `${size} ${itemLabel}/页` }))} onChange={(value) => onChange(1, Number(value))} />
-            <div className="app-pagination-pages" role="navigation" aria-label="分页">
-                <button type="button" className="app-pagination-btn app-pagination-prev" disabled={current <= 1} aria-label="上一页" onClick={() => onChange(current - 1, pageSize)}>
+            <span className="admin-pagination-total">{locale === "en-US" ? `${start}-${end} of ${total} ${unit}` : total === 0 ? `共 0 ${unit}` : `${start}-${end} / 共 ${total} ${unit}`}</span>
+            <Select size="small" value={pageSize} className="app-pagination-size" options={pageSizeOptions.map((size) => ({ value: size, label: locale === "en-US" ? `${size} ${unit} / page` : `${size} ${unit}/页` }))} onChange={(value) => onChange(1, Number(value))} />
+            <div className="app-pagination-pages" role="navigation" aria-label={text("分页", "Pagination")}>
+                <button type="button" className="app-pagination-btn app-pagination-prev" disabled={current <= 1} aria-label={text("上一页", "Previous page")} onClick={() => onChange(current - 1, pageSize)}>
                     <ChevronLeft className="size-4" />
                 </button>
                 {items.map((item) =>
@@ -141,7 +145,7 @@ export function PaginationBar({
                         </button>
                     ),
                 )}
-                <button type="button" className="app-pagination-btn app-pagination-next" disabled={current >= pages} aria-label="下一页" onClick={() => onChange(current + 1, pageSize)}>
+                <button type="button" className="app-pagination-btn app-pagination-next" disabled={current >= pages} aria-label={text("下一页", "Next page")} onClick={() => onChange(current + 1, pageSize)}>
                     <ChevronRight className="size-4" />
                 </button>
             </div>

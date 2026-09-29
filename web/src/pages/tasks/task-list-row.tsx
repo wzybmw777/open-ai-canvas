@@ -7,6 +7,7 @@ import { useState } from "react";
 import { MediaPreview } from "@/components/media-preview";
 import { CONTENT_MODERATION_ERROR_CODE, generationErrorMessage, isContentModerationError } from "@/lib/generation-error";
 import { formatTaskKind, generationTaskShowsProgress, generationTaskStageLabel, generationTaskStatusLabel } from "@/lib/generation-task-display";
+import { useLocaleText } from "@/lib/i18n";
 import type { GenerationTask } from "@/services/api/task-center";
 import type { AiConfig } from "@/stores/use-config-store";
 import { formatModelName, getTaskCanvasContext, isTaskFailed, statusDotClassName, taskAttentionReason, TaskBilling, TaskDate } from "./task-shared";
@@ -33,11 +34,12 @@ export function TaskListRow({
     onRetry: () => void;
     onPreview: () => void;
 }) {
-    const context = getTaskCanvasContext(task, canvasById, projectNameById);
+    const { locale, text } = useLocaleText();
+    const context = getTaskCanvasContext(task, canvasById, projectNameById, locale);
     const isActive = task.status === "queued" || task.status === "running";
     const isFailed = isTaskFailed(task);
     const retryDisabled = task.errorCode === CONTENT_MODERATION_ERROR_CODE || isContentModerationError(task.error);
-    const stageLabel = generationTaskStageLabel(task);
+    const stageLabel = generationTaskStageLabel(task, locale);
     const showsProgress = generationTaskShowsProgress(task);
     return (
         <article className={`product-collection-card task-record-row group${isFailed ? " is-attention" : ""}`}>
@@ -46,16 +48,16 @@ export function TaskListRow({
                 <div className="task-record-heading">
                     <span className={`task-record-status ${isFailed ? "is-failed" : isActive ? "is-active" : "is-success"}`}>
                         <i className={statusDotClassName(task.status)} />
-                        {generationTaskStatusLabel(task)}
+                        {generationTaskStatusLabel(task, locale)}
                     </span>
                     <button type="button" className="task-record-title" title={task.prompt} onClick={onOpen}>
-                        {task.prompt || "未命名任务"}
+                        {task.prompt || text("未命名任务", "Untitled task")}
                     </button>
                 </div>
                 <div className="task-record-meta">
-                    <span>{formatTaskKind(task)}</span>
+                    <span>{formatTaskKind(task, locale)}</span>
                     <span aria-hidden="true">·</span>
-                    <span>{formatModelName(effectiveConfig, task)}</span>
+                    <span>{formatModelName(effectiveConfig, task, locale)}</span>
                     <span className="task-record-meta-canvas">
                         <FolderKanban className="size-3" />
                         {context.canvasName}
@@ -72,8 +74,8 @@ export function TaskListRow({
                     </div>
                 ) : null}
                 {isFailed ? (
-                    <p className="task-record-error" title={task.error ? generationErrorMessage(task.error) : undefined}>
-                        {taskAttentionReason(task)}
+                    <p className="task-record-error" title={task.error ? taskAttentionReason(task, locale) : undefined}>
+                        {taskAttentionReason(task, locale)}
                     </p>
                 ) : null}
             </div>
@@ -82,16 +84,16 @@ export function TaskListRow({
             </div>
             {creditsEnabled ? <TaskBilling billing={task.billing} /> : <span className="task-record-billing-empty" aria-hidden="true" />}
             <div className="task-record-actions">
-                <Tooltip title="查看详情">
-                    <IconButton size="sm" variant="ghost" icon={Eye} aria-label="查看详情" onClick={onOpen} />
+                <Tooltip title={text("查看详情", "View details")}>
+                    <IconButton size="sm" variant="ghost" icon={Eye} aria-label={text("查看详情", "View details")} onClick={onOpen} />
                 </Tooltip>
                 {isFailed ? (
-                    <Tooltip title={retryDisabled ? "内容审核失败，无法自动重试" : task.canRecoverMedia ? "重试保存，不重新生成" : "重试任务"}>
+                    <Tooltip title={retryDisabled ? text("内容审核失败，无法自动重试", "Content was rejected; automatic retry is unavailable") : task.canRecoverMedia ? text("重试保存，不重新生成", "Retry saving without regenerating") : text("重试任务", "Retry task")}>
                         <Button
                             type="text"
                             size="small"
                             icon={<RotateCcw className="size-3.5" />}
-                            aria-label={task.canRecoverMedia ? "重试保存" : "重试任务"}
+                            aria-label={task.canRecoverMedia ? text("重试保存", "Retry saving") : text("重试任务", "Retry task")}
                             loading={actingId === task.id}
                             disabled={retryDisabled}
                             onClick={onRetry}
@@ -104,6 +106,7 @@ export function TaskListRow({
 }
 
 function TaskPreviewThumbnail({ task, onOpen }: { task: GenerationTask; onOpen: () => void }) {
+    const { text } = useLocaleText();
     const isVideo = task.previewKind === "video";
     const fallbackVideo = task.type.includes("video");
     const [unavailableUrl, setUnavailableUrl] = useState("");
@@ -123,10 +126,10 @@ function TaskPreviewThumbnail({ task, onOpen }: { task: GenerationTask; onOpen: 
             onClick={onOpen}
             disabled={previewUnavailable}
             className="task-record-thumb group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label={previewUnavailable ? "预览不可用，素材可能已删除" : isVideo ? "放大预览生成视频" : "放大预览生成图片"}
-            title={previewUnavailable ? "预览不可用，素材可能已删除" : undefined}
+            aria-label={previewUnavailable ? text("预览不可用，素材可能已删除", "Preview unavailable; the asset may have been deleted") : isVideo ? text("放大预览生成视频", "Preview generated video") : text("放大预览生成图片", "Preview generated image")}
+            title={previewUnavailable ? text("预览不可用，素材可能已删除", "Preview unavailable; the asset may have been deleted") : undefined}
         >
-            {thumbnailUrl ? <MediaPreview src={thumbnailUrl} kind="image" width={68} height={48} loading="lazy" className="h-full w-full object-cover" fallbackLabel="预览不可用" onUnavailable={() => setUnavailableUrl(thumbnailUrl)} /> : isVideo ? <TaskVideoThumbnail src={task.previewUrl} /> : <ImageIcon className="size-4" />}
+            {thumbnailUrl ? <MediaPreview src={thumbnailUrl} kind="image" width={68} height={48} loading="lazy" className="h-full w-full object-cover" fallbackLabel={text("预览不可用", "Preview unavailable")} onUnavailable={() => setUnavailableUrl(thumbnailUrl)} /> : isVideo ? <TaskVideoThumbnail src={task.previewUrl} /> : <ImageIcon className="size-4" />}
             {!previewUnavailable ? (
                 <span className="absolute inset-0 grid place-items-center bg-black/0 text-white opacity-0 transition-[background-color,opacity] duration-150 group-hover:bg-black/30 group-hover:opacity-100 group-focus-visible:bg-black/30 group-focus-visible:opacity-100">
                     {isVideo ? <Play className="size-4 fill-current" /> : <Eye className="size-4" />}

@@ -10,10 +10,12 @@ import { WorkspaceTopBarExtensionProvider } from "@/components/layout/workspace-
 import { WorkspaceWalletHost } from "@/components/layout/workspace-wallet-modal";
 import { cn } from "@/lib/utils";
 import { isSpatialWorkbenchPath } from "@/lib/workspace-routes";
+import { useLocaleText } from "@/lib/i18n";
 
 const WorkspaceCommandPalette = lazy(() => import("@/components/layout/workspace-command-palette").then((module) => ({ default: module.WorkspaceCommandPalette })));
 
 export function AppWorkspaceShell({ children }: { children: ReactNode }) {
+    const { text } = useLocaleText();
     const { pathname } = useLocation();
     const navigate = useNavigate();
     const [mobileSidebarExpanded, setMobileSidebarExpanded] = useState(false);
@@ -80,7 +82,7 @@ export function AppWorkspaceShell({ children }: { children: ReactNode }) {
         <>
             <WorkspaceTopBarExtensionProvider>
                 <div className={cn("app-workspace-shell flex h-dvh min-h-0 w-full flex-col overflow-hidden", spatialWorkbench && "is-spatial", creationWorkspace && "is-creation-workspace")}>
-                    {!hideChrome && mobileSidebarExpanded ? <button type="button" className="app-workspace-sidebar-scrim lg:hidden" aria-label="收起侧栏" onClick={() => setMobileSidebarExpanded(false)} /> : null}
+                    {!hideChrome && mobileSidebarExpanded ? <button type="button" className="app-workspace-sidebar-scrim lg:hidden" aria-label={text("收起侧栏", "Close sidebar")} onClick={() => setMobileSidebarExpanded(false)} /> : null}
 
                     {showGlobalTopBar ? <BannerAnnouncementsSlider /> : null}
 

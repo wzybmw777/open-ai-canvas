@@ -7,6 +7,7 @@ import { Kbd } from "@/components/ui/base/kbd";
 import { cn } from "@/lib/utils";
 import { openWorkspaceWallet } from "@/lib/workspace-wallet";
 import { useUserStore } from "@/stores/use-user-store";
+import { useLocaleText } from "@/lib/i18n";
 
 type PaletteEntry = {
     id: string;
@@ -18,6 +19,7 @@ type PaletteEntry = {
 
 /** 顶栏搜索 / ⌘K 命令面板：按功能开关过滤当前可用页面入口。 */
 export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
+    const { locale, text } = useLocaleText();
     const navigate = useNavigate();
     const features = useUserStore((state) => state.features);
     const [query, setQuery] = useState("");
@@ -27,10 +29,11 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
     const entries = useMemo<PaletteEntry[]>(() => {
         const toolEntry = (slug: string, to?: string): PaletteEntry => {
             const tool = navigationTools.find((item) => item.slug === slug);
-            return { id: slug, title: tool?.label ?? slug, icon: tool?.icon ?? Home, to };
+            const english = ({ projects: "Projects", canvas: "Canvas", tasks: "Tasks", assets: "Assets", skills: "Skills", wallet: "Credits", settings: "Settings" } as Record<string, string>)[slug];
+            return { id: slug, title: locale === "en-US" ? english || slug : tool?.label ?? slug, icon: tool?.icon ?? Home, to };
         };
         return [
-            { id: "home", title: "首页", icon: Home, to: "/" },
+            { id: "home", title: text("首页", "Home"), icon: Home, to: "/" },
             toolEntry("projects", "/projects"),
             toolEntry("canvas", "/canvas"),
             ...(features.taskCenterEnabled ? [toolEntry("tasks", "/tasks")] : []),
@@ -39,7 +42,7 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
             ...(features.creditsEnabled ? [{ ...toolEntry("wallet"), run: () => openWorkspaceWallet() }] : []),
             toolEntry("settings", "/settings"),
         ];
-    }, [features]);
+    }, [features, locale]);
 
     const filtered = useMemo(() => {
         const keyword = query.trim().toLowerCase();
@@ -108,7 +111,7 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
                             value={query}
                             onChange={(event) => setQuery(event.target.value)}
                             className="min-w-0 flex-1 bg-transparent text-[var(--fs-body)] outline-none placeholder:text-foreground/45"
-                            placeholder="搜索页面或操作…"
+                            placeholder={text("搜索页面或操作…", "Search pages or actions...")}
                         />
                         <Kbd onClick={onClose} className="hidden shrink-0 cursor-pointer transition-colors hover:bg-surface-hover hover:text-foreground sm:inline-flex">
                             ⌘K
@@ -117,7 +120,7 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
                             type="button"
                             onClick={onClose}
                             className="ml-0.5 shrink-0 rounded-md p-1 text-foreground/50 transition-colors hover:bg-surface-hover hover:text-foreground"
-                            aria-label="关闭搜索"
+                            aria-label={text("关闭搜索", "Close search")}
                         >
                             <X className="size-4" strokeWidth={1.6} />
                         </button>
@@ -150,7 +153,7 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
                     ) : (
                         <div className="flex flex-col items-center justify-center py-8">
                             <Command className="mb-2 size-6 text-foreground/30" strokeWidth={1.5} />
-                            <p className="text-[var(--fs-caption)] font-medium text-foreground/55">未找到「{query}」相关页面</p>
+                            <p className="text-[var(--fs-caption)] font-medium text-foreground/55">{locale === "en-US" ? `No pages matching "${query}"` : `未找到「${query}」相关页面`}</p>
                         </div>
                     )}
                 </div>

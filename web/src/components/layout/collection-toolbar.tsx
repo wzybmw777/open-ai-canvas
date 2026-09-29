@@ -1,9 +1,10 @@
 import { Button, ConfigProvider } from "antd";
 import { RotateCcw } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { useLocaleText } from "@/lib/i18n";
 
 /** 内容库的浏览控件，不复用后台表格的筛选外框。 */
-export function CollectionToolbar({ children, trailing, active, onReset, label = "搜索与筛选" }: {
+export function CollectionToolbar({ children, trailing, active, onReset, label }: {
     children: ReactNode;
     trailing?: ReactNode;
     active?: boolean;
@@ -11,10 +12,11 @@ export function CollectionToolbar({ children, trailing, active, onReset, label =
     label?: string;
 }) {
     const [inputModality, setInputModality] = useState<"keyboard" | "pointer">("keyboard");
+    const { text } = useLocaleText();
 
     return <section
         className="collection-toolbar"
-        aria-label={label}
+        aria-label={label || text("搜索与筛选", "Search and filters")}
         data-input-modality={inputModality}
         onPointerDownCapture={() => setInputModality("pointer")}
         onKeyDownCapture={(event) => {
@@ -28,7 +30,7 @@ export function CollectionToolbar({ children, trailing, active, onReset, label =
             <div className="collection-toolbar-controls">{children}</div>
         </ConfigProvider>
         <div className="collection-toolbar-actions">
-            {active && onReset ? <Button type="text" icon={<RotateCcw />} onClick={onReset}>重置</Button> : null}
+            {active && onReset ? <Button type="text" icon={<RotateCcw />} onClick={onReset}>{text("重置", "Reset")}</Button> : null}
             {trailing}
         </div>
     </section>;

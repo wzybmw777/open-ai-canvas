@@ -1,3 +1,5 @@
+import type { AppLocale } from "@/lib/i18n";
+
 export const ASSET_CATEGORIES = ["character", "environment", "prop", "material", "other"] as const;
 
 export type AssetCategory = (typeof ASSET_CATEGORIES)[number];
@@ -44,6 +46,8 @@ export function defaultAssetCategoryForKind(kind: string): AssetCategory {
     return "other";
 }
 
-export function assetCategoryLabel(value: unknown) {
-    return ASSET_CATEGORY_LABELS[normalizeAssetCategory(value)];
+export function assetCategoryLabel(value: unknown, locale: AppLocale = "zh-CN") {
+    const category = normalizeAssetCategory(value);
+    if (locale === "en-US") return ({ character: "Character", environment: "Scene", prop: "Prop", material: "Media", other: "Other" } as Record<AssetCategory, string>)[category];
+    return ASSET_CATEGORY_LABELS[category];
 }

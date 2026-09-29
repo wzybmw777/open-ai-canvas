@@ -84,4 +84,11 @@ describe("canvas node search", () => {
         expect(canvasNodeSearchContext(image)).toBe("图片节点");
         expect(canvasNodeSearchTimes(image)).toMatchObject({ createdAt: image.createdAt, updatedAt: image.updatedAt });
     });
+
+    test("English search and summaries use node types without changing stored titles", () => {
+        const image = node("镜头画面", { metadata: { shotIndex: 2, durationMs: 90_000 } });
+        expect(searchCanvasNodes([image], "image node")).toHaveLength(1);
+        expect(canvasNodeSearchContext(image, "en-US")).toBe("Shot 3");
+        expect(canvasNodeMaterialSummary(image, undefined, "en-US")).toContain("Image node");
+    });
 });

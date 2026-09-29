@@ -9,6 +9,7 @@ import { IconButton } from "@/components/ui/base/buttons";
 import { SegmentedControl } from "@/components/ui/base/segmented-control";
 import { AppModal } from "@/components/ui/product/app-modal";
 import { Callout } from "@/components/ui/product/callout";
+import { localizedErrorMessage, useLocaleText, type AppLocale } from "@/lib/i18n";
 import {
     agentMemoryCategoryLabel,
     AGENT_MEMORY_CATEGORIES,
@@ -53,11 +54,22 @@ function memoryStatusTone(status: string) {
     return "neutral" as const;
 }
 
-function memoryStatusLabel(status: string) {
+function memoryStatusLabel(status: string, locale: AppLocale) {
+    if (locale === "en-US") return status === "approved" ? "Approved" : status === "rejected" ? "Rejected" : status === "pending" ? "Pending" : status;
     if (status === "approved") return "已批准";
     if (status === "rejected") return "已拒绝";
     if (status === "pending") return "待审";
     return status;
+}
+
+function memoryCategoryLabel(key: string | undefined, locale: AppLocale) {
+    if (locale === "en-US")
+        return (
+            ({ storyboard: "Storyboard", video: "Video generation", image: "Image generation", canvas: "Canvas", asset: "Assets", model: "Model selection", workflow: "Workflow order", billing: "Billing", other: "Other" } as Record<string, string>)[
+                key || "other"
+            ] || "Other"
+        );
+    return agentMemoryCategoryLabel(key);
 }
 
 function compactModelFields(config: AiConfig, selectedModel: string) {
@@ -79,8 +91,20 @@ function restoreCompactModel(settings: AgentMemoryCompactView | null, fallback: 
     return fallback;
 }
 
-function compactStatusLabel(settings: AgentMemoryCompactView | null) {
+function compactStatusLabel(settings: AgentMemoryCompactView | null, locale: AppLocale) {
     if (!settings) return "";
+    if (locale === "en-US") {
+        if (settings.lastStatus === "queued") return "Queued for text model compression";
+        if (settings.lastStatus === "running") return "Compressing memories with the text model";
+        if (settings.lastStatus === "failed") return "Last compression failed";
+        if (settings.lastStatus === "succeeded") {
+            const summary = settings.summary;
+            const parts = [summary?.merged ? `${summary.merged} merged` : "", summary?.rewritten ? `${summary.rewritten} rewritten` : "", summary?.removed ? `${summary.removed} removed` : ""].filter(Boolean);
+            const when = settings.lastCompactAt ? new Date(settings.lastCompactAt).toLocaleString(locale) : "";
+            return [when && `Last run ${when}`, parts.join(" · ") || "No changes needed"].filter(Boolean).join(" · ");
+        }
+        return "Compression uses your text model and may incur model charges.";
+    }
     if (settings.lastStatus === "queued") return "已排队，等待文本模型压缩";
     if (settings.lastStatus === "running") return "正在调用文本模型压缩记忆";
     if (settings.lastStatus === "failed") return settings.lastError || "上次压缩失败";
@@ -115,6 +139,7 @@ function toRequest(values: MemoryFormValues): AgentMemoryRequest {
 }
 
 function AgentMemoryCompactCard({ compact = false, onApplied }: { compact?: boolean; onApplied: () => Promise<void> }) {
+    const { locale, text } = useLocaleText();
     const { message } = App.useApp();
     const config = useEffectiveConfig();
     const [settings, setSettings] = useState<AgentMemoryCompactView | null>(null);
@@ -133,10 +158,10 @@ function AgentMemoryCompactCard({ compact = false, onApplied }: { compact?: bool
             setModel((current) => restoreCompactModel(next, current || config.textModel || ""));
             return next;
         } catch (error) {
-            if (seq === seqRef.current) message.error(error instanceof Error ? error.message : "读取压缩设置失败");
+            if (seq === seqRef.current) message.error(localizedErrorMessage(error, "读取压缩设置失败", "Could not load compression settings", locale));
             return null;
         }
-    }, [config.textModel, message]);
+    }, [config.textModel, message, locale]);
 
     useEffect(() => {
         void loadSettings();
@@ -162,7 +187,7 @@ function AgentMemoryCompactCard({ compact = false, onApplied }: { compact?: bool
             setSettings(next);
             setModel(restoreCompactModel(next, selectedModel));
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "保存压缩设置失败");
+            message.error(localizedErrorMessage(error, "保存压缩设置失败", "Could not save compression settings", locale));
         } finally {
             setSaving(false);
         }
@@ -171,37 +196,44 @@ function AgentMemoryCompactCard({ compact = false, onApplied }: { compact?: bool
     const runCompact = async () => {
         const selected = model.trim();
         if (!selected) {
-            message.warning("请先选择用于压缩的文本模型");
+            message.warning(text("请先选择用于压缩的文本模型", "Select a text model for compression"));
             return;
         }
         setCompacting(true);
         try {
             const next = await compactAgentMemories(compactModelFields(config, selected));
             setSettings(next);
-            message.success("已提交压缩任务，完成后会刷新记忆列表");
+            message.success(text("已提交压缩任务，完成后会刷新记忆列表", "Compression started. Memories will refresh when it finishes."));
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "提交压缩失败");
+            message.error(localizedErrorMessage(error, "提交压缩失败", "Could not start compression", locale));
         } finally {
             setCompacting(false);
         }
     };
 
-    const statusText = compactStatusLabel(settings);
+    const statusText = compactStatusLabel(settings, locale);
     const failed = settings?.lastStatus === "failed";
 
     return (
         <section className={compact ? "space-y-2.5" : "space-y-3 rounded-2xl bg-surface-secondary/80 px-4 py-3.5"}>
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                    <h3 className="text-sm font-medium text-foreground">压缩优化</h3>
-                    {compact ? null : <p className="mt-0.5 text-caption leading-5 text-muted-foreground">按文本模型计费，合并相近条目、改写含糊内容。</p>}
+                    <h3 className="text-sm font-medium text-foreground">{text("压缩优化", "Compress memories")}</h3>
+                    {compact ? null : <p className="mt-0.5 text-caption leading-5 text-muted-foreground">{text("按文本模型计费，合并相近条目、改写含糊内容。", "Uses your text model to merge similar entries and clarify vague ones.")}</p>}
                 </div>
                 <Button size="small" icon={<Sparkles className="size-3.5" />} loading={compacting || busy} disabled={!model.trim()} onClick={() => void runCompact()}>
-                    {busy ? "压缩中" : "立即压缩"}
+                    {busy ? text("压缩中", "Compressing") : text("立即压缩", "Compress now")}
                 </Button>
             </div>
             <div className="flex min-w-0 flex-col gap-2">
-                <SegmentedControl size="sm" ariaLabel="压缩周期" value={settings?.compactInterval || "off"} disabled={saving || busy} options={COMPACT_INTERVALS} onChange={(value) => void persist(value, model)} />
+                <SegmentedControl
+                    size="sm"
+                    ariaLabel={text("压缩周期", "Compression interval")}
+                    value={settings?.compactInterval || "off"}
+                    disabled={saving || busy}
+                    options={COMPACT_INTERVALS.map((option) => ({ ...option, label: locale === "en-US" ? { off: "Manual", daily: "Daily", weekly: "Weekly", monthly: "Monthly" }[option.value] : option.label }))}
+                    onChange={(value) => void persist(value, model)}
+                />
                 <div className="min-w-0 overflow-hidden rounded-xl bg-surface-tertiary">
                     <ModelPicker
                         config={config}
@@ -212,7 +244,7 @@ function AgentMemoryCompactCard({ compact = false, onApplied }: { compact?: bool
                         showSelectedPrice
                         showOptionPrices
                         className="!h-9 !min-h-9 !border-0 !bg-transparent !shadow-none"
-                        placeholder="选择压缩用的文本模型"
+                        placeholder={text("选择压缩用的文本模型", "Select a text model for compression")}
                         onChange={(value) => {
                             setModel(value);
                             void persist(settings?.compactInterval || "off", value);
@@ -221,8 +253,8 @@ function AgentMemoryCompactCard({ compact = false, onApplied }: { compact?: bool
                 </div>
             </div>
             {failed && settings?.lastError ? (
-                <Callout tone="warning" title="上次压缩未完成">
-                    {settings.lastError}
+                <Callout tone="warning" title={text("上次压缩未完成", "Last compression did not complete")}>
+                    {locale === "en-US" ? "Check the selected model and try again." : settings.lastError}
                 </Callout>
             ) : statusText ? (
                 <p className="text-caption leading-5 text-muted-foreground">{statusText}</p>
@@ -232,6 +264,7 @@ function AgentMemoryCompactCard({ compact = false, onApplied }: { compact?: bool
 }
 
 export default function AgentMemoryPane({ compact = false }: { compact?: boolean }) {
+    const { locale, text } = useLocaleText();
     const { message, modal } = App.useApp();
     const [items, setItems] = useState<AgentMemory[]>([]);
     const [loading, setLoading] = useState(true);
@@ -252,11 +285,11 @@ export default function AgentMemoryPane({ compact = false }: { compact?: boolean
             if (seq !== seqRef.current) return;
             setItems(data.memories || []);
         } catch (error) {
-            if (seq === seqRef.current) message.error(error instanceof Error ? error.message : "读取记忆失败");
+            if (seq === seqRef.current) message.error(localizedErrorMessage(error, "读取记忆失败", "Could not load memories", locale));
         } finally {
             if (seq === seqRef.current) setLoading(false);
         }
-    }, [message, status]);
+    }, [message, status, locale]);
 
     useEffect(() => {
         void load();
@@ -286,22 +319,22 @@ export default function AgentMemoryPane({ compact = false }: { compact?: boolean
         const values = await form.validateFields();
         const request = toRequest(values);
         if (!request.lesson && !(request.steps && request.steps.length)) {
-            message.warning("请填写做法，或至少添加一步路线");
+            message.warning(text("请填写做法，或至少添加一步路线", "Add a lesson or at least one step"));
             return;
         }
         setSaving(true);
         try {
             if (editing) {
                 await updateAgentMemory(editing.id, request);
-                message.success("已保存");
+                message.success(text("已保存", "Saved"));
             } else {
                 await createAgentMemory(request);
-                message.success("已添加，立刻对你的 Agent 生效");
+                message.success(text("已添加，立刻对你的 Agent 生效", "Memory added and active for your Agent"));
             }
             setEditorOpen(false);
             await load();
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "保存失败");
+            message.error(localizedErrorMessage(error, "保存失败", "Could not save memory", locale));
         } finally {
             setSaving(false);
         }
@@ -311,10 +344,10 @@ export default function AgentMemoryPane({ compact = false }: { compact?: boolean
         setBusyId(record.id);
         try {
             await decideAgentMemory(record.id, decision);
-            message.success(decision === "approve" ? "已批准，之后的会话会用到这条记忆" : "已拒绝，不会再注入会话");
+            message.success(decision === "approve" ? text("已批准，之后的会话会用到这条记忆", "Approved. Future conversations may use this memory.") : text("已拒绝，不会再注入会话", "Rejected. This memory will not be used."));
             await load();
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "处理失败");
+            message.error(localizedErrorMessage(error, "处理失败", "Could not update memory", locale));
         } finally {
             setBusyId(null);
         }
@@ -322,13 +355,13 @@ export default function AgentMemoryPane({ compact = false }: { compact?: boolean
 
     const remove = (record: AgentMemory) => {
         modal.confirm({
-            title: `删除记忆「${record.topic}」`,
-            content: "删除后不会再出现在你的 Agent 上下文里。确认删除？",
-            okText: "删除",
+            title: locale === "en-US" ? `Delete memory "${record.topic}"?` : `删除记忆「${record.topic}」`,
+            content: text("删除后不会再出现在你的 Agent 上下文里。确认删除？", "The Agent will no longer use this memory."),
+            okText: text("删除", "Delete"),
             okButtonProps: { danger: true },
             onOk: async () => {
                 await deleteAgentMemory(record.id);
-                message.success("已删除");
+                message.success(text("已删除", "Deleted"));
                 await load();
             },
         });
@@ -344,9 +377,9 @@ export default function AgentMemoryPane({ compact = false }: { compact?: boolean
             link.download = `agent-memories-${bundle.exportedAt.slice(0, 10)}.json`;
             link.click();
             URL.revokeObjectURL(url);
-            message.success(`已导出 ${bundle.memories.length} 条`);
+            message.success(locale === "en-US" ? `Exported ${bundle.memories.length} memories` : `已导出 ${bundle.memories.length} 条`);
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "导出失败");
+            message.error(localizedErrorMessage(error, "导出失败", "Could not export memories", locale));
         }
     };
 
@@ -354,28 +387,35 @@ export default function AgentMemoryPane({ compact = false }: { compact?: boolean
         try {
             const parsed = JSON.parse(await file.text()) as AgentMemoryBundle;
             const result = await importAgentMemories(parsed);
-            message.success(`导入 ${result.imported} 条，合并 ${result.merged} 条，跳过 ${result.skipped} 条`);
+            message.success(locale === "en-US" ? `${result.imported} imported, ${result.merged} merged, ${result.skipped} skipped` : `导入 ${result.imported} 条，合并 ${result.merged} 条，跳过 ${result.skipped} 条`);
             await load();
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "导入失败，请确认是本产品导出的 JSON");
+            message.error(localizedErrorMessage(error, "导入失败，请确认是本产品导出的 JSON", "Import failed. Choose a JSON file exported by this app.", locale));
         }
     };
 
     const pendingCount = items.filter((item) => item.status === "pending").length;
     const statusFilters = STATUS_FILTERS.map((option) => ({
         ...option,
-        label: option.value === "pending" && pendingCount ? `待审 ${pendingCount}` : option.label,
+        label:
+            option.value === "pending" && pendingCount
+                ? locale === "en-US"
+                    ? `Pending ${pendingCount}`
+                    : `待审 ${pendingCount}`
+                : locale === "en-US"
+                  ? { all: "All", pending: "Pending", approved: "Approved", rejected: "Rejected" }[option.value]
+                  : option.label,
     }));
 
     return (
         <div className={compact ? "flex min-h-0 flex-1 flex-col gap-3 overflow-hidden" : "flex flex-col gap-5"}>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
-                <SegmentedControl size="sm" ariaLabel="记忆状态" value={status} options={statusFilters} onChange={setStatus} />
+                <SegmentedControl size="sm" ariaLabel={text("记忆状态", "Memory status")} value={status} options={statusFilters} onChange={setStatus} />
                 <div className="ml-auto flex items-center gap-1">
-                    <IconButton variant="ghost" size="sm" icon={Download} aria-label="导出记忆" onClick={() => void onExport()} />
-                    <IconButton variant="ghost" size="sm" icon={Upload} aria-label="导入记忆" onClick={() => fileRef.current?.click()} />
+                    <IconButton variant="ghost" size="sm" icon={Download} aria-label={text("导出记忆", "Export memories")} onClick={() => void onExport()} />
+                    <IconButton variant="ghost" size="sm" icon={Upload} aria-label={text("导入记忆", "Import memories")} onClick={() => fileRef.current?.click()} />
                     <Button type="primary" icon={<Plus className="size-4" />} onClick={openCreate}>
-                        添加记忆
+                        {text("添加记忆", "Add memory")}
                     </Button>
                 </div>
                 <input
@@ -406,12 +446,16 @@ export default function AgentMemoryPane({ compact = false }: { compact?: boolean
                         compact
                         icon="empty"
                         className={compact ? "min-h-0 flex-1 py-8" : "min-h-[220px] py-10"}
-                        title={status === "pending" ? "没有待批准的记忆" : "还没有个人记忆"}
-                        description={status === "pending" ? "Agent 跑通任务后会把可复用做法记到这里，等你点头。" : "手动添加立刻生效，也可以等 Agent 记下后再批准。"}
+                        title={status === "pending" ? text("没有待批准的记忆", "No memories awaiting approval") : text("还没有个人记忆", "No personal memories yet")}
+                        description={
+                            status === "pending"
+                                ? text("Agent 跑通任务后会把可复用做法记到这里，等你点头。", "Reusable steps from Agent tasks will appear here for your approval.")
+                                : text("手动添加立刻生效，也可以等 Agent 记下后再批准。", "Add a memory now or approve one suggested by your Agent.")
+                        }
                         action={
                             status === "pending" ? undefined : (
                                 <Button type="primary" icon={<Plus className="size-4" />} onClick={openCreate}>
-                                    添加记忆
+                                    {text("添加记忆", "Add memory")}
                                 </Button>
                             )
                         }
@@ -425,8 +469,8 @@ export default function AgentMemoryPane({ compact = false }: { compact?: boolean
                                     <div className="min-w-0 flex-1">
                                         <div className="flex flex-wrap items-center gap-2">
                                             <h3 className="text-sm font-medium text-foreground">{record.topic}</h3>
-                                            <StatusBadge size="sm" tone={memoryStatusTone(record.status)} label={memoryStatusLabel(record.status)} />
-                                            <span className="text-[11px] text-muted-foreground">{agentMemoryCategoryLabel(record.category)}</span>
+                                            <StatusBadge size="sm" tone={memoryStatusTone(record.status)} label={memoryStatusLabel(record.status, locale)} />
+                                            <span className="text-[11px] text-muted-foreground">{memoryCategoryLabel(record.category, locale)}</span>
                                         </div>
                                         <p className="mt-1 text-caption leading-5 text-muted-foreground">{record.situation}</p>
                                         {record.lesson ? <p className="mt-1 text-caption leading-5 text-foreground/80">{record.lesson}</p> : null}
@@ -437,7 +481,7 @@ export default function AgentMemoryPane({ compact = false }: { compact?: boolean
                                                         <span className="font-medium text-foreground/80">{step.tool}</span>
                                                         {" — "}
                                                         {step.action}
-                                                        {step.note ? <span className="text-foreground/45">（{step.note}）</span> : null}
+                                                        {step.note ? <span className="text-foreground/45">{locale === "en-US" ? ` (${step.note})` : `（${step.note}）`}</span> : null}
                                                     </li>
                                                 ))}
                                             </ol>
@@ -447,15 +491,15 @@ export default function AgentMemoryPane({ compact = false }: { compact?: boolean
                                         {record.status === "pending" ? (
                                             <>
                                                 <Button size="small" type="primary" icon={<Check className="size-3.5" />} loading={busyId === record.id} onClick={() => void decide(record, "approve")}>
-                                                    批准
+                                                    {text("批准", "Approve")}
                                                 </Button>
                                                 <Button size="small" icon={<X className="size-3.5" />} loading={busyId === record.id} onClick={() => void decide(record, "reject")}>
-                                                    拒绝
+                                                    {text("拒绝", "Reject")}
                                                 </Button>
                                             </>
                                         ) : null}
-                                        <IconButton variant="ghost" size="sm" icon={Pencil} aria-label={`编辑 ${record.topic}`} onClick={() => openEdit(record)} />
-                                        <IconButton variant="danger" size="sm" icon={Trash2} aria-label={`删除 ${record.topic}`} onClick={() => remove(record)} />
+                                        <IconButton variant="ghost" size="sm" icon={Pencil} aria-label={locale === "en-US" ? `Edit ${record.topic}` : `编辑 ${record.topic}`} onClick={() => openEdit(record)} />
+                                        <IconButton variant="danger" size="sm" icon={Trash2} aria-label={locale === "en-US" ? `Delete ${record.topic}` : `删除 ${record.topic}`} onClick={() => remove(record)} />
                                     </div>
                                 </div>
                             </article>
@@ -470,42 +514,49 @@ export default function AgentMemoryPane({ compact = false }: { compact?: boolean
                 </div>
             ) : null}
 
-            <AppModal open={editorOpen} title={editing ? "编辑记忆" : "添加记忆"} okText={editing ? "保存" : "添加"} confirmLoading={saving} onOk={() => void save()} onCancel={() => setEditorOpen(false)}>
+            <AppModal
+                open={editorOpen}
+                title={editing ? text("编辑记忆", "Edit memory") : text("添加记忆", "Add memory")}
+                okText={editing ? text("保存", "Save") : text("添加", "Add")}
+                confirmLoading={saving}
+                onOk={() => void save()}
+                onCancel={() => setEditorOpen(false)}
+            >
                 <Form form={form} layout="vertical" className="pt-2">
-                    <Form.Item name="topic" label="主题" rules={[{ required: true, message: "请填写主题" }]}>
-                        <Input maxLength={120} placeholder="例如 canvas.snapshot-hash" />
+                    <Form.Item name="topic" label={text("主题", "Topic")} rules={[{ required: true, message: text("请填写主题", "Enter a topic") }]}>
+                        <Input maxLength={120} placeholder={text("例如 canvas.snapshot-hash", "For example: canvas.snapshot-hash")} />
                     </Form.Item>
-                    <Form.Item name="category" label="分类" rules={[{ required: true, message: "请选择分类" }]}>
-                        <Select options={AGENT_MEMORY_CATEGORIES.map((entry) => ({ value: entry.key, label: entry.label }))} />
+                    <Form.Item name="category" label={text("分类", "Category")} rules={[{ required: true, message: text("请选择分类", "Choose a category") }]}>
+                        <Select options={AGENT_MEMORY_CATEGORIES.map((entry) => ({ value: entry.key, label: memoryCategoryLabel(entry.key, locale) }))} />
                     </Form.Item>
-                    <Form.Item name="situation" label="适用场景" rules={[{ required: true, message: "请填写适用场景" }]}>
-                        <Input maxLength={200} placeholder="什么情况下用这条记忆" />
+                    <Form.Item name="situation" label={text("适用场景", "When to use")} rules={[{ required: true, message: text("请填写适用场景", "Describe when to use this memory") }]}>
+                        <Input maxLength={200} placeholder={text("什么情况下用这条记忆", "When should the Agent use this memory?")} />
                     </Form.Item>
-                    <Form.Item name="lesson" label="做法">
-                        <Input.TextArea rows={3} maxLength={400} placeholder="一句话说明该怎么做" />
+                    <Form.Item name="lesson" label={text("做法", "Lesson")}>
+                        <Input.TextArea rows={3} maxLength={400} placeholder={text("一句话说明该怎么做", "Describe what to do in one sentence")} />
                     </Form.Item>
-                    <Form.Item name="source" label="来源（可选）">
+                    <Form.Item name="source" label={text("来源（可选）", "Source (optional)")}>
                         <Input maxLength={200} />
                     </Form.Item>
                     <Form.List name="steps">
                         {(fields, { add, remove: removeStep }) => (
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm">路线步骤（可选）</span>
+                                    <span className="text-sm">{text("路线步骤（可选）", "Steps (optional)")}</span>
                                     <Button size="small" onClick={() => add({ tool: "", action: "", note: "" })}>
-                                        加一步
+                                        {text("加一步", "Add step")}
                                     </Button>
                                 </div>
                                 {fields.map((field) => (
                                     <Space key={field.key} className="flex w-full" align="start">
                                         <Form.Item {...field} name={[field.name, "tool"]} className="mb-0 flex-1">
-                                            <Input placeholder="工具名" />
+                                            <Input placeholder={text("工具名", "Tool name")} />
                                         </Form.Item>
                                         <Form.Item {...field} name={[field.name, "action"]} className="mb-0 flex-1">
-                                            <Input placeholder="做什么" />
+                                            <Input placeholder={text("做什么", "Action")} />
                                         </Form.Item>
                                         <Button type="text" danger onClick={() => removeStep(field.name)}>
-                                            删
+                                            {text("删", "Remove")}
                                         </Button>
                                     </Space>
                                 ))}

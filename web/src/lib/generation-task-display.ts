@@ -1,4 +1,5 @@
 import type { GenerationTask, TaskStatus } from "@/services/api/task-center";
+import { localeText, type AppLocale } from "@/lib/i18n";
 
 export const statusLabel: Record<TaskStatus, string> = {
     queued: "排队中",
@@ -7,6 +8,18 @@ export const statusLabel: Record<TaskStatus, string> = {
     failed: "失败",
     cancelled: "已取消",
 };
+
+const englishStatusLabel: Record<TaskStatus, string> = {
+    queued: "Queued",
+    running: "Generating",
+    succeeded: "Completed",
+    failed: "Failed",
+    cancelled: "Cancelled",
+};
+
+export function taskStatusLabel(status: TaskStatus, locale: AppLocale = "zh-CN") {
+    return locale === "en-US" ? englishStatusLabel[status] : statusLabel[status];
+}
 
 type GenerationTaskDisplayTarget = Pick<GenerationTask, "status" | "stage" | "mediaStage" | "progress" | "providerRequestId" | "providerCancelStatus">;
 
@@ -30,8 +43,15 @@ export function canCancelGenerationTask(task: GenerationTaskDisplayTarget) {
     return cancellablePreSubmissionStages.has(stage);
 }
 
-export function mediaDeliverySummary(status: TaskStatus | undefined, stage: GenerationTask["mediaStage"]) {
+export function mediaDeliverySummary(status: TaskStatus | undefined, stage: GenerationTask["mediaStage"], locale: AppLocale = "zh-CN") {
     if (!stage) return "";
+    if (locale === "en-US") {
+        if (stage === "completed") return "Generated · File saved · Added to library";
+        const prefix = stage === "download" || stage === "checkpoint" ? "Generated" : stage === "register" ? "Generated · File saved" : "Generated · Downloaded";
+        const action = { download: "Download", upload: "OSS upload", local_save: "File save", register: "Library registration", checkpoint: "Recovery record" }[stage];
+        const outcome = status === "failed" ? "failed" : status === "cancelled" ? "stopped" : "pending";
+        return `${prefix} · ${action} ${outcome}`;
+    }
     if (stage === "completed") return "生成成功 · 文件保存成功 · 素材登记成功";
     const prefix = stage === "download" || stage === "checkpoint" ? "生成成功" : stage === "register" ? "生成成功 · 文件保存成功" : "生成成功 · 下载成功";
     const action = { download: "下载", upload: "上传 OSS", local_save: "保存文件", register: "登记素材", checkpoint: "记录恢复信息" }[stage];
@@ -42,20 +62,20 @@ export function isGenerationTaskSubmissionUncertain(task: GenerationTaskDisplayT
     return task.stage === "submission_unknown";
 }
 
-export function generationTaskStatusLabel(task: GenerationTaskDisplayTarget) {
-    if (task.mediaStage && task.status === "failed") return "作品保存未完成";
-    if (task.mediaStage && (task.status === "queued" || task.status === "running")) return "作品已生成，正在保存";
-    if (isGenerationTaskSubmissionUncertain(task)) return "提交结果待确认";
-    return statusLabel[task.status];
+export function generationTaskStatusLabel(task: GenerationTaskDisplayTarget, locale: AppLocale = "zh-CN") {
+    if (task.mediaStage && task.status === "failed") return localeText("作品保存未完成", "Could not save the result", locale);
+    if (task.mediaStage && (task.status === "queued" || task.status === "running")) return localeText("作品已生成，正在保存", "Generated, saving result", locale);
+    if (isGenerationTaskSubmissionUncertain(task)) return localeText("提交结果待确认", "Submission status pending", locale);
+    return taskStatusLabel(task.status, locale);
 }
 
-export function generationTaskStageLabel(task: GenerationTaskDisplayTarget) {
-    if (isGenerationTaskSubmissionUncertain(task)) return "为避免重复扣费，未自动重试";
+export function generationTaskStageLabel(task: GenerationTaskDisplayTarget, locale: AppLocale = "zh-CN") {
+    if (isGenerationTaskSubmissionUncertain(task)) return localeText("为避免重复扣费，未自动重试", "Not retried automatically to avoid duplicate charges", locale);
     switch (task.stage) {
         case "queued":
         case "等待队列调度":
         case "后端接管任务":
-            return "正在准备创作";
+            return localeText("正在准备创作", "Preparing generation", locale);
         case "generating":
         case "调用生成模型":
         case "正在准备参考素材":
@@ -63,11 +83,12 @@ export function generationTaskStageLabel(task: GenerationTaskDisplayTarget) {
         case "作品创作中":
         case "上游生成中":
         case "后台仍在生成":
-            return "作品创作中";
+            return localeText("作品创作中", "Generating", locale);
         case "等待上游任务同步":
-            return "正在同步创作进度";
+            return localeText("正在同步创作进度", "Syncing progress", locale);
         default:
-            return task.stage || generationTaskStatusLabel(task);
+            if (locale === "en-US" && /[\u3400-\u9fff]/.test(task.stage || "")) return "Processing";
+            return task.stage || generationTaskStatusLabel(task, locale);
     }
 }
 
@@ -93,6 +114,23 @@ export const operationOptions = [
     { label: "结果版本对比", value: "compare_versions" },
 ];
 
+const englishOperationLabels: Record<string, string> = {
+    text_to_video: "Text to video",
+    image_to_video: "Image to video",
+    reference_to_video: "Multimodal reference",
+    extend: "Extend video",
+    inpaint: "Edit part of video",
+    replace_element: "Replace element",
+    camera_motion: "Camera movement",
+    style_transfer: "Style transfer",
+    audio_to_video: "Audio to video",
+    compare_versions: "Compare versions",
+};
+
+export function localizedOperationOptions(locale: AppLocale) {
+    return operationOptions.map((item) => ({ ...item, label: locale === "en-US" ? englishOperationLabels[item.value] || item.label : item.label }));
+}
+
 export const operationLabelByValue = new Map(operationOptions.map((item) => [item.value, item.label]));
 
 export const taskTypeLabel: Record<string, string> = {
@@ -102,9 +140,16 @@ export const taskTypeLabel: Record<string, string> = {
     canvas_text: "画布文本",
 };
 
-export function formatTaskKind(task: GenerationTask) {
+export function formatTaskKind(task: GenerationTask, locale: AppLocale = "zh-CN") {
     const typeLabel = taskTypeLabel[task.type];
     const operationLabel = task.operation ? operationLabelByValue.get(task.operation) : "";
+
+    if (locale === "en-US") {
+        const englishType = { canvas_image: "Canvas image", canvas_video: "Canvas video", canvas_audio: "Canvas audio", canvas_text: "Canvas text" }[task.type];
+        const englishOperation = task.operation ? englishOperationLabels[task.operation] : "";
+        if (task.type === "canvas_video" && englishOperation) return `${englishType || "Canvas video"} · ${englishOperation}`;
+        return englishType || englishOperation || (task.type.startsWith("video_") ? "Video task" : "Generation task");
+    }
 
     if (task.type === "canvas_video" && operationLabel) return `${typeLabel || "画布视频"} · ${operationLabel}`;
     if (typeLabel) return typeLabel;

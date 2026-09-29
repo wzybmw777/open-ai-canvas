@@ -33,6 +33,7 @@ import {
 
 import { canvasThemes } from "@/lib/canvas-theme";
 import { createCanvasRichTextExtensions, isSafeCanvasRichTextLink } from "@/lib/canvas/canvas-rich-text";
+import { localizedErrorMessage, useLocaleText } from "@/lib/i18n";
 import { useActiveTheme } from "@/stores/canvas/use-canvas-theme-store";
 import { CanvasNodeType, type CanvasNodeData } from "@/types/canvas";
 
@@ -44,6 +45,7 @@ type CanvasTextEditorModalProps = {
 };
 
 export function CanvasTextEditorModal({ node, open, onClose, onSave }: CanvasTextEditorModalProps) {
+    const { locale, text } = useLocaleText();
     const { message, modal } = App.useApp();
     const theme = canvasThemes[useActiveTheme()];
     const [title, setTitle] = useState("");
@@ -54,12 +56,12 @@ export function CanvasTextEditorModal({ node, open, onClose, onSave }: CanvasTex
     const isMarkdown = node?.type === CanvasNodeType.Markdown;
     const editor = useEditor({
         immediatelyRender: false,
-        extensions: createCanvasRichTextExtensions("输入文本内容…"),
+        extensions: createCanvasRichTextExtensions(text("输入文本内容…", "Enter text…")),
         content: emptyTextDocument(),
         editorProps: {
             attributes: {
                 class: "min-h-full px-8 py-7 text-[var(--fs-body-lg)] leading-7 outline-none sm:px-12 lg:px-16",
-                "aria-label": "文本节点富文本编辑区",
+                "aria-label": text("文本节点富文本编辑区", "Rich text editor for text node"),
             },
         },
         onUpdate: () => setDirty(true),
@@ -67,7 +69,7 @@ export function CanvasTextEditorModal({ node, open, onClose, onSave }: CanvasTex
 
     useEffect(() => {
         if (!open || !node) return;
-        setTitle(node.title || (node.type === CanvasNodeType.Markdown ? "Markdown" : "文本"));
+        setTitle(node.title || (node.type === CanvasNodeType.Markdown ? "Markdown" : text("文本", "Text")));
         setMarkdownContent(node.metadata?.content || "");
         setDirty(false);
         setSaving(false);
@@ -90,12 +92,12 @@ export function CanvasTextEditorModal({ node, open, onClose, onSave }: CanvasTex
             if (isMarkdown) {
                 await onSave(node.id, title.trim() || "Markdown", markdownContent, (node.metadata?.richText as Record<string, unknown> | undefined) || {});
             } else {
-                await onSave(node.id, title.trim() || "文本", editor!.getText({ blockSeparator: "\n" }).trimEnd(), editor!.getJSON() as Record<string, unknown>);
+                await onSave(node.id, title.trim() || text("文本", "Text"), editor!.getText({ blockSeparator: "\n" }).trimEnd(), editor!.getJSON() as Record<string, unknown>);
             }
             setDirty(false);
-            message.success("文本节点已保存");
+            message.success(text("文本节点已保存", "Text node saved"));
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "文本保存失败");
+            message.error(localizedErrorMessage(error, "文本保存失败", "Could not save text", locale));
         } finally {
             setSaving(false);
         }
@@ -104,10 +106,10 @@ export function CanvasTextEditorModal({ node, open, onClose, onSave }: CanvasTex
     const close = () => {
         if (!dirty || saving) return onClose();
         modal.confirm({
-            title: "放弃未保存的修改？",
-            content: `关闭后，本次${isMarkdown ? "Markdown" : "富文本"}编辑不会写回画布节点。`,
-            okText: "放弃修改",
-            cancelText: "继续编辑",
+            title: text("放弃未保存的修改？", "Discard unsaved changes?"),
+            content: locale === "en-US" ? `Your ${isMarkdown ? "Markdown" : "rich text"} changes will not be saved to the canvas node.` : `关闭后，本次${isMarkdown ? "Markdown" : "富文本"}编辑不会写回画布节点。`,
+            okText: text("放弃修改", "Discard changes"),
+            cancelText: text("继续编辑", "Keep editing"),
             onOk: onClose,
         });
     };
@@ -143,20 +145,20 @@ export function CanvasTextEditorModal({ node, open, onClose, onSave }: CanvasTex
                         value={title}
                         onChange={(event) => { setTitle(event.target.value); setDirty(true); }}
                         className="!h-9 min-w-0 max-w-[360px] flex-1 !px-1 text-sm font-semibold"
-                        placeholder="文本节点标题"
-                        aria-label="文本节点标题"
+                        placeholder={text("文本节点标题", "Text node title")}
+                        aria-label={text("文本节点标题", "Text node title")}
                     />
-                    <span className="hidden shrink-0 text-[var(--fs-label)] sm:inline" style={{ color: theme.node.muted }}>{characterCount.toLocaleString("zh-CN")} 字 · {wordCount.toLocaleString("zh-CN")} 词</span>
-                    <span className="ml-auto hidden text-[var(--fs-label)] sm:inline" style={{ color: dirty ? theme.accent.primary : theme.node.muted }}>{dirty ? "有未保存修改" : "已保存"}</span>
-                    <Button size="small" type="primary" icon={<Save className="size-3.5" />} loading={saving} disabled={!dirty} onClick={() => void save()}>保存</Button>
-                    <Tooltip title="关闭">
-                        <Button size="small" type="text" icon={<X className="size-4" />} aria-label="关闭文本编辑器" onClick={close} />
+                    <span className="hidden shrink-0 text-[var(--fs-label)] sm:inline" style={{ color: theme.node.muted }}>{locale === "en-US" ? `${characterCount.toLocaleString(locale)} chars · ${wordCount.toLocaleString(locale)} words` : `${characterCount.toLocaleString(locale)} 字 · ${wordCount.toLocaleString(locale)} 词`}</span>
+                    <span className="ml-auto hidden text-[var(--fs-label)] sm:inline" style={{ color: dirty ? theme.accent.primary : theme.node.muted }}>{dirty ? text("有未保存修改", "Unsaved changes") : text("已保存", "Saved")}</span>
+                    <Button size="small" type="primary" icon={<Save className="size-3.5" />} loading={saving} disabled={!dirty} onClick={() => void save()}>{text("保存", "Save")}</Button>
+                    <Tooltip title={text("关闭", "Close")}>
+                        <Button size="small" type="text" icon={<X className="size-4" />} aria-label={text("关闭文本编辑器", "Close text editor")} onClick={close} />
                     </Tooltip>
                 </header>
 
                 {isMarkdown ? (
                     <div className="flex h-10 shrink-0 items-center border-b px-4 text-xs font-medium" style={{ borderColor: theme.node.stroke, color: theme.node.muted }}>
-                        Markdown 源码
+                        {text("Markdown 源码", "Markdown source")}
                     </div>
                 ) : (
                     <TextEditorToolbar editor={editor} />
@@ -174,10 +176,10 @@ export function CanvasTextEditorModal({ node, open, onClose, onSave }: CanvasTex
                                     setMarkdownContent(event.target.value);
                                     setDirty(true);
                                 }}
-                                placeholder="输入 Markdown 内容…"
+                                placeholder={text("输入 Markdown 内容…", "Enter Markdown…")}
                                 autoSize={false}
                                 className="!min-h-[calc(min(88dvh,840px)-126px)] !h-full !resize-none !border-0 !bg-transparent !px-8 !py-7 !text-sm !leading-7 !shadow-none focus:!border-0 focus:!shadow-none sm:!px-12 lg:!px-16"
-                                aria-label="Markdown 源码编辑区"
+                                aria-label={text("Markdown 源码编辑区", "Markdown source editor")}
                             />
                         ) : (
                             <EditorContent editor={editor} />
@@ -186,8 +188,8 @@ export function CanvasTextEditorModal({ node, open, onClose, onSave }: CanvasTex
                 </div>
 
                 <footer className="flex h-8 shrink-0 items-center gap-3 border-t px-3 text-[var(--fs-tiny)]" style={{ borderColor: theme.node.stroke, color: theme.node.muted }}>
-                    <span className="hidden sm:inline">{isMarkdown ? "直接编辑 Markdown 源码，保存后画布会按 Markdown 渲染" : "支持标题、列表、引用、链接、代码和颜色格式"}</span>
-                    <span className="ml-auto">Ctrl/⌘S 保存</span>
+                    <span className="hidden sm:inline">{isMarkdown ? text("直接编辑 Markdown 源码，保存后画布会按 Markdown 渲染", "Edit Markdown source; the canvas renders it after saving") : text("支持标题、列表、引用、链接、代码和颜色格式", "Headings, lists, quotes, links, code, and colors")}</span>
+                    <span className="ml-auto">Ctrl/⌘S {text("保存", "Save")}</span>
                 </footer>
             </section>
         </AppModal>
@@ -195,6 +197,7 @@ export function CanvasTextEditorModal({ node, open, onClose, onSave }: CanvasTex
 }
 
 function TextEditorToolbar({ editor }: { editor: Editor | null }) {
+    const { text } = useLocaleText();
     const { message } = App.useApp();
     const theme = canvasThemes[useActiveTheme()];
     const [, setToolbarVersion] = useState(0);
@@ -219,7 +222,7 @@ function TextEditorToolbar({ editor }: { editor: Editor | null }) {
         const href = linkValue.trim();
         if (!editor) return;
         if (href && !isSafeCanvasRichTextLink(href)) {
-            message.error("链接仅支持 http、https、mailto 或 tel 协议");
+            message.error(text("链接仅支持 http、https、mailto 或 tel 协议", "Links must use http, https, mailto, or tel"));
             return;
         }
         if (href) editor.chain().focus().extendMarkRange("link").setLink({ href }).run();
@@ -229,60 +232,60 @@ function TextEditorToolbar({ editor }: { editor: Editor | null }) {
 
     return (
         <div className="hide-scrollbar flex h-11 shrink-0 items-center gap-0.5 overflow-x-auto border-b px-2" style={{ borderColor: theme.node.stroke, background: theme.node.panel }}>
-            <EditorToolButton label="撤销" onClick={() => editor?.chain().focus().undo().run()}><Undo2 /></EditorToolButton>
-            <EditorToolButton label="重做" onClick={() => editor?.chain().focus().redo().run()}><Redo2 /></EditorToolButton>
+            <EditorToolButton label={text("撤销", "Undo")} onClick={() => editor?.chain().focus().undo().run()}><Undo2 /></EditorToolButton>
+            <EditorToolButton label={text("重做", "Redo")} onClick={() => editor?.chain().focus().redo().run()}><Redo2 /></EditorToolButton>
             <ToolbarDivider />
             <Dropdown
                 trigger={["click"]}
                 menu={{
                     selectedKeys: [blockLabel],
-                    items: ["正文", "标题 1", "标题 2", "标题 3"].map((label) => ({ key: label, label })),
+                    items: ["正文", "标题 1", "标题 2", "标题 3"].map((label) => ({ key: label, label: label === "正文" ? text("正文", "Paragraph") : text("标题", "Heading") + label.slice(-2) })),
                     onClick: ({ key }) => key === "正文" ? editor?.chain().focus().setParagraph().run() : editor?.chain().focus().toggleHeading({ level: Number(key.slice(-1)) as 1 | 2 | 3 }).run(),
                 }}
             >
-                <button type="button" className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium outline-none hover:bg-black/5 focus-visible:ring-2 dark:hover:bg-white/8" aria-label="段落格式"><span>{blockLabel}</span><ChevronDown className="size-3" /></button>
+                <button type="button" className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium outline-none hover:bg-black/5 focus-visible:ring-2 dark:hover:bg-white/8" aria-label={text("段落格式", "Paragraph format")}><span>{blockLabel === "正文" ? text("正文", "Paragraph") : text("标题", "Heading") + blockLabel.slice(-2)}</span><ChevronDown className="size-3" /></button>
             </Dropdown>
-            <EditorToolButton label="粗体" active={Boolean(editor?.isActive("bold"))} onClick={() => editor?.chain().focus().toggleBold().run()}><Bold /></EditorToolButton>
-            <EditorToolButton label="斜体" active={Boolean(editor?.isActive("italic"))} onClick={() => editor?.chain().focus().toggleItalic().run()}><Italic /></EditorToolButton>
-            <EditorToolButton label="下划线" active={Boolean(editor?.isActive("underline"))} onClick={() => editor?.chain().focus().toggleUnderline().run()}><Underline /></EditorToolButton>
-            <EditorToolButton label="删除线" active={Boolean(editor?.isActive("strike"))} onClick={() => editor?.chain().focus().toggleStrike().run()}><Strikethrough /></EditorToolButton>
+            <EditorToolButton label={text("粗体", "Bold")} active={Boolean(editor?.isActive("bold"))} onClick={() => editor?.chain().focus().toggleBold().run()}><Bold /></EditorToolButton>
+            <EditorToolButton label={text("斜体", "Italic")} active={Boolean(editor?.isActive("italic"))} onClick={() => editor?.chain().focus().toggleItalic().run()}><Italic /></EditorToolButton>
+            <EditorToolButton label={text("下划线", "Underline")} active={Boolean(editor?.isActive("underline"))} onClick={() => editor?.chain().focus().toggleUnderline().run()}><Underline /></EditorToolButton>
+            <EditorToolButton label={text("删除线", "Strikethrough")} active={Boolean(editor?.isActive("strike"))} onClick={() => editor?.chain().focus().toggleStrike().run()}><Strikethrough /></EditorToolButton>
             <ToolbarDivider />
             <Dropdown
                 trigger={["click"]}
                 menu={{
                     selectedKeys: [alignment],
                     items: [
-                        { key: "left", icon: <AlignLeft className="size-3.5" />, label: "左对齐" },
-                        { key: "center", icon: <AlignCenter className="size-3.5" />, label: "居中" },
-                        { key: "right", icon: <AlignRight className="size-3.5" />, label: "右对齐" },
-                        { key: "justify", icon: <AlignJustify className="size-3.5" />, label: "两端对齐" },
+                        { key: "left", icon: <AlignLeft className="size-3.5" />, label: text("左对齐", "Align left") },
+                        { key: "center", icon: <AlignCenter className="size-3.5" />, label: text("居中", "Center") },
+                        { key: "right", icon: <AlignRight className="size-3.5" />, label: text("右对齐", "Align right") },
+                        { key: "justify", icon: <AlignJustify className="size-3.5" />, label: text("两端对齐", "Justify") },
                     ],
                     onClick: ({ key }) => editor?.chain().focus().setTextAlign(key).run(),
                 }}
             >
-                <button type="button" className="inline-flex size-8 shrink-0 items-center justify-center gap-0.5 rounded-md outline-none hover:bg-black/5 focus-visible:ring-2 dark:hover:bg-white/8" aria-label="文字对齐"><span className="[&_svg]:size-3.5">{alignmentIcon}</span><ChevronDown className="size-2.5" /></button>
+                <button type="button" className="inline-flex size-8 shrink-0 items-center justify-center gap-0.5 rounded-md outline-none hover:bg-black/5 focus-visible:ring-2 dark:hover:bg-white/8" aria-label={text("文字对齐", "Text alignment")}><span className="[&_svg]:size-3.5">{alignmentIcon}</span><ChevronDown className="size-2.5" /></button>
             </Dropdown>
-            <EditorToolButton label="无序列表" active={Boolean(editor?.isActive("bulletList"))} onClick={() => editor?.chain().focus().toggleBulletList().run()}><List /></EditorToolButton>
-            <EditorToolButton label="有序列表" active={Boolean(editor?.isActive("orderedList"))} onClick={() => editor?.chain().focus().toggleOrderedList().run()}><ListOrdered /></EditorToolButton>
-            <EditorToolButton label="引用" active={Boolean(editor?.isActive("blockquote"))} onClick={() => editor?.chain().focus().toggleBlockquote().run()}><Quote /></EditorToolButton>
+            <EditorToolButton label={text("无序列表", "Bulleted list")} active={Boolean(editor?.isActive("bulletList"))} onClick={() => editor?.chain().focus().toggleBulletList().run()}><List /></EditorToolButton>
+            <EditorToolButton label={text("有序列表", "Numbered list")} active={Boolean(editor?.isActive("orderedList"))} onClick={() => editor?.chain().focus().toggleOrderedList().run()}><ListOrdered /></EditorToolButton>
+            <EditorToolButton label={text("引用", "Quote")} active={Boolean(editor?.isActive("blockquote"))} onClick={() => editor?.chain().focus().toggleBlockquote().run()}><Quote /></EditorToolButton>
             <Popover
                 open={linkOpen}
                 onOpenChange={(next) => { setLinkOpen(next); if (next) setLinkValue(String(editor?.getAttributes("link").href || "")); }}
                 trigger="click"
                 placement="bottom"
-                content={<div className="flex w-72 gap-2"><Input size="small" value={linkValue} placeholder="https://example.com" onChange={(event) => setLinkValue(event.target.value)} onPressEnter={applyLink} /><Button size="small" type="primary" onClick={applyLink}>应用</Button></div>}
+                content={<div className="flex w-72 gap-2"><Input size="small" value={linkValue} placeholder="https://example.com" onChange={(event) => setLinkValue(event.target.value)} onPressEnter={applyLink} /><Button size="small" type="primary" onClick={applyLink}>{text("应用", "Apply")}</Button></div>}
             >
-                <span><EditorToolButton label="插入链接" active={Boolean(editor?.isActive("link"))} onClick={() => setLinkOpen(true)}><Link2 /></EditorToolButton></span>
+                <span><EditorToolButton label={text("插入链接", "Insert link")} active={Boolean(editor?.isActive("link"))} onClick={() => setLinkOpen(true)}><Link2 /></EditorToolButton></span>
             </Popover>
             <ToolbarDivider />
-            <Tooltip title="文字颜色">
+            <Tooltip title={text("文字颜色", "Text color")}>
                 <ColorPicker value={String(editor?.getAttributes("textStyle").color || theme.node.text)} onChangeComplete={(color) => editor?.chain().focus().setColor(color.toHexString()).run()}>
-                    <button type="button" className="grid size-8 shrink-0 place-items-center rounded-md text-xs font-bold outline-none hover:bg-black/5 focus-visible:ring-2 dark:hover:bg-white/8" aria-label="文字颜色"><span className="border-b-2 px-0.5" style={{ borderColor: String(editor?.getAttributes("textStyle").color || theme.node.text) }}>A</span></button>
+                    <button type="button" className="grid size-8 shrink-0 place-items-center rounded-md text-xs font-bold outline-none hover:bg-black/5 focus-visible:ring-2 dark:hover:bg-white/8" aria-label={text("文字颜色", "Text color")}><span className="border-b-2 px-0.5" style={{ borderColor: String(editor?.getAttributes("textStyle").color || theme.node.text) }}>A</span></button>
                 </ColorPicker>
             </Tooltip>
-            <Tooltip title="高亮颜色">
+            <Tooltip title={text("高亮颜色", "Highlight color")}>
                 <ColorPicker value={String(editor?.getAttributes("highlight").color || "#fde68a")} onChangeComplete={(color) => editor?.chain().focus().toggleHighlight({ color: color.toHexString() }).run()}>
-                    <button type="button" className="grid size-8 shrink-0 place-items-center rounded-md outline-none hover:bg-black/5 focus-visible:ring-2 dark:hover:bg-white/8" aria-label="高亮颜色"><Highlighter className="size-3.5" /></button>
+                    <button type="button" className="grid size-8 shrink-0 place-items-center rounded-md outline-none hover:bg-black/5 focus-visible:ring-2 dark:hover:bg-white/8" aria-label={text("高亮颜色", "Highlight color")}><Highlighter className="size-3.5" /></button>
                 </ColorPicker>
             </Tooltip>
             <Dropdown
@@ -290,11 +293,11 @@ function TextEditorToolbar({ editor }: { editor: Editor | null }) {
                 placement="bottomRight"
                 menu={{
                     items: [
-                        { key: "code", icon: <Code2 className="size-3.5" />, label: "行内代码" },
-                        { key: "codeBlock", icon: <span className="text-[var(--fs-tiny)] font-bold">{"<>"}</span>, label: "代码块" },
-                        { key: "rule", icon: <Minus className="size-3.5" />, label: "插入分隔线" },
+                        { key: "code", icon: <Code2 className="size-3.5" />, label: text("行内代码", "Inline code") },
+                        { key: "codeBlock", icon: <span className="text-[var(--fs-tiny)] font-bold">{"<>"}</span>, label: text("代码块", "Code block") },
+                        { key: "rule", icon: <Minus className="size-3.5" />, label: text("插入分隔线", "Insert divider") },
                         { type: "divider" },
-                        { key: "clear", icon: <Eraser className="size-3.5" />, label: "清除格式" },
+                        { key: "clear", icon: <Eraser className="size-3.5" />, label: text("清除格式", "Clear formatting") },
                     ],
                     onClick: ({ key }) => {
                         if (key === "code") editor?.chain().focus().toggleCode().run();
@@ -304,7 +307,7 @@ function TextEditorToolbar({ editor }: { editor: Editor | null }) {
                     },
                 }}
             >
-                <button type="button" className="grid size-8 shrink-0 place-items-center rounded-md outline-none hover:bg-black/5 focus-visible:ring-2 dark:hover:bg-white/8" aria-label="更多格式"><MoreHorizontal className="size-4" /></button>
+                <button type="button" className="grid size-8 shrink-0 place-items-center rounded-md outline-none hover:bg-black/5 focus-visible:ring-2 dark:hover:bg-white/8" aria-label={text("更多格式", "More formatting")}><MoreHorizontal className="size-4" /></button>
             </Dropdown>
         </div>
     );

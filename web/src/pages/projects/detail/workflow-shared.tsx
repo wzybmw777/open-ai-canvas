@@ -4,6 +4,7 @@ import { Link } from "react-router";
 
 import { StatusBadge } from "@/components/ui/base/badges";
 import { assetCategoryLabel as sharedAssetCategoryLabel } from "@/lib/asset-category";
+import { useLocaleStore, useLocaleText } from "@/lib/i18n";
 import type { ProjectDetail, ProjectShot, ShotArtifact, ShotRevision, WorkflowStep } from "@/services/api/projects";
 import type { TaskStatus } from "@/services/api/task-center";
 
@@ -41,13 +42,14 @@ export function MetricCard({ icon, label, value }: { icon: ReactNode; label: str
 }
 
 export function ArtifactStatus({ artifact, taskStatus }: { artifact?: ShotArtifact; taskStatus?: TaskStatus; compact?: boolean }) {
+    const { text } = useLocaleText();
     if (taskStatus === "queued" || taskStatus === "running" || (taskStatus === "succeeded" && !artifact)) {
-        return <StatusBadge variant="filled" tone="loading" label="生成中" />;
+        return <StatusBadge variant="filled" tone="loading" label={text("生成中", "Generating")} />;
     }
-    if (taskStatus === "failed") return <StatusBadge variant="filled" tone="error" label="生成失败" />;
-    if (!artifact) return <StatusBadge variant="filled" tone="neutral" label="待生成" />;
+    if (taskStatus === "failed") return <StatusBadge variant="filled" tone="error" label={text("生成失败", "Generation failed")} />;
+    if (!artifact) return <StatusBadge variant="filled" tone="neutral" label={text("待生成", "Not generated")} />;
     const tone = artifact.status === "ready" ? "success" : artifact.status === "failed" ? "error" : artifact.status === "stale" ? "warning" : "loading";
-    const label = artifact.status === "ready" ? "已生成" : artifact.status === "failed" ? "生成失败" : artifact.status === "stale" ? "已过期" : "生成中";
+    const label = artifact.status === "ready" ? text("已生成", "Generated") : artifact.status === "failed" ? text("生成失败", "Generation failed") : artifact.status === "stale" ? text("已过期", "Outdated") : text("生成中", "Generating");
     return <StatusBadge variant="filled" tone={tone} label={label} />;
 }
 
@@ -81,9 +83,10 @@ export function formatDuration(durationMs: number) {
 }
 
 export function stageActionLabel(step?: WorkflowStep) {
-    if (!step || step.status === "pending") return "等待上一步";
-    if (step.status === "running" || step.status === "review") return "完成阶段";
-    if (step.status === "completed") return "重新打开";
-    if (step.status === "failed") return "重新开始";
-    return "开始阶段";
+    const english = useLocaleStore.getState().locale === "en-US";
+    if (!step || step.status === "pending") return english ? "Waiting for previous stage" : "等待上一步";
+    if (step.status === "running" || step.status === "review") return english ? "Complete stage" : "完成阶段";
+    if (step.status === "completed") return english ? "Reopen" : "重新打开";
+    if (step.status === "failed") return english ? "Restart" : "重新开始";
+    return english ? "Start stage" : "开始阶段";
 }

@@ -4,6 +4,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { aceternityMotion } from "@/lib/aceternity-motion";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { cn } from "@/lib/utils";
+import { useLocaleText } from "@/lib/i18n";
 import { useActiveTheme } from "@/stores/canvas/use-canvas-theme-store";
 
 export type CanvasCreateCommand = {
@@ -16,6 +17,7 @@ export type CanvasCreateCommand = {
 };
 
 export function CanvasCreateMenu({ commands }: { commands: CanvasCreateCommand[] }) {
+    const { text } = useLocaleText();
     const theme = canvasThemes[useActiveTheme()];
     const projectCommands = commands.filter((command) => command.section === "project");
     const nodeCommands = commands.filter((command) => command.section === "node");
@@ -25,7 +27,7 @@ export function CanvasCreateMenu({ commands }: { commands: CanvasCreateCommand[]
     return (
         <div>
             <header className="flex min-h-7 items-center justify-between gap-2 border-b pb-2" style={{ borderColor: theme.toolbar.border }}>
-                <h2 className="font-semibold leading-none" style={{ fontSize: "var(--fs-caption)" }}>添加节点</h2>
+                <h2 className="font-semibold leading-none" style={{ fontSize: "var(--fs-caption)" }}>{text("添加节点", "Add node")}</h2>
                 {projectCommands.map((command) => (
                     <button
                         key={command.id}
@@ -42,17 +44,17 @@ export function CanvasCreateMenu({ commands }: { commands: CanvasCreateCommand[]
                 ))}
             </header>
 
-            <MenuSection title="创作节点" color={theme.node.muted} />
+            <MenuSection title={text("创作节点", "Creative nodes")} color={theme.node.muted} />
             <CanvasCreateCommandGrid commands={nodeCommands} variant="node" />
 
             {workflowCommands.length ? (
                 <>
-                    <MenuSection title="工作流" color={theme.node.muted} spaced />
+                    <MenuSection title={text("工作流", "Workflows")} color={theme.node.muted} spaced />
                     <CanvasCreateCommandGrid commands={workflowCommands} variant="workflow" />
                 </>
             ) : null}
 
-            <MenuSection title="导入资源" color={theme.node.muted} spaced />
+            <MenuSection title={text("导入资源", "Import resources")} color={theme.node.muted} spaced />
             <CanvasCreateCommandGrid commands={resourceCommands} variant="compact" />
         </div>
     );

@@ -7,11 +7,13 @@ import { WorkspaceState } from "@/components/layout/workspace-state";
 import { canvasNodeMaterialSummary, canvasNodeSearchContext, canvasNodeSearchTimes, searchCanvasNodes } from "@/lib/canvas/canvas-node-search";
 import { useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
 import { getNodeListLabel } from "@/lib/canvas/node-registry";
+import { useLocaleText, type AppLocale } from "@/lib/i18n";
 import { CanvasNodeType, type CanvasNodeData } from "@/types/canvas";
 
 const RESULT_LIST_ID = "canvas-node-search-results";
 
 export function CanvasNodeSearchModal({ open, nodes, onClose, onFocus }: { open: boolean; nodes: CanvasNodeData[]; onClose: () => void; onFocus: (nodeId: string) => void }) {
+    const { locale, text } = useLocaleText();
     const [query, setQuery] = useState("");
     const [activeIndex, setActiveIndex] = useState(0);
     const config = useEffectiveConfig();
@@ -41,7 +43,7 @@ export function CanvasNodeSearchModal({ open, nodes, onClose, onFocus }: { open:
 
     return (
         <Modal
-            title="搜索画布节点"
+            title={text("搜索画布节点", "Search canvas nodes")}
             open={open}
             footer={null}
             width="min(760px, calc(100vw - 32px))"
@@ -57,16 +59,16 @@ export function CanvasNodeSearchModal({ open, nodes, onClose, onFocus }: { open:
                 onChange={(event) => setQuery(event.target.value)}
                 onKeyDown={handleInputKeyDown}
                 prefix={<Search className="size-4 opacity-50" />}
-                placeholder="搜索节点、章节、镜头、模型或标签…"
-                aria-label="搜索画布节点"
+                placeholder={text("搜索节点、章节、镜头、模型或标签…", "Search nodes, chapters, shots, models, or tags…")}
+                aria-label={text("搜索画布节点", "Search canvas nodes")}
                 aria-controls={RESULT_LIST_ID}
                 aria-activedescendant={results[activeIndex] ? `canvas-node-search-result-${results[activeIndex].id}` : undefined}
             />
             <div className="mt-2 flex min-h-7 items-center justify-between gap-3 border-b pb-2 text-[11px] tracking-[0.015em] text-foreground/45">
-                <span className="tabular-nums">{query.trim() ? `找到 ${results.length} 个节点` : `最近编辑 · ${results.length} 个节点`}</span>
-                <span className="hidden sm:inline">↑↓ 选择 · Enter 定位 · Esc 关闭</span>
+                <span className="tabular-nums">{query.trim() ? locale === "en-US" ? `${results.length} nodes found` : `找到 ${results.length} 个节点` : locale === "en-US" ? `Recently edited · ${results.length} nodes` : `最近编辑 · ${results.length} 个节点`}</span>
+                <span className="hidden sm:inline">{text("↑↓ 选择 · Enter 定位 · Esc 关闭", "↑↓ Select · Enter focus · Esc close")}</span>
             </div>
-            <div id={RESULT_LIST_ID} role="listbox" aria-label="画布节点搜索结果" className="thin-scrollbar max-h-[54vh] overflow-y-auto overscroll-contain py-1.5">
+            <div id={RESULT_LIST_ID} role="listbox" aria-label={text("画布节点搜索结果", "Canvas node search results")} className="thin-scrollbar max-h-[54vh] overflow-y-auto overscroll-contain py-1.5">
                 {results.length ? results.map((node, index) => (
                     <CanvasNodeSearchResult
                         key={node.id}
@@ -76,16 +78,17 @@ export function CanvasNodeSearchModal({ open, nodes, onClose, onFocus }: { open:
                         onActivate={() => setActiveIndex(index)}
                         onSelect={() => focusNode(node)}
                     />
-                )) : <WorkspaceState icon="canvas" compact title="没有匹配节点" description="换一个节点、章节、镜头、模型或标签继续搜索。" />}
+                )) : <WorkspaceState icon="canvas" compact title={text("没有匹配节点", "No matching nodes")} description={text("换一个节点、章节、镜头、模型或标签继续搜索。", "Try another node, chapter, shot, model, or tag.")} />}
             </div>
         </Modal>
     );
 }
 
 const CanvasNodeSearchResult = memo(function CanvasNodeSearchResult({ node, config, active, onActivate, onSelect }: { node: CanvasNodeData; config: AiConfig; active: boolean; onActivate: () => void; onSelect: () => void }) {
-    const times = canvasNodeSearchTimes(node);
-    const materialSummary = canvasNodeMaterialSummary(node, config);
-    const context = canvasNodeSearchContext(node);
+    const { locale, text } = useLocaleText();
+    const times = canvasNodeSearchTimes(node, locale);
+    const materialSummary = canvasNodeMaterialSummary(node, config, locale);
+    const context = canvasNodeSearchContext(node, locale);
     return (
         <button
             id={`canvas-node-search-result-${node.id}`}
@@ -106,7 +109,7 @@ const CanvasNodeSearchResult = memo(function CanvasNodeSearchResult({ node, conf
             <CanvasNodeSearchThumbnail node={node} />
             <span className="min-w-0 self-center">
                 <span className="flex min-w-0 items-center gap-2">
-                    <span className="min-w-0 truncate text-[13px] font-medium leading-5 text-foreground" title={node.title}>{node.title || getNodeListLabel(node.type)}</span>
+                    <span className="min-w-0 truncate text-[13px] font-medium leading-5 text-foreground" title={node.title}>{node.title || getNodeListLabel(node.type, locale)}</span>
                     <span className="max-w-[210px] shrink truncate rounded-full bg-foreground/[0.055] px-2 py-0.5 text-[10px] font-medium tracking-[0.02em] text-foreground/50" title={materialSummary}>{materialSummary}</span>
                 </span>
                 <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] leading-4 text-foreground/45">
@@ -114,13 +117,13 @@ const CanvasNodeSearchResult = memo(function CanvasNodeSearchResult({ node, conf
                     <span className="truncate" title={context}>{context}</span>
                 </span>
                 <span className="mt-1 hidden items-center gap-3 text-[10px] tabular-nums tracking-[0.015em] text-foreground/40 max-sm:flex">
-                    <time dateTime={times.createdAt} title={fullTime(times.createdAt)}>创建 {times.createdLabel}</time>
-                    <time dateTime={times.updatedAt} title={fullTime(times.updatedAt)}>编辑 {times.updatedLabel}</time>
+                    <time dateTime={times.createdAt} title={fullTime(times.createdAt, locale)}>{text("创建", "Created")} {times.createdLabel}</time>
+                    <time dateTime={times.updatedAt} title={fullTime(times.updatedAt, locale)}>{text("编辑", "Edited")} {times.updatedLabel}</time>
                 </span>
             </span>
             <span className="grid min-w-[112px] gap-0.5 border-l pl-3 text-[10px] tabular-nums tracking-[0.015em] text-foreground/40 max-sm:hidden" style={{ borderColor: "color-mix(in srgb, var(--foreground) 8%, transparent)" }}>
-                <span className="flex items-center gap-1.5"><Clock3 className="size-3" /><span>创建</span><time className="ml-auto" dateTime={times.createdAt} title={fullTime(times.createdAt)}>{times.createdLabel}</time></span>
-                <span className="flex items-center gap-1.5"><Pencil className="size-3" /><span>编辑</span><time className="ml-auto" dateTime={times.updatedAt} title={fullTime(times.updatedAt)}>{times.updatedLabel}</time></span>
+                <span className="flex items-center gap-1.5"><Clock3 className="size-3" /><span>{text("创建", "Created")}</span><time className="ml-auto" dateTime={times.createdAt} title={fullTime(times.createdAt, locale)}>{times.createdLabel}</time></span>
+                <span className="flex items-center gap-1.5"><Pencil className="size-3" /><span>{text("编辑", "Edited")}</span><time className="ml-auto" dateTime={times.updatedAt} title={fullTime(times.updatedAt, locale)}>{times.updatedLabel}</time></span>
             </span>
         </button>
     );
@@ -160,7 +163,7 @@ function CanvasNodeSearchThumbnail({ node }: { node: CanvasNodeData }) {
     );
 }
 
-function fullTime(value?: string) {
-    if (!value) return "时间未记录";
-    return new Date(value).toLocaleString("zh-CN", { hour12: false });
+function fullTime(value: string | undefined, locale: AppLocale) {
+    if (!value) return locale === "en-US" ? "Time not recorded" : "时间未记录";
+    return new Date(value).toLocaleString(locale, { hour12: false });
 }

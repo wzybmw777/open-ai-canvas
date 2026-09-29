@@ -2,6 +2,10 @@ import { create } from "zustand";
 
 export type AppLocale = "zh-CN" | "en-US";
 
+export function localeText(chinese: string, english: string, locale: AppLocale) {
+    return locale === "en-US" ? english : chinese;
+}
+
 const STORAGE_KEY = "infinite-canvas:locale";
 
 export function preferredLocale(storage?: Pick<Storage, "getItem">, languages?: readonly string[]): AppLocale {
@@ -61,5 +65,5 @@ export function localizedErrorMessage(error: unknown, chineseFallback: string, e
 
 export function useLocaleText() {
     const locale = useLocaleStore((state) => state.locale);
-    return { locale, text: (chinese: string, english: string) => (locale === "en-US" ? english : chinese) };
+    return { locale, text: (chinese: string, english: string) => localeText(chinese, english, locale) };
 }

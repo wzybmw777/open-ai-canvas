@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { canCancelGenerationTask, generationTaskShowsProgress, generationTaskStageLabel, generationTaskStatusLabel, mediaDeliverySummary } from "@/lib/generation-task-display";
+import { canCancelGenerationTask, formatTaskKind, generationTaskShowsProgress, generationTaskStageLabel, generationTaskStatusLabel, localizedOperationOptions, mediaDeliverySummary } from "@/lib/generation-task-display";
 import { resetGenerationTaskMetadata } from "@/lib/canvas/canvas-task-state";
 
 describe("作品保存阶段", () => {
@@ -53,4 +53,14 @@ describe("生成任务用户可见阶段", () => {
         expect(generationTaskStageLabel({ status: "running", stage: "正在准备参考素材" })).toBe("作品创作中");
         expect(generationTaskStageLabel({ status: "running", stage: "正在连接上游" })).toBe("作品创作中");
     });
+});
+
+test("English task labels keep the underlying operation and Chinese defaults intact", () => {
+    const task = { status: "running", stage: "正在连接上游", type: "canvas_video", operation: "image_to_video" } as const;
+    expect(generationTaskStatusLabel(task, "en-US")).toBe("Generating");
+    expect(generationTaskStageLabel(task, "en-US")).toBe("Generating");
+    expect(formatTaskKind(task as Parameters<typeof formatTaskKind>[0], "en-US")).toBe("Canvas video · Image to video");
+    expect(mediaDeliverySummary("failed", "download", "en-US")).toBe("Generated · Download failed");
+    expect(localizedOperationOptions("en-US").find((option) => option.value === "image_to_video")?.label).toBe("Image to video");
+    expect(generationTaskStatusLabel(task)).toBe("生成中");
 });

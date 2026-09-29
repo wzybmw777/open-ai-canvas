@@ -29,7 +29,7 @@ import { ModelPicker } from "@/components/model-picker";
 import { aceternityMotion } from "@/lib/aceternity-motion";
 import { CreditSymbol, requestCreditCost } from "@/constant/credits";
 import { ASSET_CATEGORY_LABELS } from "@/lib/asset-category";
-import { formatShotOrdinal } from "@/lib/shot-label";
+import { displayShotOrdinal } from "@/lib/shot-label";
 import { useCopyText } from "@/hooks/use-copy-text";
 import { buildImageResolutionOptions, formatImageResolutionSize, supportsImageResolutionPresets } from "@/lib/image-resolution-tiers";
 import { modelCapabilityConfigFor, normalizeVideoValue, videoDurationOptions, type ImageCapabilityConfig, type VideoCapabilityConfig } from "@/lib/model-capabilities";
@@ -175,7 +175,7 @@ export function CreationHistoryDrawer({ open, conversations, activeId, onNew, on
 }
 
 export function CreationWorkspaceToolbar({ shots, onJumpToShot, onNewConversation, onOpenHistory, onContinueCanvas, openingCanvas }: { shots: CreationShotRailEntry[]; onJumpToShot: (shot: CreationShotRailEntry) => void; onNewConversation: () => void; onOpenHistory: () => void; onContinueCanvas: () => void; openingCanvas: boolean }) {
-    const { text } = useLocaleText();
+    const { locale, text } = useLocaleText();
     const [railOpen, setRailOpen] = useState(false);
     const railRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
@@ -194,7 +194,7 @@ export function CreationWorkspaceToolbar({ shots, onJumpToShot, onNewConversatio
                     const resultStatus = shot.result?.status;
                     const statusLabel = resultStatus === "done" ? text("完成", "Done") : resultStatus === "error" ? text("生成失败", "Failed") : resultStatus === "pending" ? text("生成中", "Generating") : resultStatus === "cancelled" ? text("已停止", "Stopped") : text("待生成", "Pending");
                     return <li key={shot.key}><button type="button" role="option" aria-selected="false" className="creation-rail-row" onClick={() => { setRailOpen(false); onJumpToShot(shot); }}>
-                        <span className="creation-rail-row-shot">{formatShotOrdinal(shot.ordinal - 1)}</span>
+                        <span className="creation-rail-row-shot">{displayShotOrdinal(shot.ordinal - 1, locale)}</span>
                         <span className="creation-rail-row-prompt">{shot.user.content || text("视频镜头", "Video shot")}</span>
                         <span className={`creation-rail-row-state is-${resultStatus || "idle"}`}>{statusLabel}</span>
                     </button></li>;

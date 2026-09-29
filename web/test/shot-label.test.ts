@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { customShotTitle, formatShotOrdinal, normalizeDefaultShotTitle } from "@/lib/shot-label";
+import { customShotTitle, displayShotOrdinal, formatShotOrdinal, normalizeDefaultShotTitle } from "@/lib/shot-label";
 
 describe("shot labels", () => {
     test("使用中文两位镜头编号", () => {
@@ -18,5 +18,8 @@ describe("shot labels", () => {
         expect(customShotTitle("SC.01", 0)).toBe("");
         expect(customShotTitle("镜头01", 0)).toBe("");
         expect(customShotTitle("雨夜追逐", 0)).toBe("雨夜追逐");
+        expect(customShotTitle("Shot 01", 0)).toBe("");
+        expect(displayShotOrdinal(0, "en-US")).toBe("Shot 01");
+        expect(displayShotOrdinal(11, "zh-CN")).toBe("镜头12");
     });
 });

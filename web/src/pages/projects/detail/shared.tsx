@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import type { ProjectDetail, ProjectUnit } from "@/services/api/projects";
 import { ASSET_CATEGORY_LABELS, assetCategoryLabel as sharedAssetCategoryLabel } from "@/lib/asset-category";
+import { useLocaleStore, useLocaleText, type AppLocale } from "@/lib/i18n";
 
 export type ProjectDetailViewProps = {
     detail: ProjectDetail;
@@ -56,25 +57,39 @@ const sourceTypeLabels: Record<string, string> = {
     text: "粘贴文本",
 };
 
-export function categoryLabel(value: string) {
-    return sharedAssetCategoryLabel(value);
+export function categoryLabel(value: string, locale = useLocaleStore.getState().locale) {
+    return sharedAssetCategoryLabel(value, locale);
 }
 
-export function statusLabel(value: string) {
+export function statusLabel(value: string, locale = useLocaleStore.getState().locale) {
+    if (locale === "en-US") return englishStatusLabels[value] || "Unknown status";
     return statusLabels[value] || "未知状态";
 }
 
-export function mediaLabel(value: string) {
+export function mediaLabel(value: string, locale = useLocaleStore.getState().locale) {
+    if (locale === "en-US") return englishMediaLabels[value] || "Other";
     return mediaLabels[value] || "其他类型";
 }
 
-export function sourceTypeLabel(value: string) {
+export function sourceTypeLabel(value: string, locale = useLocaleStore.getState().locale) {
+    if (locale === "en-US") return englishSourceTypeLabels[value] || "Other source";
     return sourceTypeLabels[value] || "其他来源";
 }
 
+const englishMediaLabels: Record<string, string> = { image: "Image", video: "Video", audio: "Audio", text: "Text", model: "3D model", entity: "Character card" };
+const englishSourceTypeLabels: Record<string, string> = { blank: "Start blank", novel: "Import novel", text: "Paste text" };
+const englishStatusLabels: Record<string, string> = {
+    active: "Active", archived: "Archived", draft: "Draft", ready: "Ready", completed: "Completed", review: "In review",
+    confirmed: "Confirmed", pending: "Pending", pending_confirmation: "Awaiting confirmation", running: "Running", failed: "Failed",
+    ignored: "Ignored", skipped: "Skipped", cancelled: "Cancelled", succeeded: "Completed", disabled: "Disabled", idle: "Not started",
+    loading: "Processing", queued: "Queued", success: "Completed", error: "Error", deleted: "Deleted", reserved: "Reserved",
+    settled: "Settled", refunded: "Refunded", uncertain: "Needs review",
+};
+
 export function StatusPill({ status }: { status: string }) {
+    const { locale } = useLocaleText();
     const tone = status === "completed" || status === "confirmed" || status === "succeeded" ? "success" : status === "failed" ? "error" : status === "running" || status === "active" ? "loading" : status === "review" || status === "pending_confirmation" ? "warning" : "neutral";
-    return <StatusBadge tone={tone} label={statusLabel(status)} className="m-0" />;
+    return <StatusBadge tone={tone} label={statusLabel(status, locale)} className="m-0" />;
 }
 
 export function SectionTitle({ eyebrow, title, description, action }: { eyebrow?: string; title: string; description?: string; action?: ReactNode }) {
@@ -104,13 +119,13 @@ export function UnitProgress({ unit }: { unit: ProjectUnit }) {
     return <div className="h-1.5 w-20 overflow-hidden rounded-full bg-foreground/10"><div className="h-full rounded-full bg-[var(--workspace-accent)] transition-[width] duration-200" style={{ width: `${progress}%` }} /></div>;
 }
 
-export function formatTime(value?: string) {
+export function formatTime(value?: string, locale: AppLocale = useLocaleStore.getState().locale) {
     if (!value) return "-";
-    return new Date(value).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+    return new Date(value).toLocaleString(locale, { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 export function formatCount(value: number) {
-    return new Intl.NumberFormat("zh-CN").format(value);
+    return new Intl.NumberFormat(useLocaleStore.getState().locale).format(value);
 }
 
 export function textValue(value: unknown) {

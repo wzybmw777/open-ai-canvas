@@ -3,8 +3,10 @@ import { FileImage, Film, Music2, UploadCloud } from "lucide-react";
 
 import type { CanvasTheme } from "@/lib/canvas-theme";
 import { aceternityMotion } from "@/lib/aceternity-motion";
+import { useLocaleText } from "@/lib/i18n";
 
 export function CanvasFileDropOverlay({ active, theme }: { active: boolean; theme: CanvasTheme }) {
+    const { text } = useLocaleText();
     return (
         <AnimatePresence>
             {active ? (
@@ -27,12 +29,12 @@ export function CanvasFileDropOverlay({ active, theme }: { active: boolean; them
                                 <UploadCloud className="size-10" style={{ color: theme.accent.primary }} />
                             </motion.div>
                         </div>
-                        <h2 className="text-2xl font-semibold tracking-normal">释放文件，放入创作空间</h2>
-                        <p className="mt-2 text-sm leading-6" style={{ color: theme.node.muted }}>图片、视频和音频会在当前位置创建为可继续连接的节点</p>
+                        <h2 className="text-2xl font-semibold tracking-normal">{text("释放文件，放入创作空间", "Drop files into the workspace")}</h2>
+                        <p className="mt-2 text-sm leading-6" style={{ color: theme.node.muted }}>{text("图片、视频和音频会在当前位置创建为可继续连接的节点", "Images, video, and audio become connectable nodes here")}</p>
                         <div className="mt-6 flex items-center gap-2 text-xs font-medium" style={{ color: theme.node.muted }}>
-                            <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5" style={{ borderColor: theme.toolbar.border, background: theme.spatial.surface }}><FileImage className="size-3.5" />图片</span>
-                            <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5" style={{ borderColor: theme.toolbar.border, background: theme.spatial.surface }}><Film className="size-3.5" />视频</span>
-                            <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5" style={{ borderColor: theme.toolbar.border, background: theme.spatial.surface }}><Music2 className="size-3.5" />音频</span>
+                            <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5" style={{ borderColor: theme.toolbar.border, background: theme.spatial.surface }}><FileImage className="size-3.5" />{text("图片", "Images")}</span>
+                            <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5" style={{ borderColor: theme.toolbar.border, background: theme.spatial.surface }}><Film className="size-3.5" />{text("视频", "Video")}</span>
+                            <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5" style={{ borderColor: theme.toolbar.border, background: theme.spatial.surface }}><Music2 className="size-3.5" />{text("音频", "Audio")}</span>
                         </div>
                     </motion.div>
                 </motion.div>

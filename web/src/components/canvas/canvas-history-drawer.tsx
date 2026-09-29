@@ -11,6 +11,7 @@ import { useCanvasStore } from "@/stores/canvas/use-canvas-store";
 import { useCanvasHistoryStore } from "@/stores/canvas/use-canvas-history-store";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/product/empty-state";
+import { useLocaleText, type AppLocale } from "@/lib/i18n";
 
 type TimelineItem = {
     id: string;
@@ -24,6 +25,7 @@ type TimelineItem = {
 };
 
 export function CanvasHistoryDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+    const { locale, text } = useLocaleText();
     const navigate = useNavigate();
     const activeProjects = useCanvasStore((state) => state.projects);
     const deletedProjects = useCanvasHistoryStore((state) => state.deletedProjects);
@@ -35,7 +37,7 @@ export function CanvasHistoryDrawer({ open, onClose }: { open: boolean; onClose:
     const timelineItems = useMemo<TimelineItem[]>(() => {
         const activeList: TimelineItem[] = activeProjects.map((p) => ({
             id: p.id,
-            title: p.title || "未命名画布",
+            title: p.title || text("未命名画布", "Untitled canvas"),
             isDeleted: false,
             createdAt: p.createdAt || p.updatedAt || new Date().toISOString(),
             updatedAt: p.updatedAt || new Date().toISOString(),
@@ -45,7 +47,7 @@ export function CanvasHistoryDrawer({ open, onClose }: { open: boolean; onClose:
 
         const deletedList: TimelineItem[] = deletedProjects.map((d) => ({
             id: d.id,
-            title: d.title || "未命名画布",
+            title: d.title || text("未命名画布", "Untitled canvas"),
             isDeleted: true,
             createdAt: d.createdAt,
             updatedAt: d.updatedAt,
@@ -57,7 +59,7 @@ export function CanvasHistoryDrawer({ open, onClose }: { open: boolean; onClose:
         const all = [...activeList, ...deletedList];
         all.sort((a, b) => new Date(b.timelineTime).getTime() - new Date(a.timelineTime).getTime());
         return all;
-    }, [activeProjects, deletedProjects]);
+    }, [activeProjects, deletedProjects, locale]);
 
     const filteredItems = useMemo(() => {
         const q = keyword.trim().toLowerCase();
@@ -80,12 +82,12 @@ export function CanvasHistoryDrawer({ open, onClose }: { open: boolean; onClose:
                 <div className="flex items-center justify-between gap-2 pr-2">
                     <div className="flex items-center gap-2">
                         <History className="size-4 text-[var(--workspace-accent)]" />
-                        <span className="text-sm font-semibold text-stone-900 dark:text-stone-100">画布创建与变更历史时间线</span>
+                        <span className="text-sm font-semibold text-stone-900 dark:text-stone-100">{text("画布创建与变更历史时间线", "Canvas history")}</span>
                     </div>
                     {deletedProjects.length > 0 ? (
-                        <Popconfirm title="确定清空已删除画布的历史记录？" onConfirm={clearDeletedHistory} okText="清空" okButtonProps={{ danger: true }} cancelText="取消">
+                        <Popconfirm title={text("确定清空已删除画布的历史记录？", "Clear deleted canvas history?")} onConfirm={clearDeletedHistory} okText={text("清空", "Clear")} okButtonProps={{ danger: true }} cancelText={text("取消", "Cancel")}>
                             <Button type="text" size="small" danger icon={<Trash2 className="size-3.5" />}>
-                                清理删除记录
+                                {text("清理删除记录", "Clear deleted history")}
                             </Button>
                         </Popconfirm>
                     ) : null}
@@ -104,7 +106,7 @@ export function CanvasHistoryDrawer({ open, onClose }: { open: boolean; onClose:
             <div className="space-y-4">
                 {/* 搜索与筛选 */}
                 <div className="space-y-3">
-                    <Input allowClear prefix={<Search className="size-3.5 text-stone-400" />} value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="搜索画布名称..." className="text-xs" />
+                    <Input allowClear prefix={<Search className="size-3.5 text-stone-400" />} value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder={text("搜索画布名称...", "Search canvas names...")} className="text-xs" />
                     <div className="flex items-center gap-2 text-xs">
                         <button
                             type="button"
@@ -116,7 +118,7 @@ export function CanvasHistoryDrawer({ open, onClose }: { open: boolean; onClose:
                             )}
                             onClick={() => setFilter("all")}
                         >
-                            全部 ({timelineItems.length})
+                            {text("全部", "All")} ({timelineItems.length})
                         </button>
                         <button
                             type="button"
@@ -128,7 +130,7 @@ export function CanvasHistoryDrawer({ open, onClose }: { open: boolean; onClose:
                             )}
                             onClick={() => setFilter("active")}
                         >
-                            活跃中 ({activeProjects.length})
+                            {text("活跃中", "Active")} ({activeProjects.length})
                         </button>
                         <button
                             type="button"
@@ -138,14 +140,14 @@ export function CanvasHistoryDrawer({ open, onClose }: { open: boolean; onClose:
                             )}
                             onClick={() => setFilter("deleted")}
                         >
-                            已删除 ({deletedProjects.length})
+                            {text("已删除", "Deleted")} ({deletedProjects.length})
                         </button>
                     </div>
                 </div>
 
                 {/* 时间线列表 */}
                 {filteredItems.length === 0 ? (
-                    <EmptyState description="暂无匹配的历史记录" />
+                    <EmptyState description={text("暂无匹配的历史记录", "No matching history")} />
                 ) : (
                     <div className="relative border-l-2 border-stone-200 dark:border-stone-800 pl-4 space-y-4 pt-1">
                         {filteredItems.map((item) => {
@@ -180,26 +182,32 @@ export function CanvasHistoryDrawer({ open, onClose }: { open: boolean; onClose:
                                                             {item.title}
                                                         </button>
                                                     )}
-                                                    {isDeleted ? <StatusBadge tone="error" size="sm" label="已删除" className="m-0" /> : <StatusBadge tone="success" size="sm" label="活跃中" className="m-0" />}
+                                                    {isDeleted ? <StatusBadge tone="error" size="sm" label={text("已删除", "Deleted")} className="m-0" /> : <StatusBadge tone="success" size="sm" label={text("活跃中", "Active")} className="m-0" />}
                                                 </div>
 
                                                 <div className="space-y-1 text-xs text-stone-600 dark:text-stone-300">
                                                     <div className="flex items-center gap-1.5">
                                                         <Clock3 className="size-3.5 text-stone-400 shrink-0" />
-                                                        <span>创建时间：{formatTimelineDate(item.createdAt)}</span>
+                                                        <span>
+                                                            {text("创建时间", "Created")}: {formatTimelineDate(item.createdAt, locale)}
+                                                        </span>
                                                     </div>
                                                     {isDeleted && item.deletedAt ? (
                                                         <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-medium">
                                                             <Trash2 className="size-3.5 text-rose-500 shrink-0" />
-                                                            <span>删除时间：{formatTimelineDate(item.deletedAt)}</span>
+                                                            <span>
+                                                                {text("删除时间", "Deleted")}: {formatTimelineDate(item.deletedAt, locale)}
+                                                            </span>
                                                         </div>
                                                     ) : (
                                                         <div className="flex items-center gap-1.5 text-stone-500 dark:text-stone-400">
                                                             <Clock className="size-3.5 text-stone-400 shrink-0" />
-                                                            <span>最近更新：{formatTimelineDate(item.updatedAt)}</span>
+                                                            <span>
+                                                                {text("最近更新", "Updated")}: {formatTimelineDate(item.updatedAt, locale)}
+                                                            </span>
                                                         </div>
                                                     )}
-                                                    <div className="text-[11px] text-stone-500 dark:text-stone-400 pt-0.5">包含 {item.nodeCount} 个节点</div>
+                                                    <div className="text-[11px] text-stone-500 dark:text-stone-400 pt-0.5">{locale === "en-US" ? `${item.nodeCount} nodes` : `包含 ${item.nodeCount} 个节点`}</div>
                                                 </div>
                                             </div>
 
@@ -210,10 +218,10 @@ export function CanvasHistoryDrawer({ open, onClose }: { open: boolean; onClose:
                                                         size="small"
                                                         icon={<ExternalLink className="size-4 text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-stone-100" />}
                                                         onClick={() => openProject(item.id)}
-                                                        title="打开画布"
+                                                        title={text("打开画布", "Open canvas")}
                                                     />
                                                 ) : (
-                                                    <Tooltip title="从历史列表中移除此条记录">
+                                                    <Tooltip title={text("从历史列表中移除此条记录", "Remove this history entry")}>
                                                         <Button type="text" size="small" danger icon={<X className="size-4" />} onClick={() => removeDeletedItem(item.id)} />
                                                     </Tooltip>
                                                 )}
@@ -230,9 +238,10 @@ export function CanvasHistoryDrawer({ open, onClose }: { open: boolean; onClose:
     );
 }
 
-function formatTimelineDate(isoString: string) {
+function formatTimelineDate(isoString: string, locale: AppLocale) {
     if (!isoString) return "--";
     const date = new Date(isoString);
     if (!Number.isFinite(date.getTime())) return "--";
+    if (locale === "en-US") return date.toLocaleString(locale, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
     return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
