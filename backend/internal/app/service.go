@@ -81,6 +81,7 @@ type Service struct {
 	piRunnerMu               sync.Mutex
 	piRunnerWg               sync.WaitGroup
 	piRunners                map[string]context.CancelFunc
+	piRunnerDone             map[string]chan struct{}
 	piRunnersClosed          bool
 	disablePiRuntime         bool
 	// legacyCloudAgentRootTask is enabled only by tests that exercise the pre-Pi

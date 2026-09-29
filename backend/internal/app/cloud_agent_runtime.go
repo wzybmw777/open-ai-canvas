@@ -2478,6 +2478,9 @@ func (s *Service) completeCloudAgentMediaTask(run *model.CloudAgentExecution, st
 		return cloudAgentSave(current, state)
 	})
 }
+
+const cloudAgentApprovedResumePrompt = "用户已批准刚才等待审批的操作。业务执行器已执行一次；请根据最新工具结果继续，不要重复调用该操作。"
+
 func (s *Service) DecideCloudAgentApproval(userID, id, approvalID, decision, reason string, mediaSettings ...*CloudAgentMediaSettings) error {
 	// Resource leases are a protection mechanism only. Expiry cleanup is safe to
 	// run on the control-plane path and never changes the approval decision.
@@ -2579,22 +2582,35 @@ func (s *Service) DecideCloudAgentApproval(userID, id, approvalID, decision, rea
 	// Approval only releases the paused tool. Execute it once in the Go business
 	// executor, then give the durable result back to Pi; Go never asks a model
 	// what to do next.
-	latest, err := s.repo.CloudAgent(userID, id)
+	var applied cloudAgentRuntime
+	for attempt := 0; attempt < 8; attempt++ {
+		latest, loadErr := s.repo.CloudAgent(userID, id)
+		if loadErr != nil {
+			return loadErr
+		}
+		current, decodeErr := cloudAgentDecode(latest)
+		if decodeErr != nil {
+			return decodeErr
+		}
+		current.PiResumePrompt = cloudAgentApprovedResumePrompt
+		err = s.advanceCloudAgentTool(latest, &current)
+		if err == nil {
+			applied = current
+			break
+		}
+		if !errors.Is(err, repository.ErrCreationConflict) {
+			return err
+		}
+		time.Sleep(time.Duration(attempt+1) * 20 * time.Millisecond)
+	}
 	if err != nil {
 		return err
 	}
-	state, err = cloudAgentDecode(latest)
-	if err != nil {
-		return err
-	}
-	if err = s.advanceCloudAgentTool(latest, &state); err != nil {
-		return err
-	}
-	if state.MediaTaskID == "" {
-		return s.resumeCloudAgentAfterApproval(userID, id, &state)
+	if applied.MediaTaskID == "" {
+		return s.resumeCloudAgentAfterApproval(userID, id, &applied)
 	}
 	// 媒体生成可能要几分钟：审批请求立即返回，等待与回写在后台完成后再恢复运行。
-	mediaTaskID := state.MediaTaskID
+	mediaTaskID := applied.MediaTaskID
 	s.startApprovedCloudAgentMediaWaiter(userID, id, mediaTaskID)
 	return nil
 }
@@ -2626,12 +2642,12 @@ func (s *Service) finishApprovedCloudAgentMedia(ctx context.Context, userID, id,
 
 func (s *Service) resumeCloudAgentAfterApproval(userID, id string, state *cloudAgentRuntime) error {
 	if state.PiResumePrompt == "" {
-		state.PiResumePrompt = "用户已批准刚才等待审批的操作。业务执行器已执行一次；请根据最新工具结果继续，不要重复调用该操作。"
+		state.PiResumePrompt = cloudAgentApprovedResumePrompt
 	}
 	if err := s.saveCloudAgentPiResumePrompt(userID, id, state.PiResumePrompt); err != nil {
 		return err
 	}
-	s.startCloudAgentPi(userID, id)
+	s.startCloudAgentPiAfterCurrent(userID, id)
 	return nil
 }
 

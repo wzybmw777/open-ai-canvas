@@ -29,6 +29,9 @@ func (s *Service) startCloudAgentPi(userID, runID string) {
 	if s.piRunners == nil {
 		s.piRunners = make(map[string]context.CancelFunc)
 	}
+	if s.piRunnerDone == nil {
+		s.piRunnerDone = make(map[string]chan struct{})
+	}
 	if s.piRunnersClosed {
 		s.piRunnerMu.Unlock()
 		return
@@ -44,7 +47,9 @@ func (s *Service) startCloudAgentPi(userID, runID string) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
 	s.piRunners[runID] = cancel
+	s.piRunnerDone[runID] = done
 	s.piRunnerWg.Add(1)
 	s.piRunnerMu.Unlock()
 
@@ -52,6 +57,8 @@ func (s *Service) startCloudAgentPi(userID, runID string) {
 		defer func() {
 			s.piRunnerMu.Lock()
 			delete(s.piRunners, runID)
+			delete(s.piRunnerDone, runID)
+			close(done)
 			s.piRunnerMu.Unlock()
 			s.piRunnerWg.Done()
 		}()
@@ -60,6 +67,20 @@ func (s *Service) startCloudAgentPi(userID, runID string) {
 			log.Printf("[Agent] session failed run=%s: %v", runID, err)
 			s.failPiRunner(runID, userID, errors.New(cloudAgentUserFailureMessage(runID, err)))
 		}
+	}()
+}
+
+func (s *Service) startCloudAgentPiAfterCurrent(userID, runID string) {
+	s.piRunnerMu.Lock()
+	done := s.piRunnerDone[runID]
+	s.piRunnerMu.Unlock()
+	if done == nil {
+		s.startCloudAgentPi(userID, runID)
+		return
+	}
+	go func() {
+		<-done
+		s.startCloudAgentPi(userID, runID)
 	}()
 }
 
@@ -620,6 +641,9 @@ func (s *Service) completeCloudAgentPiRun(userID, runID string) error {
 		// 验证：必须有真实的助手响应（防止伪装完成）
 		if state.PiAssistantResponses == 0 {
 			return fmt.Errorf("no assistant response, refusing to mark as completed")
+		}
+		if state.PiResumePrompt != "" {
+			return nil
 		}
 
 		// 原子更新状态
