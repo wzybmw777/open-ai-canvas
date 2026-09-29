@@ -33,6 +33,9 @@ func TestCloudAgentMutationResultReportsSavedChanges(t *testing.T) {
 				}
 				doc, _ := creationDocument(canvas.PayloadJSON)
 				beforeHash := cloudAgentCanvasHash(doc)
+				if tool == "canvas_edit_storyboard" || tool == "canvas_edit_batch_table" {
+					beforeHash = cloudAgentNodeHash(doc, stringValue(args["nodeId"]))
+				}
 				args["snapshotHash"] = beforeHash
 				call := cloudAgentStoryboardCall(t, tool, "saved-mutation", args)
 				req := agentTestRequest()
@@ -87,7 +90,11 @@ func TestCloudAgentMutationResultReportsSavedChanges(t *testing.T) {
 				}
 				stored, _ := s.repo.CanvasProjectForUser("user", canvas.ID)
 				after, _ := creationDocument(stored.PayloadJSON)
-				if result["snapshotHash"] != cloudAgentCanvasHash(after) || result["snapshotHash"] == beforeHash {
+				afterHash := cloudAgentCanvasHash(after)
+				if tool != "canvas_apply_ops" {
+					afterHash = cloudAgentNodeHash(after, stringValue(args["nodeId"]))
+				}
+				if result["snapshotHash"] != afterHash || result["snapshotHash"] == beforeHash {
 					t.Fatal("success result does not match the persisted canvas")
 				}
 			})

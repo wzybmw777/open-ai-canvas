@@ -550,7 +550,7 @@ func compileCloudAgentTools(req CloudAgentRequest, includeProfileTool bool) []ma
 			"x":            map[string]any{"type": "number"},
 			"y":            map[string]any{"type": "number"},
 		}, "snapshotHash", "nodeId", "title", "rows")
-		add("canvas_bind_storyboard_assets", "将当前画布的真实媒体资产批量关联到分镜镜头，直接写入各行 assetBindings。先读取分镜真实 rowId，再读取画布获取整张画布的 snapshotHash 和真实资产；依据用户意图、镜头内容与已确认的资产信息选择关联，不根据名称编造视觉内容。每次最多20行、每行最多16项。通常用 merge 保留已有绑定并按 nodeId 新增或更新角色和优先级；仅用户明确要求替换或清空时使用 replace（空数组清空该行）。不使用普通连线冒充镜头绑定，不修改镜头文本、媒体节点ID或任务，不提交收费生成。", map[string]any{
+		add("canvas_bind_storyboard_assets", "按用户意图将画布中已确认的媒体资产写入分镜镜头 assetBindings，勿凭名称臆测内容。先读分镜 rowId，再读画布取得整画布 snapshotHash 与真实资产。最多20行，每行16项。merge 按 nodeId 更新角色和优先级并保留其它绑定；仅用户明确要求时用 replace，空数组清空该行。不以连线代替绑定；不改镜头文本、媒体节点ID或任务，不提交生成。", map[string]any{
 			"snapshotHash": str("最近一次画布读取返回的画布 snapshotHash；分镜节点版本不足以验证关联资产"),
 			"nodeId":       str("真实分镜脚本节点ID"),
 			"mode":         map[string]any{"type": "string", "enum": []string{"merge", "replace"}},
