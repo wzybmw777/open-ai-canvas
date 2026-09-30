@@ -76,7 +76,7 @@ export function StoryboardAssetsCell({ bindings, nodes, limit = 4, onChange, onO
                         placement="bottomRight"
                         open={pickerOpen}
                         onOpenChange={setPickerOpen}
-                        content={pickerOpen ? (
+                        content={(
                             <div className="w-72 max-w-[calc(100vw-48px)]" data-canvas-no-zoom onMouseDown={(event) => event.stopPropagation()}>
                                 <div className="mb-2 flex items-center justify-between text-xs font-medium">
                                     <span>{text("画布资产", "Canvas assets")}</span>
@@ -129,7 +129,7 @@ export function StoryboardAssetsCell({ bindings, nodes, limit = 4, onChange, onO
                                     </button>
                                 ) : null}
                             </div>
-                        ) : null}
+                        )}
                     >
                         <button
                             type="button"
