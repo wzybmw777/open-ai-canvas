@@ -71,7 +71,7 @@ test("ModelPicker 样式独立加载，并保留模型列表的视口边界", as
     expect(pickerStyles).toContain(".canvas-model-picker-menu.is-model-list .canvas-model-picker-brand-rail,\n    .canvas-model-picker-menu.is-model-list .canvas-model-picker-model-pane {");
     expect(pickerStyles).toContain("overscroll-behavior: contain;");
     expect(pickerStyles).toContain("height: auto;\n        overflow-y: auto !important;");
-    expect((await Bun.file(new URL("../src/components/model-picker.tsx", import.meta.url)).text())).toContain("rail.scrollTop += selectedRect.top - railRect.top");
+    expect(await Bun.file(new URL("../src/components/model-picker.tsx", import.meta.url)).text()).toContain("rail.scrollTop += selectedRect.top - railRect.top");
     expect(workspaceStyles).toContain(".creation-model-picker-menu.is-model-list .canvas-model-picker-two-pane { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 14px; height: 100%; min-height: 0; align-items: stretch; }");
     expect(pickerStyles).not.toContain(".app-user-workspace .creation-model-picker-menu {");
     expect(pickerStyles).not.toContain(".creation-model-picker-surface .creation-model-picker-menu {");
