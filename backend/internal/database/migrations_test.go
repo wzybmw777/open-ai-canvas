@@ -196,6 +196,9 @@ func TestMigrateSchemaUpgradesV41AndV42Histories(t *testing.T) {
 			if err := MigrateSchema(db); err != nil {
 				t.Fatal(err)
 			}
+			if err := db.Where("version = ?", 44).Delete(&schemaMigration{}).Error; err != nil {
+				t.Fatal(err)
+			}
 			if err := db.Where("version = ?", 43).Delete(&schemaMigration{}).Error; err != nil {
 				t.Fatal(err)
 			}
@@ -237,10 +240,10 @@ func TestMigrateSchemaUpgradesV41AndV42Histories(t *testing.T) {
 			if err != nil || !status.Ready || status.Current != CurrentSchemaVersion {
 				t.Fatalf("unexpected schema status: %#v, %v", status, err)
 			}
-			if !db.Migrator().HasIndex(&model.User{}, "idx_users_phone_nonempty") || !db.Migrator().HasColumn(&model.Resource{}, "thumbnail_status") || !db.Migrator().HasTable(&model.CloudAgentPiSession{}) {
+			if !db.Migrator().HasIndex(&model.User{}, "idx_users_phone_nonempty") || !db.Migrator().HasColumn(&model.Resource{}, "thumbnail_status") || !db.Migrator().HasTable(&model.CloudAgentPiSession{}) || !db.Migrator().HasColumn(&model.TopupProduct{}, "sale_strategy") {
 				t.Fatal("merged migrations did not preserve all schema changes")
 			}
-			for _, expected := range []schemaMigration{{Version: 41, Name: tt.v41Name, Checksum: tt.v41Checksum}, {Version: 42, Name: tt.v42Name, Checksum: tt.v42Checksum}, {Version: 43, Name: tt.v43Name, Checksum: tt.v43Checksum}} {
+			for _, expected := range []schemaMigration{{Version: 41, Name: tt.v41Name, Checksum: tt.v41Checksum}, {Version: 42, Name: tt.v42Name, Checksum: tt.v42Checksum}, {Version: 43, Name: tt.v43Name, Checksum: tt.v43Checksum}, {Version: 44, Name: "topup_sale_strategies", Checksum: topupSaleStrategiesV44Checksum}} {
 				var applied schemaMigration
 				if err := db.First(&applied, "version = ?", expected.Version).Error; err != nil {
 					t.Fatal(err)
@@ -250,6 +253,44 @@ func TestMigrateSchemaUpgradesV41AndV42Histories(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestMigrateSchemaPreservesUpstreamTopupV43(t *testing.T) {
+	db, err := Open(Config{Driver: "sqlite", DSN: "file:migration-upstream-topup-v43?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := MigrateSchema(db); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Where("version = ?", 44).Delete(&schemaMigration{}).Error; err != nil {
+		t.Fatal(err)
+	}
+	for version, change := range map[int64]map[string]any{
+		41: {"name": "resource_thumbnail", "checksum": resourceThumbnailChecksum},
+		42: {"name": "cloud_agent_pi_sessions", "checksum": cloudAgentPiSessionsV42Checksum},
+		43: {"name": "topup_sale_strategies", "checksum": "sha256:topup-sale-strategies-v43-20260929"},
+	} {
+		if err := db.Model(&schemaMigration{}).Where("version = ?", version).Updates(change).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := db.Exec("DROP INDEX IF EXISTS idx_users_phone_nonempty").Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := MigrateSchema(db); err != nil {
+		t.Fatal(err)
+	}
+	if !db.Migrator().HasIndex(&model.User{}, "idx_users_phone_nonempty") {
+		t.Fatal("upstream migration path did not add the phone index")
+	}
+	var applied schemaMigration
+	if err := db.First(&applied, "version = ?", 44).Error; err != nil {
+		t.Fatal(err)
+	}
+	if applied.Name != "auth_phone_unique_index" || applied.Checksum != authPhoneUniqueIndexV44Checksum {
+		t.Fatalf("unexpected migration 44: %+v", applied)
 	}
 }
 

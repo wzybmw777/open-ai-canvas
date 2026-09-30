@@ -13,7 +13,7 @@ import { openWorkspaceWallet, WORKSPACE_WALLET_OPEN_EVENT, type WorkspaceWalletO
 import { useUserStore } from "@/stores/use-user-store";
 import { localizedErrorMessage, useLocaleText } from "@/lib/i18n";
 
-type WalletModalTab = "topup" | "shop" | "history";
+type WalletModalTab = "topup" | "redeem" | "shop" | "history";
 
 export function WorkspaceWalletHost() {
     const creditsEnabled = useUserStore((state) => state.features.creditsEnabled);
@@ -63,17 +63,7 @@ export function WorkspaceWalletHost() {
     );
 }
 
-export function WorkspaceWalletModal({
-    open,
-    onClose,
-    pendingPaymentOrderId,
-    paymentInvalid,
-}: {
-    open: boolean;
-    onClose: () => void;
-    pendingPaymentOrderId?: string;
-    paymentInvalid?: boolean;
-}) {
+export function WorkspaceWalletModal({ open, onClose, pendingPaymentOrderId, paymentInvalid }: { open: boolean; onClose: () => void; pendingPaymentOrderId?: string; paymentInvalid?: boolean }) {
     const { message } = App.useApp();
     const { locale, text } = useLocaleText();
     const [tab, setTab] = useState<WalletModalTab>("topup");
@@ -128,7 +118,7 @@ export function WorkspaceWalletModal({
                 setProviders(providerResult.providers.filter((item) => item.enabled && item.pluginEnabled && item.configured));
                 setExternalShop(shopResult.shop);
                 setTab((current) => current === "topup" && shopResult.shop && (!productResult.products.some((item) => item.enabled) || !providerResult.providers.some((item) => item.enabled && item.pluginEnabled && item.configured)) ? "shop" : current === "shop" && !shopResult.shop ? "topup" : current);
-                setSelectedProductId((current) => current || productResult.products.find((item) => item.enabled)?.id || "");
+                setSelectedProductId((current) => current || productResult.products.find((item) => item.canPurchase)?.id || productResult.products.find((item) => item.enabled)?.id || "");
                 setSelectedProviderId((current) => current || providerResult.providers.find((item) => item.enabled && item.pluginEnabled && item.configured)?.id || "");
             })
             .catch((error) => message.error(localizedErrorMessage(error, "读取充值配置失败", "Could not load top-up options", locale)))
@@ -199,6 +189,10 @@ export function WorkspaceWalletModal({
     const startPayment = async () => {
         if (!selectedProduct || !selectedProvider) {
             message.error(text("请选择充值商品和支付方式", "Select a credit package and payment method"));
+            return;
+        }
+        if (!selectedProduct.canPurchase) {
+            message.error(text("该充值商品当前不可购买，请刷新后重试", "This package is unavailable. Refresh and try again."));
             return;
         }
         setPaymentCreating(true);
@@ -288,7 +282,8 @@ export function WorkspaceWalletModal({
                     </header>
 
                     <div className="workspace-wallet-tabs" role="tablist" aria-label={text("积分中心", "Credits")}>
-                        <button type="button" role="tab" aria-selected={tab === "topup"} onClick={() => setTab("topup")}><WalletCards />{text("充值 / 兑换", "Top up / Redeem")}</button>
+                        <button type="button" role="tab" aria-selected={tab === "topup"} onClick={() => setTab("topup")}><WalletCards />{text("充值", "Top up")}</button>
+                        <button type="button" role="tab" aria-selected={tab === "redeem"} onClick={() => setTab("redeem")}><TicketCheck />{text("兑换", "Redeem")}</button>
                         {externalShop ? <button type="button" role="tab" aria-selected={tab === "shop"} onClick={() => setTab("shop")}><Store />{text("链动小铺", "Store")}</button> : null}
                         <button type="button" role="tab" aria-selected={tab === "history"} onClick={() => setTab("history")}><History />{text("收支记录", "Activity")}</button>
                     </div>
@@ -296,22 +291,85 @@ export function WorkspaceWalletModal({
                     {tab === "topup" ? (
                         <div className="workspace-wallet-content is-topup">
                             <section className="workspace-wallet-section">
-                                <div className="workspace-wallet-section-heading"><div><h3>{text("在线充值", "Online top-up")}</h3><p>{text("选择积分套餐和支付方式。", "Choose a credit package and payment method.")}</p></div><CreditCard /></div>
-                                {paymentsLoading ? <Skeleton active paragraph={{ rows: 4 }} /> : products.length && providers.length ? <>
-                                    <div className="workspace-wallet-products">
-                                        {products.map((product) => <button key={product.id} type="button" className={cn("workspace-wallet-product", selectedProductId === product.id && "is-selected")} aria-pressed={selectedProductId === product.id} onClick={() => setSelectedProductId(product.id)}>
-                                            <span>{product.name}</span><strong>{formatCredits(product.creditsMicrocredits, 6)} {text("积分", "credits")}</strong><small>¥ {(product.amountFen / 100).toFixed(2)}{product.description ? ` · ${product.description}` : ""}</small>{selectedProductId === product.id ? <Check /> : null}
-                                        </button>)}
+                                <div className="workspace-wallet-section-heading">
+                                    <div>
+                                        <h3>{text("在线充值", "Online top-up")}</h3>
+                                        <p>{text("选择积分套餐和支付方式。", "Choose a credit package and payment method.")}</p>
                                     </div>
-                                    <div className="workspace-wallet-provider-row">
-                                        <div className="workspace-wallet-providers" role="radiogroup" aria-label={text("支付方式", "Payment method")}>
-                                            {providers.map((provider) => <button key={provider.id} type="button" role="radio" aria-checked={selectedProviderId === provider.id} className={selectedProviderId === provider.id ? "is-selected" : ""} onClick={() => setSelectedProviderId(provider.id)}><CreditCard />{provider.name}</button>)}
+                                    <CreditCard />
+                                </div>
+                                {paymentsLoading ? (
+                                    <Skeleton active paragraph={{ rows: 4 }} />
+                                ) : products.length && providers.length ? (
+                                    <>
+                                        <div className="workspace-wallet-products">
+                                            {products.map((product) => {
+                                                const unavailableLabel =
+                                                    product.saleStatus === "upcoming"
+                                                        ? `${text("发售时间", "Available from")}: ${product.saleStartAt ? new Date(product.saleStartAt).toLocaleString(locale, { hour12: false }) : text("待定", "TBD")}`
+                                                        : product.saleStatus === "ended"
+                                                          ? text("已结束", "Ended")
+                                                          : product.saleStatus === "sold_out"
+                                                            ? text(`已售罄（库存 ${product.stockRemaining ?? 0}）`, `Sold out (${product.stockRemaining ?? 0} left)`)
+                                                            : product.saleStrategy === "inventory"
+                                                              ? text(`库存 ${product.stockRemaining ?? 0}`, `${product.stockRemaining ?? 0} left`)
+                                                              : product.saleStrategy === "periodic"
+                                                                ? text(`每 ${product.periodDays} 天限购 ${product.periodPurchaseLimit} 次`, `Limit ${product.periodPurchaseLimit} per ${product.periodDays} days`)
+                                                                : text("不限量", "Unlimited");
+                                                return (
+                                                    <button
+                                                        key={product.id}
+                                                        type="button"
+                                                        className={cn("workspace-wallet-product", selectedProductId === product.id && "is-selected")}
+                                                        aria-pressed={selectedProductId === product.id}
+                                                        disabled={!product.canPurchase}
+                                                        onClick={() => setSelectedProductId(product.id)}
+                                                    >
+                                                        <span>{product.name}</span>
+                                                        <strong>{formatCredits(product.creditsMicrocredits, 6)} {text("积分", "credits")}</strong>
+                                                        <small>
+                                                            ¥ {(product.amountFen / 100).toFixed(2)} · {unavailableLabel}
+                                                            {product.description ? ` · ${product.description}` : ""}
+                                                        </small>
+                                                        {selectedProductId === product.id ? <Check /> : null}
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
-                                        <Button type="primary" size="large" loading={paymentCreating} disabled={!selectedProduct || !selectedProvider} onClick={() => void startPayment()}>{text("立即充值", "Top up now")}</Button>
+                                        <div className="workspace-wallet-provider-row">
+                                            <div className="workspace-wallet-providers" role="radiogroup" aria-label={text("支付方式", "Payment method")}>
+                                                {providers.map((provider) => (
+                                                    <button
+                                                        key={provider.id}
+                                                        type="button"
+                                                        role="radio"
+                                                        aria-checked={selectedProviderId === provider.id}
+                                                        className={selectedProviderId === provider.id ? "is-selected" : ""}
+                                                        onClick={() => setSelectedProviderId(provider.id)}
+                                                    >
+                                                        <CreditCard />
+                                                        {provider.name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <Button type="primary" size="large" loading={paymentCreating} disabled={!selectedProduct?.canPurchase || !selectedProvider} onClick={() => void startPayment()}>
+                                                {text("立即充值", "Top up now")}
+                                            </Button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="workspace-wallet-inline-state">
+                                        <CircleAlert />
+                                        <div>
+                                            <strong>{text("在线充值暂不可用", "Online top-up is unavailable")}</strong>
+                                            <span>{text("当前没有已启用的充值商品或支付渠道，请使用兑换码或联系管理员。", "No packages or payment methods are available. Use a redemption code or contact an administrator.")}</span>
+                                        </div>
                                     </div>
-                                </> : <div className="workspace-wallet-inline-state"><CircleAlert /><div><strong>{text("在线充值暂不可用", "Online top-up is unavailable")}</strong><span>{text("当前没有已启用的充值商品或支付渠道，请使用兑换码或联系管理员。", "No packages or payment methods are available. Use a redemption code or contact an administrator.")}</span></div></div>}
+                                )}
                             </section>
-
+                        </div>
+                    ) : tab === "redeem" ? (
+                        <div className="workspace-wallet-content is-redeem">
                             <section className="workspace-wallet-section is-redeem">
                                 <div className="workspace-wallet-section-heading"><div><h3>{text("兑换码", "Redemption code")}</h3><p>{text("输入兑换码，将积分存入当前账户。", "Enter a code to add credits to your account.")}</p></div><TicketCheck /></div>
                                 <div className="workspace-wallet-redeem-row">

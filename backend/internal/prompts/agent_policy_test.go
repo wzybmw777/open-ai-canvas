@@ -17,7 +17,7 @@ func TestLoadAgentPoliciesUsesDocumentMetadata(t *testing.T) {
 		t.Fatalf("metadata leaked into compiled policy body: %q", system.Text)
 	}
 	for _, phrase := range []string{
-		"auto 会由服务端完成模型、能力、价格、预算和资源准入后直接提交",
+		"auto 和 full_access 只有在服务端准入成功后才提交",
 		"request_approval 必须等待界面独立审批",
 		"authorizedChargeMicrocredits / chargeLimitMicrocredits 是预授权或上限，不是实际消费",
 	} {

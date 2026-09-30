@@ -25,7 +25,7 @@ describe("assets page batch toolbar", () => {
     });
 
     test("places select all before cancel selection", () => {
-        const source = readFileSync(resolve(import.meta.dir, "../src/pages/assets/index.tsx"), "utf8");
+        const source = readFileSync(resolve(import.meta.dir, "../src/pages/assets/asset-library-panels.tsx"), "utf8");
         const selectAllIndex = source.indexOf('text("全选", "Select all")');
         const clearSelectionIndex = source.indexOf('text("取消选择", "Clear selection")');
 

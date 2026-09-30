@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const CurrentSchemaVersion int64 = 43
+const CurrentSchemaVersion int64 = 44
 
 const baselineSchemaChecksum = "sha256:open-ai-canvas-schema-v1-20260830"
 const schemaMigrationAppliedAtIndexChecksum = "sha256:schema-migrations-applied-at-index-v2-20260830"
@@ -36,6 +36,8 @@ const authPhoneUniqueIndexV42Checksum = "sha256:auth-phone-unique-index-v42-2026
 const cloudAgentPiSessionsV42Checksum = "sha256:cloud-agent-pi-sessions-v42-20260928"
 const cloudAgentPiSessionsV43Checksum = "sha256:cloud-agent-pi-sessions-v43-20260929"
 const authPhoneUniqueIndexV43Checksum = "sha256:auth-phone-unique-index-v43-20260929"
+const authPhoneUniqueIndexV44Checksum = "sha256:auth-phone-unique-index-v44-20260930"
+const topupSaleStrategiesV44Checksum = "sha256:topup-sale-strategies-v44-20260930"
 
 const postgresSchemaMigrationLockID int64 = 73123910420260830
 
@@ -146,6 +148,7 @@ var schemaMigrations = []migration{
 	{version: 41, name: "auth_phone_unique_index", checksum: authPhoneUniqueIndexChecksum, apply: migrateAuthPhoneUniqueIndex},
 	{version: 42, name: "resource_thumbnail", checksum: resourceThumbnailV42Checksum, apply: migrateResourceThumbnail},
 	{version: 43, name: "cloud_agent_pi_sessions", checksum: cloudAgentPiSessionsV43Checksum, apply: migrateCloudAgentPiSessions},
+	{version: 44, name: "topup_sale_strategies", checksum: topupSaleStrategiesV44Checksum, apply: migrateTopupSaleStrategies},
 }
 
 func migrateAuthPhoneUniqueIndex(tx *gorm.DB) error {
@@ -158,6 +161,10 @@ func migrateResourceThumbnail(tx *gorm.DB) error {
 
 func migrateCloudAgentPiSessions(tx *gorm.DB) error {
 	return tx.AutoMigrate(&model.CloudAgentPiSession{})
+}
+
+func migrateTopupSaleStrategies(tx *gorm.DB) error {
+	return tx.AutoMigrate(&model.TopupProduct{}, &model.PaymentOrder{})
 }
 
 func migratePrefixedIDSequenceReconcile(tx *gorm.DB) error {
@@ -354,6 +361,11 @@ func migrationsForDatabase(db *gorm.DB) ([]migration, error) {
 		if v42Err != nil && !errors.Is(v42Err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("读取数据库迁移 42：%w", v42Err)
 		}
+		var v43Applied schemaMigration
+		v43Err := db.First(&v43Applied, "version = ?", 43).Error
+		if v43Err != nil && !errors.Is(v43Err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("读取数据库迁移 43：%w", v43Err)
+		}
 		for index, item := range plan {
 			switch item.version {
 			case 41:
@@ -367,8 +379,14 @@ func migrationsForDatabase(db *gorm.DB) ([]migration, error) {
 			case 43:
 				if v42Err == nil && v42Applied.Name == "auth_phone_unique_index" {
 					plan[index] = migration{version: 43, name: "cloud_agent_pi_sessions", checksum: cloudAgentPiSessionsV43Checksum, apply: migrateCloudAgentPiSessions}
+				} else if v43Err == nil && v43Applied.Name == "topup_sale_strategies" {
+					plan[index] = migration{version: 43, name: "topup_sale_strategies", checksum: "sha256:topup-sale-strategies-v43-20260929", apply: migrateTopupSaleStrategies}
 				} else {
 					plan[index] = migration{version: 43, name: "auth_phone_unique_index", checksum: authPhoneUniqueIndexV43Checksum, apply: migrateAuthPhoneUniqueIndex}
+				}
+			case 44:
+				if v43Err == nil && v43Applied.Name == "topup_sale_strategies" {
+					plan[index] = migration{version: 44, name: "auth_phone_unique_index", checksum: authPhoneUniqueIndexV44Checksum, apply: migrateAuthPhoneUniqueIndex}
 				}
 			}
 		}
