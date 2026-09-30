@@ -95,22 +95,25 @@ export function StoryboardAssetsCell({ bindings, nodes, limit = 4, onChange, onO
                                         const checked = bindings.some((binding) => binding.nodeId === candidate.id);
                                         const role = storyboardAssetRoleForNode(candidate);
                                         return (
-                                            <label key={candidate.id} className="flex min-h-9 cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-xs hover:bg-foreground/[0.05]">
+                                            <div key={candidate.id} className="flex min-h-9 items-center gap-2 rounded px-1.5 py-1 text-xs hover:bg-foreground/[0.05]">
                                                 <Checkbox
+                                                    className="min-w-0 flex-1"
                                                     checked={checked}
                                                     disabled={!checked && bindings.length >= MAX_STORYBOARD_ROW_ASSETS}
                                                     onChange={(event) => onChange(setStoryboardAssetBinding(bindings, candidate, event.target.checked))}
-                                                />
-                                                <span className="min-w-0 flex-1 truncate" title={candidate.title}>{candidate.title || text("未命名资产", "Untitled asset")}</span>
+                                                >
+                                                    <span className="block truncate" title={candidate.title}>{candidate.title || text("未命名资产", "Untitled asset")}</span>
+                                                </Checkbox>
                                                 {role ? <span className="shrink-0 text-foreground/45">{text(ROLE_LABELS[role], ROLE_LABELS_EN[role])}</span> : null}
-                                            </label>
+                                            </div>
                                         );
                                     })}
                                     {missingBindings.map((binding) => (
-                                        <label key={binding.nodeId} className="flex min-h-9 cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-xs hover:bg-foreground/[0.05]">
-                                            <Checkbox checked onChange={() => onChange(bindings.filter((item) => item.nodeId !== binding.nodeId))} />
-                                            <span className="min-w-0 flex-1 truncate text-foreground/45">{text("资产已失效", "Missing asset")}</span>
-                                        </label>
+                                        <div key={binding.nodeId} className="flex min-h-9 items-center gap-2 rounded px-1.5 py-1 text-xs hover:bg-foreground/[0.05]">
+                                            <Checkbox className="min-w-0 flex-1" checked onChange={() => onChange(bindings.filter((item) => item.nodeId !== binding.nodeId))}>
+                                                <span className="block truncate text-foreground/45">{text("资产已失效", "Missing asset")}</span>
+                                            </Checkbox>
+                                        </div>
                                     ))}
                                     {!matchingNodes.length && !missingBindings.length ? <div className="py-3 text-center text-xs text-foreground/45">{text("没有匹配的画布资产", "No matching canvas assets")}</div> : null}
                                 </div>
