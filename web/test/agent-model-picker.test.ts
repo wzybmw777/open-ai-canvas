@@ -22,7 +22,8 @@ test("Agent 对话和设置复用创作页模型选择器，并且只展示文�
     expect(css).toContain("z-index: calc(var(--z-modal-overlay) + 1000)");
 
     const twoPane = pickerCss.match(/\.creation-model-picker-menu\.is-model-list \.canvas-model-picker-two-pane \{[^}]+\}/)?.[0] || "";
+    expect(twoPane).toContain("height: 100%");
     expect(twoPane).toContain("min-height: 0");
-    expect(twoPane).toContain("align-items: start");
+    expect(twoPane).toContain("align-items: stretch");
     expect(twoPane).not.toContain("min-height: 300px");
 });
