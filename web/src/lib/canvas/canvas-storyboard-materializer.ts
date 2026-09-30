@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 
-import { storyboardAssetRoleForNode } from "@/lib/canvas/canvas-storyboard-assets";
+import { isStoryboardBindableAsset, normalizeStoryboardAssetBindings, storyboardAssetRoleForNode } from "@/lib/canvas/canvas-storyboard-assets";
 import { buildOrderedCanvasResourceReferences, canvasResourceMentionToken } from "@/lib/canvas/canvas-resource-references";
 import { CanvasNodeType, type CanvasConnection, type CanvasNodeData, type StoryboardAssetBinding, type StoryboardRow } from "@/types/canvas";
 
@@ -44,6 +44,17 @@ export function reconcileStoryboardTargetConnections(
 export function bindingForConnectedNode(node: CanvasNodeData): StoryboardAssetBinding | null {
     const role = storyboardAssetRoleForNode(node);
     return role ? { nodeId: node.id, role, priority: defaultRolePriority(role) } : null;
+}
+
+export const MAX_STORYBOARD_ROW_ASSETS = 16;
+
+export function setStoryboardAssetBinding(bindings: StoryboardAssetBinding[], node: CanvasNodeData, selected: boolean) {
+    const existing = bindings.filter((binding) => binding.nodeId !== node.id);
+    if (!selected) return normalizeStoryboardAssetBindings(existing);
+    if (bindings.some((binding) => binding.nodeId === node.id)) return bindings;
+    if (bindings.length >= MAX_STORYBOARD_ROW_ASSETS || !isStoryboardBindableAsset(node)) return bindings;
+    const binding = bindingForConnectedNode(node);
+    return binding ? normalizeStoryboardAssetBindings([...bindings, binding]) : bindings;
 }
 
 export function isStoryboardPreviewAsset(node: CanvasNodeData) {

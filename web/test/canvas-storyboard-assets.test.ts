@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
-import { buildStoryboardAssetCatalog } from "@/lib/canvas/canvas-storyboard-assets";
-import { reconcileStoryboardTargetConnections, storyboardComposerContent, storyboardRowReferenceNodeIds } from "@/lib/canvas/canvas-storyboard-materializer";
+import { buildStoryboardAssetCatalog, isStoryboardBindableAsset } from "@/lib/canvas/canvas-storyboard-assets";
+import { MAX_STORYBOARD_ROW_ASSETS, reconcileStoryboardTargetConnections, setStoryboardAssetBinding, storyboardComposerContent, storyboardRowReferenceNodeIds } from "@/lib/canvas/canvas-storyboard-materializer";
 import { CanvasNodeType, type CanvasConnection, type CanvasNodeData, type StoryboardRow } from "@/types/canvas";
 
 const node = (id: string, type: CanvasNodeType, metadata: CanvasNodeData["metadata"] = {}): CanvasNodeData => ({
@@ -60,6 +60,29 @@ describe("storyboard asset catalog", () => {
             ["character", "character"],
         ]);
     });
+
+    it("binds reusable assets once, preserves existing roles and removes missing assets", () => {
+        const character = node("character", CanvasNodeType.Image, { workflowKind: "character", characterAssetId: "hero", characterVersionId: "v1" });
+        const scene = node("scene", CanvasNodeType.Image, { storageKey: "resource:scene", assetCategory: "environment" });
+        const shot = node("shot", CanvasNodeType.Image, { storageKey: "resource:shot", workflowKind: "shot" });
+        expect(isStoryboardBindableAsset(shot)).toBe(false);
+
+        const withCharacter = setStoryboardAssetBinding([], character, true);
+        expect(withCharacter).toEqual([{ nodeId: "character", role: "character", priority: 100 }]);
+        expect(setStoryboardAssetBinding(withCharacter, character, true)).toEqual(withCharacter);
+        const withScene = setStoryboardAssetBinding(withCharacter, scene, true);
+        expect(withScene).toEqual([...withCharacter, { nodeId: "scene", role: "environment", priority: 90 }]);
+        expect(setStoryboardAssetBinding(withScene, shot, true)).toEqual(withScene);
+        expect(setStoryboardAssetBinding(withScene, node("missing", CanvasNodeType.Image), false)).toEqual(withScene);
+        expect(setStoryboardAssetBinding(withScene, character, false)).toEqual([{ nodeId: "scene", role: "environment", priority: 90 }]);
+    });
+
+    it("caps manual bindings at the same per-row limit as the agent", () => {
+        const bindings = Array.from({ length: MAX_STORYBOARD_ROW_ASSETS }, (_, index) => ({ nodeId: `asset-${index}`, role: "style" as const, priority: 60 }));
+        const extra = node("extra", CanvasNodeType.Image, { storageKey: "resource:extra" });
+        expect(setStoryboardAssetBinding(bindings, extra, true)).toEqual(bindings);
+        expect(setStoryboardAssetBinding(bindings, node("asset-0", CanvasNodeType.Image), false)).toHaveLength(MAX_STORYBOARD_ROW_ASSETS - 1);
+    });
 });
 
 describe("storyboard target materializer", () => {
@@ -85,5 +108,13 @@ describe("storyboard target materializer", () => {
         const reconciled = reconcileStoryboardTargetConnections(created, script, row, "target", ["character"]);
         expect(reconciled.some((edge) => edge.id === "manual-target")).toBe(true);
         expect(reconciled.some((edge) => edge.relation === "storyboard-asset-reference" && edge.fromNodeId === "prop")).toBe(false);
+    });
+
+    it("includes a newly selected row asset in the next video reference list", () => {
+        const added = node("new-scene", CanvasNodeType.Image, { storageKey: "resource:new-scene", assetCategory: "environment" });
+        const updated = { ...row, assetBindings: setStoryboardAssetBinding(row.assetBindings, added, true) };
+        const references = storyboardRowReferenceNodeIds(script, updated, [...nodes, added], connections, false);
+        expect(references).toContain("new-scene");
+        expect(storyboardComposerContent(updated.videoMotionPrompt, references, [...nodes, added])).toContain("@图片3");
     });
 });

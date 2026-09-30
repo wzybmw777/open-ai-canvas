@@ -16,9 +16,9 @@ const STORYBOARD_ASSET_ROLES = new Set<StoryboardAssetRole>(["character", "envir
 
 export function buildStoryboardAssetCatalog(nodes: CanvasNodeData[]): StoryboardAssetCatalogItem[] {
     return nodes.flatMap((node): StoryboardAssetCatalogItem[] => {
+        if (!isStoryboardBindableAsset(node)) return [];
         const type = storyboardAssetType(node);
-        if (!type || OUTPUT_WORKFLOW_KINDS.has(node.metadata?.workflowKind || "")) return [];
-        if (!node.metadata?.content && !node.metadata?.storageKey && !node.metadata?.assetId && type !== "character") return [];
+        if (!type) return [];
         const prompt = compactStoryboardAssetText(node.metadata?.prompt || node.metadata?.workflowDescription || node.metadata?.characterPrompt || "");
         return [{
             id: node.id,
@@ -31,6 +31,11 @@ export function buildStoryboardAssetCatalog(nodes: CanvasNodeData[]): Storyboard
             characterVersionId: node.metadata?.characterVersionId,
         }];
     }).slice(0, 60);
+}
+
+export function isStoryboardBindableAsset(node: CanvasNodeData) {
+    const type = storyboardAssetType(node);
+    return Boolean(type && !OUTPUT_WORKFLOW_KINDS.has(node.metadata?.workflowKind || "") && (node.metadata?.content || node.metadata?.storageKey || node.metadata?.assetId || type === "character"));
 }
 
 export function storyboardAssetRoleForNode(node: CanvasNodeData): StoryboardAssetRole | null {

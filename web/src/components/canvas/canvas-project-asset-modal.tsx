@@ -18,6 +18,7 @@ export function CanvasProjectAssetModal({
     detail,
     initialCategory = "all",
     initialFolderId = "all",
+    mediaOnly = false,
     onClose,
     onInsert,
     onInsertFolder,
@@ -26,6 +27,7 @@ export function CanvasProjectAssetModal({
     detail?: ProjectDetail;
     initialCategory?: string;
     initialFolderId?: string;
+    mediaOnly?: boolean;
     onClose: () => void;
     onInsert: (payloads: InsertAssetPayload[]) => Promise<void> | void;
     onInsertFolder?: (folderId: string) => Promise<void> | void;
@@ -74,13 +76,13 @@ export function CanvasProjectAssetModal({
             }),
         [items],
     );
-    const pickerItems = useMemo<AssetLibraryPickerItem[]>(() => [...localPickerItems, ...externalAssetSources.items], [externalAssetSources.items, localPickerItems]);
+    const pickerItems = useMemo<AssetLibraryPickerItem[]>(() => [...localPickerItems, ...externalAssetSources.items].filter((item) => !mediaOnly || item.mediaKind !== "text"), [externalAssetSources.items, localPickerItems, mediaOnly]);
 
     return (
         <AssetLibraryPickerModal
             remoteLibrary={!detail}
             open={open}
-            mediaKinds={["image", "video", "audio", "text"]}
+            mediaKinds={mediaOnly ? ["image", "video", "audio"] : ["image", "video", "audio", "text"]}
             items={pickerItems}
             categoryLabels={{ ...categoryLabels, ...externalAssetSources.categoryLabels }}
             initialCategory={initialCategory}

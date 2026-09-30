@@ -75,6 +75,8 @@ import { CanvasBatchTableNodeContent } from "@/components/canvas/canvas-batch-ta
 import { BatchGenerationSettingsDialog } from "@/components/canvas/batch-generation-settings-dialog";
 import { batchReferenceColumns, promoteLegacyBatchTableSize } from "@/lib/canvas/canvas-batch-table";
 import { STORYBOARD_HEADER_HEIGHT, STORYBOARD_ROW_HEIGHT, storyboardMinNodeHeight, storyboardTableHeight } from "@/lib/canvas/canvas-storyboard-layout";
+import { isStoryboardBindableAsset } from "@/lib/canvas/canvas-storyboard-assets";
+import { MAX_STORYBOARD_ROW_ASSETS, setStoryboardAssetBinding } from "@/lib/canvas/canvas-storyboard-materializer";
 import { CanvasDirectorNodePanel } from "@/components/canvas/director/canvas-director-node-panel";
 import { CanvasVersionCompareModal } from "@/components/canvas/canvas-version-compare-modal";
 import { useFocusMode } from "@/hooks/use-focus-mode";
@@ -328,6 +330,7 @@ function InfiniteCanvasPage() {
     const [superResolveNodeId, setSuperResolveNodeId] = useState<string | null>(null);
     const [previewNodeId, setPreviewNodeId] = useState<string | null>(null);
     const [scriptEditorNodeId, setScriptEditorNodeId] = useState<string | null>(null);
+    const [storyboardAssetTarget, setStoryboardAssetTarget] = useState<{ nodeId: string; rowId: string } | null>(null);
     const [artCritiqueNodeId, setArtCritiqueNodeId] = useState<string | null>(null);
     const artCritiqueRunningRef = useRef(false);
     const [artCritiqueStartRequest, setArtCritiqueStartRequest] = useState<{ nodeId: string; id: string; restart: boolean } | null>(null);
@@ -2333,6 +2336,7 @@ function InfiniteCanvasPage() {
                         onAddRow={() => addScriptRow(contentNode.id)}
                         onRemoveRow={(rowId) => removeScriptRow(contentNode.id, rowId)}
                         onUpdateRow={(rowId, patch) => updateScriptRow(contentNode.id, rowId, patch)}
+                        onOpenProjectAssets={(rowId) => { setStoryboardAssetTarget({ nodeId: contentNode.id, rowId }); openProjectAssets(); }}
                         onPromptChange={(composerContent) => handleConfigNodeChange(contentNode.id, { composerContent })}
                         onGenerateScript={(prompt) => void generateScriptRows(contentNode.id, prompt)}
                         onModelChange={(model) => handleConfigNodeChange(contentNode.id, { model })}
@@ -3253,6 +3257,7 @@ function InfiniteCanvasPage() {
                             open={Boolean(activeScriptNode)}
                             onClose={() => setScriptEditorNodeId(null)}
                             onUpdateRows={(rows) => activeScriptNode && replaceScriptRows(activeScriptNode.id, rows)}
+                            onOpenProjectAssets={(rowId) => { if (activeScriptNode) { setStoryboardAssetTarget({ nodeId: activeScriptNode.id, rowId }); openProjectAssets(); } }}
                             onVisibleColumnsChange={(visibleColumns: StoryboardColumn[]) => {
                                 if (!activeScriptNode || !visibleColumns.length) return;
                                 setNodes((prev) =>
@@ -3369,9 +3374,23 @@ function InfiniteCanvasPage() {
                             detail={linkedProjectQuery.data}
                             initialCategory={projectAssetInitialCategory}
                             initialFolderId={projectAssetInitialFolderId}
-                            onClose={closeProjectAssets}
-                            onInsert={handleTimelineProjectAssetsInsert}
-                            onInsertFolder={projectAssetScope === "canvas" ? handleProjectFolderInsert : undefined}
+                            mediaOnly={Boolean(storyboardAssetTarget)}
+                            onClose={() => { setStoryboardAssetTarget(null); closeProjectAssets(); }}
+                            onInsert={async (payloads) => {
+                                if (!storyboardAssetTarget) return handleTimelineProjectAssetsInsert(payloads);
+                                if (payloads.some((payload) => payload.kind === "text")) throw new Error("分镜关联仅支持图片、视频、音频和角色资产");
+                                const scriptNode = nodesRef.current.find((item) => item.id === storyboardAssetTarget.nodeId);
+                                const row = scriptNode?.metadata?.storyboard?.rows.find((item) => item.id === storyboardAssetTarget.rowId);
+                                if (!row) throw new Error("镜头已变化，请重新选择关联资产");
+                                if ((row.assetBindings?.length || 0) + payloads.length > MAX_STORYBOARD_ROW_ASSETS) throw new Error(`每个镜头最多关联 ${MAX_STORYBOARD_ROW_ASSETS} 项资产`);
+                                const created = await handleProjectAssetsInsert(payloads);
+                                const currentRow = nodesRef.current.find((item) => item.id === storyboardAssetTarget.nodeId)?.metadata?.storyboard?.rows.find((item) => item.id === storyboardAssetTarget.rowId);
+                                if (!currentRow) throw new Error("镜头已变化，资产已引入画布，请重新选择关联镜头");
+                                if ((currentRow.assetBindings?.length || 0) + created.length > MAX_STORYBOARD_ROW_ASSETS || created.some((item) => !isStoryboardBindableAsset(item))) throw new Error("资产已引入画布，但无法自动关联当前镜头，请手动选择");
+                                const assetBindings = created.reduce((bindings, item) => setStoryboardAssetBinding(bindings, item, true), currentRow.assetBindings || []);
+                                updateScriptRow(storyboardAssetTarget.nodeId, storyboardAssetTarget.rowId, { assetBindings });
+                            }}
+                            onInsertFolder={projectAssetScope === "canvas" && !storyboardAssetTarget ? handleProjectFolderInsert : undefined}
                         />
                     </section>
                     {versions.preview ? <CanvasVersionPreview key={versions.preview.key} preview={versions.preview} onReturn={versions.returnToCurrent} onShowVersions={versions.show} /> : null}
