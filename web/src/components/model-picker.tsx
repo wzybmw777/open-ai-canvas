@@ -106,6 +106,17 @@ export function ModelPicker({
         return () => window.removeEventListener("pointerdown", closeOnOutsidePointer, true);
     }, [open]);
 
+    useEffect(() => {
+        if (!open || !activeGroupKey) return;
+        const rail = menuRef.current?.querySelector<HTMLElement>(".canvas-model-picker-brand-rail");
+        const selected = rail?.querySelector<HTMLElement>('[aria-pressed="true"]');
+        if (!rail || !selected) return;
+        const railRect = rail.getBoundingClientRect();
+        const selectedRect = selected.getBoundingClientRect();
+        if (selectedRect.top >= railRect.top && selectedRect.bottom <= railRect.bottom) return;
+        rail.scrollTop += selectedRect.top - railRect.top - (rail.clientHeight - selectedRect.height) / 2;
+    }, [activeGroupKey, open]);
+
     const setPickerOpen = (nextOpen: boolean) => {
         if (nextOpen && !options.length) onMissingConfig?.();
         if (nextOpen) window.dispatchEvent(new CustomEvent("model-picker-open", { detail: pickerId }));

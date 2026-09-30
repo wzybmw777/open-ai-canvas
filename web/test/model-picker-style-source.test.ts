@@ -45,10 +45,11 @@ test("选择模型保留菜单及行内焦点，仍可通过 Escape 和外部点
 });
 
 test("ModelPicker 样式独立加载，并保留模型列表的视口边界", async () => {
-    const [application, globals, pickerStyles] = await Promise.all([
+    const [application, globals, pickerStyles, workspaceStyles] = await Promise.all([
         Bun.file(new URL("../src/application.tsx", import.meta.url)).text(),
         Bun.file(new URL("../src/styles/globals.css", import.meta.url)).text(),
         Bun.file(new URL("../src/styles/shared/model-picker.css", import.meta.url)).text(),
+        Bun.file(new URL("../src/styles/workspace-product.css", import.meta.url)).text(),
     ]);
 
     expect(application).toContain('import "./styles/shared/model-picker.css";');
@@ -65,7 +66,13 @@ test("ModelPicker 样式独立加载，并保留模型列表的视口边界", as
 
     const modelList = pickerStyles.match(/\.creation-model-picker-surface \.creation-model-picker-menu\.is-model-list \{([\s\S]*?)\}/)?.[1] || "";
     expect(modelList).toContain("max-height: min(460px, calc(100vh - 24px)) !important;");
-    expect(modelList).toContain("overflow-y: auto !important;");
+    expect(modelList).toContain("height: min(460px, calc(100vh - 24px));");
+    expect(modelList).toContain("overflow-y: hidden !important;");
+    expect(pickerStyles).toContain(".canvas-model-picker-menu.is-model-list .canvas-model-picker-brand-rail,\n    .canvas-model-picker-menu.is-model-list .canvas-model-picker-model-pane {");
+    expect(pickerStyles).toContain("overscroll-behavior: contain;");
+    expect(pickerStyles).toContain("height: auto;\n        overflow-y: auto !important;");
+    expect((await Bun.file(new URL("../src/components/model-picker.tsx", import.meta.url)).text())).toContain("rail.scrollTop += selectedRect.top - railRect.top");
+    expect(workspaceStyles).toContain(".creation-model-picker-menu.is-model-list .canvas-model-picker-two-pane { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 14px; height: 100%; min-height: 0; align-items: stretch; }");
     expect(pickerStyles).not.toContain(".app-user-workspace .creation-model-picker-menu {");
     expect(pickerStyles).not.toContain(".creation-model-picker-surface .creation-model-picker-menu {");
 });

@@ -654,6 +654,19 @@ html:not(.dark) .creation-home .creation-chat-composer .creation-model-picker.ca
 .canvas-model-picker-model-pane {
     min-width: 0;
 }
+@media (min-width: 721px) {
+    .canvas-model-picker-menu.is-model-list .canvas-model-picker-two-pane {
+        height: 100%;
+        min-height: 0;
+        align-items: stretch;
+    }
+    .canvas-model-picker-menu.is-model-list .canvas-model-picker-brand-rail,
+    .canvas-model-picker-menu.is-model-list .canvas-model-picker-model-pane {
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+}
 @media (max-width: 720px) {
     .canvas-model-picker-menu:is(.is-brand-list, .is-model-list) {
         width: calc(100vw - 24px);
@@ -834,9 +847,16 @@ html:not(.dark) .creation-home .creation-chat-composer .creation-model-picker.ca
     height: 32px !important;
 }
 .creation-model-picker-surface .creation-model-picker-menu.is-model-list {
+    height: min(460px, calc(100vh - 24px));
     max-height: min(460px, calc(100vh - 24px)) !important;
     overflow-x: hidden !important;
-    overflow-y: auto !important;
+    overflow-y: hidden !important;
+}
+@media (max-width: 720px) {
+    .creation-model-picker-surface .creation-model-picker-menu.is-model-list {
+        height: auto;
+        overflow-y: auto !important;
+    }
 }
 .creation-model-picker-surface .creation-model-picker-menu.is-brand-list {
     max-height: none !important;
