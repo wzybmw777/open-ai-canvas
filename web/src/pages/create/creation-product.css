@@ -111,6 +111,12 @@
     transform: translateY(-1px);
 }
 .app-user-workspace .creation-launchpad .creation-reference-add-button:active:not(:disabled) { transform: scale(.97); }
+.creation-home .creation-reference-compatibility {
+    margin: 0 0 var(--space-2);
+    color: var(--status-error);
+    font-size: var(--fs-caption);
+    line-height: 1.5;
+}
 @keyframes creation-submit-sheen { to { transform: translateX(120%); } }
 @media (prefers-reduced-motion: reduce) {
     .creation-mode-button:active { transform: none; }

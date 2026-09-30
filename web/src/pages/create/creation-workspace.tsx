@@ -91,7 +91,8 @@ type ComposerProps = {
     referenceReplacementBusy: boolean;
     attachments: CreationAttachment[];
     referenceImageSize?: { width: number; height: number };
-    maxReferences: number;
+    maxReferences: number | null;
+    videoReferenceIssue: string;
     references: CreationReference[];
     onRemoveAttachment: (id: string) => void;
     onClearAttachments: () => void;
@@ -192,8 +193,8 @@ export function CreationComposer(props: ComposerProps) {
             : text("描述镜头内容、运动、光线与节奏", "Describe the shot, movement, light, and pacing");
     const emptyPlaceholder = text("输入你的镜头、画面或故事。也可以添加参考图开始创作", "Describe a shot, image, or story. Add references to get started.");
     const imageReferencesSupported = props.imageProfile.references.maxImages > 0;
-    const referencesSupported = props.mode === "image" ? imageReferencesSupported : props.mode !== "video" || props.maxReferences > 0;
-    const canAddMoreReferences = referencesSupported && props.attachments.length < props.maxReferences;
+    const referencesSupported = props.mode !== "image" || imageReferencesSupported;
+    const canAddMoreReferences = referencesSupported && (props.maxReferences === null || props.attachments.length < props.maxReferences);
     const addReferenceLabel = interactionBusy ? (props.referenceReplacementBusy ? text("正在替换参考图", "Replacing reference image") : text("生成中暂不能添加参考内容", "Wait for generation to finish")) : canAddMoreReferences ? text("添加更多参考内容", "Add references") : text(`已达到当前模型的参考内容上限（${props.maxReferences} 个）`, `Reference limit reached (${props.maxReferences})`);
     const referenceCounts = useMemo(() => props.attachments.reduce((counts, attachment) => {
         const kind = creationAttachmentKind(attachment);
@@ -365,6 +366,7 @@ export function CreationComposer(props: ComposerProps) {
                         </div>
                     </div>
                 </div> : null}
+                {props.videoReferenceIssue ? <p className="creation-reference-compatibility" role="status">{text(`当前模型无法处理这些参考内容：${props.videoReferenceIssue}。请选择兼容模型或调整参考内容。`, "The selected model cannot use these references. Choose a compatible model or adjust the references.")}</p> : null}
             </div>
         </div>
         <footer className="creation-chat-dock">

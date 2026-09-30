@@ -54,14 +54,17 @@ describe("creation library button", () => {
         expect(source).toContain("个素材已上传到素材库并自动选中");
     });
 
-    test("视频创作使用同名模型组的全部参考能力开放素材入口", () => {
+    test("视频创作先收集参考内容，再由模型能力决定能否发送", () => {
         const source = readCreateSource();
         const workspace = readCreateWorkspaceSource();
 
-        expect(source).toContain('modelGroupReferenceLimits(config, preferredModel || selectedModel, "video")');
-        expect(source).toContain("reconcileCreationAttachmentLimits(attachments, mentionReferences, videoReferenceLimits)");
-        expect(workspace).toContain('props.mode !== "video" || props.maxReferences > 0');
-        expect(workspace).not.toContain('props.videoProfile.operations.includes("image_to_video")');
+        expect(source).toContain('const maxReferences = mode === "video"');
+        expect(source).toContain("if (maxReferences === null) return candidates;");
+        expect(source).toContain("if (maxReferences === null) return;");
+        expect(source).toContain('mode === "video" && modelCompatibilityError(config, selectedModel, modelRequirements)');
+        expect(source).not.toContain("videoReferenceLimits");
+        expect(workspace).toContain("props.maxReferences === null || props.attachments.length < props.maxReferences");
+        expect(workspace).toContain('props.videoReferenceIssue ? <p className="creation-reference-compatibility"');
     });
 
     test("previews prompt reference images without removing them", () => {

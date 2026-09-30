@@ -145,6 +145,22 @@ test("each channel keeps its own capability restrictions", () => {
     expect(groupModelsForPicker(config, selectableModelsByCapability(config, "video"))[0].models).toHaveLength(3);
 });
 
+test("video references keep the chosen channel and identify compatible alternatives", () => {
+    const config = fixture();
+    config.channels[0].modelCosts![0].capabilityConfig!.video!.references.maxImages = 0;
+    config.channels[1].modelCosts![0].capabilityConfig!.video!.references.maxImages = 2;
+    config.channels[1].modelCosts![0].capabilityConfig!.video!.operations = ["image_to_video"];
+    config.channels[2].modelCosts![0].capabilityConfig!.video!.references.maxImages = 0;
+    const input = { textCount: 1, imageCount: 1, videoCount: 0, audioCount: 0, characterCount: 0 };
+
+    expect(resolveCompatibleModel(config, "a::seedance-2.0", { capability: "video", input })).toBe("");
+    expect(resolveCompatibleModel(config, "b::seedance-2.0", { capability: "video", input })).toBe("b::seedance-2.0");
+    expect(modelCompatibilityError(config, "a::seedance-2.0", { capability: "video", input })).not.toBe("");
+    const unsupported = { capability: "video" as const, input: { ...input, imageCount: 3 } };
+    expect(resolveCompatibleModel(config, "a::seedance-2.0", unsupported)).toBe("");
+    expect(modelCompatibilityError(config, "a::seedance-2.0", unsupported)).not.toBe("");
+});
+
 test("managed logical models and personal channels never become system product routes", () => {
     const config = fixture();
     config.channels[1].id = "managed";
