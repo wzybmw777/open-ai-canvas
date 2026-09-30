@@ -175,7 +175,7 @@ func (s *Service) runCloudAgentModelStep(ctx context.Context, userID, runID stri
 		retryable := ctx.Err() == nil && (truncated || s.cloudAgentModelTaskRetryable(taskID))
 		if retryable {
 			// 释放失败的步骤，下一次重试才能重新入队。
-			if releaseErr := s.finishCloudAgentPiModelStep(userID, runID, taskID, "", ""); releaseErr != nil {
+			if releaseErr := s.finishCloudAgentPiModelStep(userID, runID, taskID, "", "", nil); releaseErr != nil {
 				return nil, false, releaseErr
 			}
 		}
@@ -192,7 +192,7 @@ func (s *Service) runCloudAgentModelStep(ctx context.Context, userID, runID stri
 	if err := json.Unmarshal([]byte(task.ResultJSON), &result); err != nil {
 		return nil, false, fmt.Errorf("decode model result: %w", err)
 	}
-	if err := s.finishCloudAgentPiModelStep(userID, runID, task.ID, result.Text, result.Reasoning); err != nil {
+	if err := s.finishCloudAgentPiModelStep(userID, runID, task.ID, result.Text, result.Reasoning, result.ToolCalls); err != nil {
 		return nil, false, err
 	}
 	return map[string]any{"text": result.Text, "reasoning": result.Reasoning, "toolCalls": runtimeToolCalls(result.ToolCalls)}, false, nil
@@ -224,9 +224,10 @@ func (s *Service) cloudAgentModelTaskRetryable(taskID string) bool {
 	return false
 }
 
-// finishCloudAgentPiModelStep 释放已完成的模型步骤，并把最终正文写入 Agent 事件流。
+// finishCloudAgentPiModelStep 先持久化助手工具调用，再由工具执行器追加对应结果。
+// 同时释放模型步骤，并把最终正文写入 Agent 事件流。
 // 不释放 ActiveTaskID 的话，completeCloudAgentPiRun 会一直认为还有任务在跑。
-func (s *Service) finishCloudAgentPiModelStep(userID, runID, taskID, text, reasoning string) error {
+func (s *Service) finishCloudAgentPiModelStep(userID, runID, taskID, text, reasoning string, calls []cloudAgentCall) error {
 	for attempt := 0; attempt < 8; attempt++ {
 		run, err := s.repo.CloudAgent(userID, runID)
 		if err != nil {
@@ -242,6 +243,13 @@ func (s *Service) finishCloudAgentPiModelStep(userID, runID, taskID, text, reaso
 			}
 			fresh.ActiveTaskID = ""
 			fresh.ActiveTextDraft = ""
+			if text != "" || len(calls) > 0 {
+				assistant := map[string]any{"role": "assistant", "content": text}
+				if len(calls) > 0 {
+					assistant["tool_calls"] = calls
+				}
+				fresh.Canonical.Messages = append(fresh.Canonical.Messages, assistant)
+			}
 			if reasoning != "" {
 				fresh.event(runID, "reasoning_message", map[string]any{"messageId": taskID + ":reasoning", "text": truncateRunes(reasoning, 8000)})
 			}

@@ -113,6 +113,25 @@ func TestCloudAgentRuntimeCompletesToolRoundTrip(t *testing.T) {
 	if !strings.Contains(string(encoded), `"tool_call_id":"call-1"`) {
 		t.Fatalf("second model step lost the tool result: %s", encoded)
 	}
+	messages, _ := second["messages"].([]any)
+	paired := false
+	for index, value := range messages {
+		assistant, _ := value.(map[string]any)
+		if stringField(assistant, "role") != "assistant" {
+			continue
+		}
+		for _, value := range interfaceSlice(assistant["tool_calls"]) {
+			call, _ := value.(map[string]any)
+			if stringField(call, "id") != "call-1" || index+1 >= len(messages) {
+				continue
+			}
+			result, _ := messages[index+1].(map[string]any)
+			paired = stringField(result, "role") == "tool" && stringField(result, "tool_call_id") == "call-1"
+		}
+	}
+	if !paired {
+		t.Fatalf("second model step lost the assistant tool call: %s", encoded)
+	}
 	if strings.Contains(string(encoded), "unknown tool") || strings.Contains(string(encoded), `\"error\"`) {
 		t.Fatalf("tool call did not succeed: %s", encoded)
 	}
