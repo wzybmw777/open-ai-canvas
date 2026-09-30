@@ -1,7 +1,7 @@
 // 画布 Agent 的媒体生成：提交任务、等待结果、处理审批。
 //
-// 涉及扣费的 generate_media 必须先经用户审批（DecideCloudAgentApproval），
-// 审批通过后才真正创建任务；用户直接在节点上生成时审批会被关闭为 superseded_by_node。
+// request_approval 经用户批准后创建收费任务；auto 和 full_access 经服务端准入后直接提交。
+// 用户直接在节点上生成时，待审批的 Agent 草稿会被关闭为 superseded_by_node。
 
 package app
 

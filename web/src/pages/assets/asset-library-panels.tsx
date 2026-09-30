@@ -92,7 +92,10 @@ export function AssetsEmptyState({ onNew, onImport, onGoCanvas }: { onNew: () =>
                     </figure>
                 ))}
                 <span className="assets-empty-banner-caption">
-                    <span>{brandName} {text("素材库", "Asset library")}</span>{text("把每次创作的结果，留档成可复用的资产", "Keep every result as a reusable asset")}
+                    <span>
+                        {brandName} {text("素材库", "Asset library")}
+                    </span>
+                    {text("把每次创作的结果，留档成可复用的资产", "Keep every result as a reusable asset")}
                 </span>
             </div>
             <div className="assets-empty-cards">

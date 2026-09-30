@@ -67,12 +67,23 @@ export function AssetCard({
     const { locale, text } = useLocaleText();
     const summary = assetSummary(asset, locale);
     const menuItems: MenuProps["items"] = isTrash
-        ? [{ key: "restore", icon: <RotateCcw className="size-3.5" />, label: text("还原到素材库", "Restore to library"), onClick: onRestore }, { type: "divider" as const }, { key: "delete", danger: true, icon: <Trash2 className="size-3.5" />, label: text("彻底删除", "Delete permanently"), onClick: onDelete }]
+        ? [
+              { key: "restore", icon: <RotateCcw className="size-3.5" />, label: text("还原到素材库", "Restore to library"), onClick: onRestore },
+              { type: "divider" as const },
+              { key: "delete", danger: true, icon: <Trash2 className="size-3.5" />, label: text("彻底删除", "Delete permanently"), onClick: onDelete },
+          ]
         : [
               ...(asset.kind === "text" || asset.kind === "image" ? [{ key: "edit", icon: <PencilLine className="size-3.5" />, label: text("编辑", "Edit"), onClick: onEdit }] : []),
               ...(asset.kind === "text" ? [{ key: "copy", icon: <Copy className="size-3.5" />, label: text("复制文本", "Copy text"), onClick: () => void onCopy(asset) }] : []),
-              ...(asset.kind === "image" || asset.kind === "video" || asset.kind === "audio" || asset.kind === "model" ? [{ key: "download", icon: <Download className="size-3.5" />, label: text("下载", "Download"), onClick: () => onDownload(asset) }] : []),
-              { key: "move", icon: <FolderOpen className="size-3.5" />, label: text("移动到分类", "Move to category"), children: folderOptions.map((folder) => ({ key: folder.value || "uncategorized", label: folder.label, onClick: () => onMoveToFolder(folder.value) })) },
+              ...(asset.kind === "image" || asset.kind === "video" || asset.kind === "audio" || asset.kind === "model"
+                  ? [{ key: "download", icon: <Download className="size-3.5" />, label: text("下载", "Download"), onClick: () => onDownload(asset) }]
+                  : []),
+              {
+                  key: "move",
+                  icon: <FolderOpen className="size-3.5" />,
+                  label: text("移动到分类", "Move to category"),
+                  children: folderOptions.map((folder) => ({ key: folder.value || "uncategorized", label: folder.label, onClick: () => onMoveToFolder(folder.value) })),
+              },
               { type: "divider" as const },
               { key: "archive", icon: <Trash2 className="size-3.5 text-amber-500" />, label: text("移入回收站", "Move to trash"), onClick: onArchive },
               { key: "delete", danger: true, icon: <Trash2 className="size-3.5" />, label: text("彻底删除", "Delete permanently"), onClick: onDelete },
@@ -155,7 +166,14 @@ export function AssetCover({ asset, selected, isTrash = false, onSelect, onOpen,
                 {asset.portraitCertified ? <span className="assets-cover-badge is-category">{text("人像认证", "Portrait verified")}</span> : null}
             </span>
             {clock ? <span className="assets-cover-clock">{clock}</span> : null}
-            <input type="checkbox" checked={selected} onClick={(event) => event.stopPropagation()} onChange={(event) => onSelect(event.target.checked)} className="assets-select-check" aria-label={locale === "en-US" ? `Select ${asset.title}` : `选择 ${asset.title}`} />
+            <input
+                type="checkbox"
+                checked={selected}
+                onClick={(event) => event.stopPropagation()}
+                onChange={(event) => onSelect(event.target.checked)}
+                className="assets-select-check"
+                aria-label={locale === "en-US" ? `Select ${asset.title}` : `选择 ${asset.title}`}
+            />
             <Dropdown trigger={["click"]} menu={{ items: menuItems }}>
                 <button type="button" className="assets-cover-more" aria-label={text("更多素材操作", "More asset actions")} title={text("更多操作", "More actions")}>
                     <MoreHorizontal className="size-4" />

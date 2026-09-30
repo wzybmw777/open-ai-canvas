@@ -38,11 +38,29 @@ export function assetSearchText(asset: LibraryAsset, locale: AppLocale = "zh-CN"
 export function assetProjectLabel(asset: LibraryAsset, locale: AppLocale = "zh-CN") {
     const projectName = asset.metadata?.projectName;
     if (typeof projectName === "string" && projectName.trim()) return projectName;
-    return Array.isArray(asset.metadata?.projectIds) && asset.metadata.projectIds.length ? locale === "en-US" ? "Linked project" : "已关联项目" : locale === "en-US" ? "No linked project" : "未关联项目";
+    return Array.isArray(asset.metadata?.projectIds) && asset.metadata.projectIds.length ? (locale === "en-US" ? "Linked project" : "已关联项目") : locale === "en-US" ? "No linked project" : "未关联项目";
 }
 
 export function assetKindLabel(kind: AssetKind, locale: AppLocale = "zh-CN") {
-    return locale === "en-US" ? kind === "image" ? "Image" : kind === "video" ? "Video" : kind === "audio" ? "Audio" : kind === "model" ? "3D model" : "Text" : kind === "image" ? "图片" : kind === "video" ? "视频" : kind === "audio" ? "音频" : kind === "model" ? "3D 模型" : "文本";
+    return locale === "en-US"
+        ? kind === "image"
+            ? "Image"
+            : kind === "video"
+              ? "Video"
+              : kind === "audio"
+                ? "Audio"
+                : kind === "model"
+                  ? "3D model"
+                  : "Text"
+        : kind === "image"
+          ? "图片"
+          : kind === "video"
+            ? "视频"
+            : kind === "audio"
+              ? "音频"
+              : kind === "model"
+                ? "3D 模型"
+                : "文本";
 }
 
 export function assetDownloadLabel(asset: LibraryAsset, locale: AppLocale = "zh-CN") {
