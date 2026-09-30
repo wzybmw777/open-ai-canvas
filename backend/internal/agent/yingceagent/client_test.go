@@ -27,13 +27,15 @@ func TestRemoteRunCallsBridgeAndRejectsBadToken(t *testing.T) {
 	serverPath := filepath.Clean(filepath.Join(filepath.Dir(source), "../../../../yingce-agent/server.mjs"))
 	runtimePath := filepath.Join(t.TempDir(), "agent-runtime.mjs")
 	script := `
+import { writeFile } from "node:fs/promises";
 let raw = "";
 for await (const chunk of process.stdin) raw += chunk;
 const request = JSON.parse(raw);
+await writeFile(request.sessionFile, request.sessionJSONL, { mode: 0o600 });
 const response = await fetch(new URL("/tool", request.bridgeURL), {
   method: "POST",
   headers: { "content-type": "application/json", authorization: "Bearer " + request.bridgeToken },
-  body: JSON.stringify({ name: "lookup" }),
+  body: JSON.stringify({ name: "lookup", sessionDir: request.sessionDir, sessionFile: request.sessionFile, cwd: request.cwd }),
 });
 if (!response.ok) {
   process.stdout.write(JSON.stringify({ event: "runtime_error", message: "bridge " + response.status }) + "\n");
@@ -93,17 +95,29 @@ if (!response.ok) {
 		t.Fatalf("missing token status %d", unauthorized.StatusCode)
 	}
 
-	called := false
+	sessionPaths := make(chan map[string]string, 1)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	err = Run(ctx, endpoint, token, "127.0.0.1", agentruntime.ProcessRequest{
-		Model: map[string]any{"id": "m"},
+		Model:        map[string]any{"id": "m"},
+		SessionDir:   "/data/pi-sessions",
+		SessionFile:  "/data/pi-sessions/repro.jsonl",
+		SessionJSONL: "saved session",
+		CWD:          "/data",
 	}, agentruntime.Bridge{
 		Model: func(context.Context, map[string]json.RawMessage) (any, error) {
 			return map[string]any{"ok": true}, nil
 		},
-		Tool: func(context.Context, map[string]json.RawMessage) (any, error) {
-			called = true
+		Tool: func(_ context.Context, payload map[string]json.RawMessage) (any, error) {
+			paths := make(map[string]string)
+			for _, key := range []string{"sessionDir", "sessionFile", "cwd"} {
+				var value string
+				if err := json.Unmarshal(payload[key], &value); err != nil {
+					return nil, err
+				}
+				paths[key] = value
+			}
+			sessionPaths <- paths
 			return map[string]any{"content": "ok"}, nil
 		},
 		Event: func(context.Context, map[string]json.RawMessage) (any, error) {
@@ -113,8 +127,22 @@ if (!response.ok) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !called {
+	var paths map[string]string
+	select {
+	case paths = <-sessionPaths:
+	default:
 		t.Fatal("remote runtime did not call the Go tool bridge")
+	}
+	if !strings.HasPrefix(paths["sessionDir"], os.TempDir()+string(os.PathSeparator)) || paths["sessionFile"] != filepath.Join(paths["sessionDir"], "session.jsonl") || paths["cwd"] != paths["sessionDir"] {
+		t.Fatalf("remote session paths were not isolated: %+v", paths)
+	}
+	for attempt := 0; attempt < 20; attempt++ {
+		if _, err := os.Stat(paths["sessionDir"]); os.IsNotExist(err) {
+			break
+		} else if attempt == 19 {
+			t.Fatalf("remote session directory was not removed: %v", err)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 	if err := SetLimit(ctx, endpoint, token, 16); err != nil {
 		t.Fatal(err)

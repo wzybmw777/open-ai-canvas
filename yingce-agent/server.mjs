@@ -1,7 +1,9 @@
 import { spawn } from "node:child_process";
 import { timingSafeEqual } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
 import { createServer } from "node:http";
-import { dirname } from "node:path";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 
 const token = process.env.YINGCE_AGENT_TOKEN || "";
 let maxSessions = positiveInt(process.env.MAX_CONCURRENT_SESSIONS, 30, 64);
@@ -128,8 +130,8 @@ const server = createServer(async (request, response) => {
   }
   let body;
   try {
-    body = await readBody(request);
-    JSON.parse(body.toString("utf8"));
+    body = JSON.parse((await readBody(request)).toString("utf8"));
+    if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("invalid request");
   } catch (error) {
     response.writeHead(400, { "content-type": "application/json" });
     response.end(JSON.stringify({ error: error instanceof Error ? error.message : "invalid request" }));
@@ -140,6 +142,24 @@ const server = createServer(async (request, response) => {
   } catch (error) {
     response.writeHead(499, { "content-type": "application/json" });
     response.end(JSON.stringify({ error: error instanceof Error ? error.message : "cancelled" }));
+    return;
+  }
+
+  let sessionDir;
+  try {
+    sessionDir = await mkdtemp(join(tmpdir(), "yingce-session-"));
+    body = Buffer.from(JSON.stringify({
+      ...body,
+      cwd: sessionDir,
+      sessionDir,
+      sessionFile: join(sessionDir, "session.jsonl"),
+      agentDir: sessionDir,
+    }));
+  } catch (error) {
+    if (sessionDir) await rm(sessionDir, { recursive: true, force: true }).catch(() => {});
+    release();
+    response.writeHead(500, { "content-type": "application/json" });
+    response.end(JSON.stringify({ error: "Agent session directory unavailable" }));
     return;
   }
 
@@ -156,6 +176,7 @@ const server = createServer(async (request, response) => {
   const finish = () => {
     if (released) return;
     released = true;
+    void rm(sessionDir, { recursive: true, force: true }).catch((error) => console.error("Agent session cleanup failed:", error));
     release();
   };
   let sawRuntimeError = false;
