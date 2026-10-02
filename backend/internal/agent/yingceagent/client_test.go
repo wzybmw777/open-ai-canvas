@@ -100,10 +100,7 @@ if (!response.ok) {
 	defer cancel()
 	err = Run(ctx, endpoint, token, "127.0.0.1", agentruntime.ProcessRequest{
 		Model:        map[string]any{"id": "m"},
-		SessionDir:   "/data/pi-sessions",
-		SessionFile:  "/data/pi-sessions/repro.jsonl",
 		SessionJSONL: "saved session",
-		CWD:          "/data",
 	}, agentruntime.Bridge{
 		Model: func(context.Context, map[string]json.RawMessage) (any, error) {
 			return map[string]any{"ok": true}, nil

@@ -107,6 +107,7 @@ type (
 	ChannelOrderItem                       = app.ChannelOrderItem
 	ChannelOrderRequest                    = app.ChannelOrderRequest
 	ChannelRequest                         = app.ChannelRequest
+	CharacterAssetSummary                  = app.CharacterAssetSummary
 	CharacterCardSummary                   = app.CharacterCardSummary
 	CharacterRepresentationInput           = app.CharacterRepresentationInput
 	CharacterRepresentationSummary         = app.CharacterRepresentationSummary
@@ -121,6 +122,7 @@ type (
 	CreateAssetVersionRequest              = app.CreateAssetVersionRequest
 	CreatePaymentOrderRequest              = app.CreatePaymentOrderRequest
 	ExternalTopupShopSetting               = app.ExternalTopupShopSetting
+	CreateCharacterRequest                 = app.CreateCharacterRequest
 	CreateProjectAssetFolderRequest        = app.CreateProjectAssetFolderRequest
 	CreateProjectCharacterRequest          = app.CreateProjectCharacterRequest
 	CreateProjectRequest                   = app.CreateProjectRequest

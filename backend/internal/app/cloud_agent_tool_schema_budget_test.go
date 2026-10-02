@@ -52,8 +52,8 @@ func TestCloudAgentToolSchemaStaysCompact(t *testing.T) {
 		t.Fatal("canvas_apply_ops 未暴露")
 	}
 
-	// 分镜资产绑定工具加入后，平台工具 schema 约 30.6 KB。
-	if len(raw) > 31000 {
-		t.Fatalf("平台工具 schema 体积 %d 字节超出预算 31000：请压缩描述或显式调整预算", len(raw))
+	// 分镜资产绑定与角色卡创建均加入后，预算需覆盖两种工具的 schema。
+	if len(raw) > 33000 {
+		t.Fatalf("平台工具 schema 体积 %d 字节超出预算 33000：请压缩描述或显式调整预算", len(raw))
 	}
 }
