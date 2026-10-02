@@ -2,7 +2,7 @@ import { http } from "@/services/api/request";
 import type { ModelTag } from "@/lib/model-tags";
 
 export type InputConstraint = { min: number; max: number };
-export type OptionConstraint = { values?: unknown[]; min?: number; max?: number; step?: number };
+export type OptionConstraint = { values?: unknown[]; min?: number; max?: number; step?: number; maxWithReferenceVideo?: number };
 export type CapabilityImageSizePreset = {
     size: string;
     tier: "1k" | "2k" | "4k";

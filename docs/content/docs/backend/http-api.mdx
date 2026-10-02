@@ -123,6 +123,8 @@ CANVAS_BACKEND_DATA_DIR=/明确的数据目录 ./migrate-schema repair-canvas-re
 
 ### 用户模型目录
 
+渠道视频能力的 `capabilityConfig.video.duration.maxWithReferenceVideo` 是可选的输出时长条件上限（秒）；`inputs.video>0` 时生效，不根据生成模式名称、图片或音频数量推断。能力规格投影到 `options.videoSeconds.maxWithReferenceVideo`，模型目录匹配、报价与任务准入执行同一条件。没有此字段时沿用基础范围。前端时长控件按真实输入收紧选项，提交时仍独立校验；绕过前端的超限请求由后端拒绝，不进入上游生成。
+
 `GET /model-catalog` 固定返回 `source=system`，直接查询所有启用系统渠道下的渠道模型，目录数据在 `channels[].models[]`，`models` 固定为空数组。不受逻辑模型开关影响，不反查逻辑模型或供应线路。每项的 `modelKey` 是调用标识，`displayName` 是模型展示名，`icon` 是模型图标键，`channelLabel` 是可选的渠道展示名（默认空字符串）。后台渠道模型创建与更新请求使用相同的 `channelLabel` 字段；服务端去除首尾空白并限制为 80 字，空字符串表示使用所属渠道名称。
 
 渠道模型创建、更新、管理列表、公开目录和会话模型价格信息均使用 `description` 表达模型描述。服务端去除首尾空白后限制为 500 字，允许空字符串清除描述；无管理员权限或超长内容拒绝保存。创作端二级选项常驻展示该字段，不依赖悬浮 Tooltip；未填写的系统模型不按名称生成宣传文案。

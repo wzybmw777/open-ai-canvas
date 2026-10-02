@@ -655,7 +655,7 @@ func capabilitySpecWithPriceTiers(spec CapabilitySpec, channelModel model.Channe
 		result.Options["vquality"] = OptionConstraint{Values: resolutions}
 	}
 	if !hasDurationWildcard && len(durations) > 0 {
-		result.Options["videoSeconds"] = OptionConstraint{Values: durations}
+		result.Options["videoSeconds"] = OptionConstraint{Values: durations, MaxWithReferenceVideo: spec.Options["videoSeconds"].MaxWithReferenceVideo}
 	}
 	return result
 }

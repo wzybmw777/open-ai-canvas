@@ -1,0 +1,100 @@
+---
+title: QT 渠道每日同步
+description: 每天北京时间零点核对 QT中转-2 授权目录，同步价格、简介并启用已配置型号
+---
+
+# QT 渠道每日同步
+
+`scripts/sync-qt-channel.sh` 从 [QT 模型广场](https://api.qtrader.cc/model-plaza?embedded=1) 使用的公开接口 `https://api.qtrader.cc/api/v1/model-plaza` 读取“万有引力图片视频组”（ID 83）。目标是系统渠道 `QT中转-2`（ID `CHANNEL_000014`）。脚本另用该渠道已保存的密钥读取 `https://sub2.echoai.best/v1/models`，以当前授权目录作为启用依据，不需要管理员登录 Cookie。
+
+## 同步范围
+
+- 更新已有模型的非空上游简介，以及已配置、未删除、启用价格档的成本和售价；模型停用但保留的价格档也会同步。
+- 上游每积分转换为 1,000,000 微积分；售价为成本的 120%，不足一个微积分时向上取整。这是加价 20%。图片和按次报价对应 `fixed_request`，视频秒价对应 `per_second`。
+- 根据价格档的 `provider_model_key` 匹配上游 SKU，再按 `quality` / `vquality` 匹配规格。默认价格档遇到上游多规格时，只有所有规格价格一致才可同步。
+- 模型标量摘要遵循现有应用的默认档选择规则；价格或启用状态实际变化时增加模型 `price_version`，价格变化增加价格档版本。新记录版本从 1 开始；仅简介变化不增加价格版本，无变化不写入。
+- 上游简介为空时保留原简介；文字写按次、结构化价格档为按秒等冲突也保留原简介并记录警告。价格以结构化数据为准。
+- 用户已授权“上游支持的都要启用”：已具备报价、能力配置且所有活动价格档 SKU 均在授权目录的模型自动启用；失去授权的已有有报价模型停用。同步更新渠道的 `models_json`。
+- `scripts/qt-channel-models.mjs` 为当前 13 个新增图片/视频型号定义明确的协议和能力范围；获得授权且存在报价时自动导入。缺少价格档的已有型号根据结构化上游报价新增价格档，再启用。未知型号不能凭名称猜协议，须先补能力配置。
+- 每日价格同步保留现有能力与协议，并把能力校验结果写入 `plan.json` 的 `capabilityAudit`；明确能力差异或已审核简介变化会输出警告。能力修正通过下面的独立校验命令进行。规格选择器、模型名称和前台路由保持原设置，不会删除旧档、重算历史账单或提交收费生成任务。当前创作端目录直接来自系统渠道模型，不需要额外创建逻辑模型线路。
+
+启用模型在价格表缺失、规格缺失或重复、计费方式改变、Token / 时段计费、组倍率改变、缺少成本配置、超长简介或价格无法精确表示时，整批停止。授权目录获取失败、为空或重复时整批停止，不能退回公开目录判断授权。已停用且价格表缺失的模型保留并记录警告；授权目录中没有报价的型号列入 `missingPriceModels`，取得真实计费方式与报价后才能上架。
+
+本次核对授权目录共 52 个型号，其中 44 个有完整报价，已全部启用，包含 `wan30-720p`；另外 8 个缺少公开报价，不导入本地目录：`gpt-5.6-sol`、`gpt-5.6-terra`、`gpt-6-astra`、`gpt-6-sol`、`sd-2.5-1080p-pro`、`sd-2.5-o`、`seedance2.5-c`、`wan3.0-video-prime-s`。每天重新核对实时目录；旧价格不能作为缺失报价的兜底。
+
+按用户要求，已通过现有后台批量删除流程，删除本地 5 个缺少当前上游报价的型号：`sd-2.5-1080p-pro`、`sd-2.5-o`、`seedance2.5-b`、`seedance2.5-c`、`wan3.0-video-prime-s`。删除前核对快照，事务内检查前台线路和进行中任务引用；使用应用现有软删除合同，保留历史记录。清理前快照与结果保存在 `.local/backups/qt-channel-prune/`。当前本地目录仅保留 44 个有报价的启用型号；每日同步只有在存在真实报价时才考虑导入，不会重新加入无报价型号。
+
+## 安装和定时运行
+
+### 能力校验与修正
+
+`scripts/audit-qt-channel-capabilities.mjs` 核对渠道的全部现存型号，读取 QT 当前介绍，并用 [万有引力能力目录](https://lxmone.xyz/api/v1/docs/model-catalog) 和 [接口示例](https://lxmone.xyz/docs/) 交叉核对。已审核规则在 `scripts/qt-channel-capabilities.mjs` 中；介绍不再包含明确依据时，该型号不自动修正。介绍未提及的能力不视为不支持，其他站点的泛化能力也不能直接覆盖 QT 型号的明确限制。
+
+```bash
+# 默认执行真实事务后回滚，输出逐型号报告。
+node scripts/audit-qt-channel-capabilities.mjs --dry-run
+# 使用与每日同步相同的互斥锁，写入已审核的修正项。
+flock -n .local/qt-channel-sync.lock node scripts/audit-qt-channel-capabilities.mjs --apply
+```
+
+校验覆盖 44 个本地型号；28 个型号存在能够明确修正的模式、数量或时长差异。主要修正如下：
+
+| 型号 | 修正 |
+| --- | --- |
+| `wan30-720p` | 10 图 / 5 视频 / 5 音频，开放全模态参考；无参考视频 4–30 秒，有参考视频 4–15 秒 |
+| `sd2.0-fast`、`seedance2.0-933` | 9 图 / 3 视频 / 3 音频，5–15 秒 |
+| `sd-2.5-720p-ultra` | 关闭介绍明确禁止的参考视频，保留 30 图 / 10 音频 |
+| `seedance2.0-fast` | 固定 15 秒，按 QT 的 9-0-0 保留仅图片参考 |
+| 可接收超过 2 张图片的模型 | 补充画布多图输入所需的 `reference_to_video` 模式；参考视频数量仍单独限制，模式名称不意味着一定支持参考视频 |
+
+修正只更新能力 JSON、能力版本和更新时间。事务锁定并比较完整模型快照，遇到并发编辑整批拒绝；写入后核对每条能力配置与版本，并增加 Redis 目录版本。价格、协议、历史账单和 ID 序号不参与能力修正。备份和报告在 Git 忽略的 `.local/backups/qt-capability-audit/`，目录 0700、文件 0600；包含 `before.json`、`upstream.json`、`protocol-catalog.json`、`report.json` / `report.md`、`transaction.sql`、`after.json` 和 `result.json`。
+
+仍需确认的边界必须保留在报告中，不能把语法校验通过当作上游兼容：
+
+- `wan30-720p` 使用 `video.duration.maxWithReferenceVideo=15` 表达条件上限，基础范围为 4–30 秒。任务准入、模型目录匹配和前端提交校验均按实际参考视频数量执行；图片与音频引用不触发条件。后台可编辑或清空此字段，画布与创作台时长控件按当前输入展示对应上限。
+- QT 简介与万有引力结构化目录对多个型号的时长、分辨率及音视频参考存在冲突；以 QT 的明确限制为准，缺少明确说明的字段保留并列入待核实。
+- H3 D/E 必需图片与音频同时存在，官方 H3 允许图片或音频二选一；现有合同不能完整表达这些组合下限。本次保留 D/E 的原生成模式，避免新增只传图片的无效请求；官方 H3 仍需图片，纯音频未开放。
+- `wan3.0-image` / `wan3.0-image-prime` 介绍支持参考音频，但 QT 没写数量上限，暂不按其他站点的上限直接放开。
+- 公开请求示例暴露了协议差异：Seedance HC 的创建路径、Seedance 2.5 四个档位的 `assets` / `duration` / `size`、Grok 的 `seconds` / `size`，以及 Wan 720p 的图片数组与分辨率字段，需要独立核对渠道接受的请求体。本次不修改插件或提交收费任务。
+
+专项验证命令：`node --test scripts/qt-channel-capabilities.test.mjs scripts/sync-qt-channel.test.mjs`。设置 `QT_CAPABILITY_TEST_BACKUP` 为包含实际能力差异的预演目录可运行 PostgreSQL 临时表集成验证；后端同名环境变量可用于 `go test ./internal/app -run TestQTCapabilityAuditNormalizesReviewedSnapshot`。前端 `bun test test/qt-model-capability-audit.test.ts` 验证真实画布能力判定。浏览器展示、渠道提交与收费结果仍须单独验收。
+
+适用于 Linux systemd + `docker-compose.deploy.yml` 的 PostgreSQL / Redis 部署。宿主机需 Node.js 20 以上、Docker Compose、curl、flock。脚本通过 Compose 内的 PostgreSQL 环境访问数据库，仅在进程内解密渠道密钥；HTTPS 请求不允许跳转，主机必须为明确的 QT 端点。密钥不写入参数、备份或日志。
+
+```bash
+cd /opt/open-ai-canvas
+# 默认预演：执行真实更新 SQL，最后回滚。
+bash scripts/sync-qt-channel.sh --dry-run
+# 正式同步一次。
+bash scripts/sync-qt-channel.sh --apply
+# 安装并启用每日任务。
+sudo bash scripts/install-qt-channel-sync.sh
+```
+
+定时器 `open-ai-canvas-qt-sync.timer` 使用 `OnCalendar=*-*-* 00:00:00 Asia/Shanghai`，每天北京时间零点触发。`Persistent=true` 会在服务器恢复后补跑停机期间错过的任务。同一 systemd 服务与手工运行通过 flock 避免重入。
+
+```bash
+systemctl list-timers --all open-ai-canvas-qt-sync.timer
+journalctl -u open-ai-canvas-qt-sync.service -n 80 --no-pager
+# 通过正式服务手工触发，可验证定时任务的完整运行环境。
+sudo systemctl start open-ai-canvas-qt-sync.service
+# 停用自动同步。
+sudo systemctl disable --now open-ai-canvas-qt-sync.timer
+```
+
+## 事务、备份和排查
+
+每次成功生成更新计划后，在 Git 忽略目录 `.local/backups/qt-channel-sync/` 建立独立运行目录，目录权限 0700、文件权限 0600：
+
+- `before.json`：目标渠道的模型和价格档完整更新前快照，不含渠道密钥；
+- `upstream.json`：公开上游目录；
+- `authorized-models.json`：该渠道的当前授权型号列表，不含密钥；
+- `plan.json`：拟更新价格、简介与警告；
+- `transaction.sql`：执行的事务 SQL；
+- `result.json`：数据库提交或预演回滚结果。
+
+备份失败时不会更新数据库。事务短暂锁定渠道、模型、价格档和 ID 序列表，并将当前数据与更新前快照比较；期间有人编辑价格、启停、规格或分配序号，整批回滚并等待下次重新读取。新增 ID 必须来自明确且有效的序列表。更新后在同一事务核对价格与启用状态。正常同步不重启服务；每次正式运行提交后增加现有 Redis 路由目录版本。若数据库已提交而 Redis 刷新失败，服务会报错，`result.json` 仍记录 `committed`；可重新启动服务刷新目录。
+
+备份保留供排查和按字段恢复，不自动删除。恢复时从 `before.json` 取目标模型的简介、价格、启用状态与价格版本，先确认是否已有后续人工修改，再通过事务写入。新增记录需先检查任务引用再决定停用或删除；不能把 ID 序号倒退。不要恢复整个生产数据库或直接重放 `transaction.sql`。日志中的进程错误只记录状态码或已知事务错误，避免把 Compose 展开的配置写入日志。
+
+专项验证命令：`node --test scripts/sync-qt-channel.test.mjs`。指定 `QT_SYNC_TEST_BACKUP` 为一次包含真实变更的预演备份目录后，同一命令还会执行 PostgreSQL 集成验证；所有测试写入都限制在连接私有临时表中，不修改生产数据。预演和真实服务运行验证不代替管理员登录态的报价、模型展示和真实扣费验收。

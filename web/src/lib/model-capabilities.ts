@@ -85,6 +85,7 @@ export type VideoCapabilityConfig = {
         step?: number;
         values?: number[];
         default: number;
+        maxWithReferenceVideo?: number;
     };
     durationSupported?: boolean;
     ratios: string[];
@@ -531,6 +532,16 @@ function normalizeRangeDuration(profile: VideoCapabilityConfig, value: number) {
     return min + Math.min(maxStep, Math.max(0, Math.round((clamped - min) / step))) * step;
 }
 
+export function videoCapabilityForReferenceVideos(profile: VideoCapabilityConfig, referenceVideoCount: number): VideoCapabilityConfig {
+    const limit = profile.duration.maxWithReferenceVideo;
+    if (!limit || referenceVideoCount <= 0) return profile;
+    const duration = profile.duration.selection === "enum"
+        ? { ...profile.duration, values: (profile.duration.values || []).filter((value) => value <= limit) }
+        : { ...profile.duration, max: Math.min(profile.duration.max || limit, limit) };
+    if (duration.selection === "enum" && !duration.values?.includes(duration.default)) duration.default = duration.values?.[0] || profile.duration.default;
+    return { ...profile, duration };
+}
+
 export function videoDurationOptions(profile: VideoCapabilityConfig) {
     if (profile.duration.selection === "enum") return profile.duration.values || [];
     const min = profile.duration.min || 1;
@@ -539,7 +550,8 @@ export function videoDurationOptions(profile: VideoCapabilityConfig) {
     return Array.from({ length: Math.floor((max - min) / step) + 1 }, (_, index) => min + index * step);
 }
 
-export function videoDurationAllowed(profile: VideoCapabilityConfig, value: number) {
+export function videoDurationAllowed(profile: VideoCapabilityConfig, value: number, referenceVideoCount = 0) {
+    if (referenceVideoCount > 0 && profile.duration.maxWithReferenceVideo && value > profile.duration.maxWithReferenceVideo) return false;
     if (profile.duration.selection === "enum") return (profile.duration.values || []).includes(value);
     const min = profile.duration.min || 1;
     const max = profile.duration.max || min;

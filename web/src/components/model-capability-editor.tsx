@@ -148,6 +148,7 @@ export function ModelCapabilityEditor({ value, onChange, protocol, capability = 
                                 <NumberField label="默认" value={profile.duration.default} min={1} disabled={disabled} onChange={(value) => updateDuration({ default: value || 1 })} />
                             </div>
                         )}
+                        <NumberField label="有参考视频时输出最长秒数（留空不限）" value={profile.duration.maxWithReferenceVideo} min={1} disabled={disabled} onChange={(value) => updateDuration({ maxWithReferenceVideo: value ?? undefined })} />
                     </ProtocolParameterCard>
                     <ProtocolParameterCard step="03" title="画面规格" description="控制比例、分辨率及默认输出">
                         <div className="admin-capability-spec-grid">
@@ -260,6 +261,7 @@ export function ModelCapabilityEditor({ value, onChange, protocol, capability = 
                             <NumberField label="默认" value={profile.duration.default} min={1} disabled={disabled} onChange={(value) => updateDuration({ default: value || 1 })} />
                         </div>
                     )}
+                    <NumberField label="有参考视频时输出最长秒数（留空不限）" value={profile.duration.maxWithReferenceVideo} min={1} disabled={disabled} onChange={(value) => updateDuration({ maxWithReferenceVideo: value ?? undefined })} />
                 </CapabilityBlock>
                 <CapabilityBlock title="画面规格">
                     <div className="grid gap-3 sm:grid-cols-2">

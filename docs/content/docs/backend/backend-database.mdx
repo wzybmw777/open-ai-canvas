@@ -246,6 +246,12 @@ schema v27 为 `channel_model_price_tiers` 和 `billing_orders` 添加 `cost_con
 - `allowCustom` 只开放支持值之外的输入，不新增上游分辨率能力；比例协议未配置对应质量值时不开放该档位。模型声明的精确像素可不满足 16px 对齐；自定义像素仍须满足请求端的 16px 对齐及尺寸限制。
 - 未声明 `presets` 时，界面从已有支持值推导候选；禁用尺寸参数时清除分档配置。发布与回滚均无需数据库迁移，但旧程序不识别分档组合约束，回滚前应核对相关模型配置。
 
+### 视频输出时长的条件上限
+
+渠道视频能力 JSON 的 `video.duration` 支持可选 `maxWithReferenceVideo`（整数秒）。未配置或为 0 表示沿用基础时长范围；配置后仅在实际参考视频数量大于 0 时额外限制输出时长，图片和音频不触发。上限必须处于基础范围内；固定值模式必须至少有一个选项不超过该上限。该字段保存在现有 `capability_config_json` 中，不新增列或迁移；能力变更增加 `capability_version`。旧程序不识别此限制，回退前必须将相关模型基础最大时长收紧到条件上限，避免放行无效请求。
+
+例如 `wan30-720p`：`{ "selection": "range", "min": 4, "max": 30, "step": 1, "default": 6, "maxWithReferenceVideo": 15 }`。参考视频素材自身的时长上限仍使用 `references.maxVideoDurationSeconds`，与此处输出时长限制独立。
+
 ## 插件管理
 
 | 表 | 用途 | 关键边界 |

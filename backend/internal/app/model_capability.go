@@ -113,12 +113,13 @@ type VideoReferenceConfig struct {
 const DefaultVideoPromptMaxChars = 8000
 
 type VideoDurationConfig struct {
-	Selection string `json:"selection"`
-	Min       int    `json:"min,omitempty"`
-	Max       int    `json:"max,omitempty"`
-	Step      int    `json:"step,omitempty"`
-	Values    []int  `json:"values,omitempty"`
-	Default   int    `json:"default"`
+	Selection             string `json:"selection"`
+	Min                   int    `json:"min,omitempty"`
+	Max                   int    `json:"max,omitempty"`
+	Step                  int    `json:"step,omitempty"`
+	Values                []int  `json:"values,omitempty"`
+	Default               int    `json:"default"`
+	MaxWithReferenceVideo int    `json:"maxWithReferenceVideo,omitempty"`
 }
 
 type VideoBooleanConfig struct {
@@ -315,6 +316,12 @@ func CapabilitySpecFromModelCapabilityConfig(config *ModelCapabilityConfig, capa
 			spec.Options["videoSeconds"] = OptionConstraint{Values: values}
 		} else {
 			spec.Options["videoSeconds"] = numericRange(float64(video.Duration.Min), float64(video.Duration.Max), float64(video.Duration.Step))
+		}
+		if video.Duration.MaxWithReferenceVideo > 0 {
+			constraint := spec.Options["videoSeconds"]
+			limit := float64(video.Duration.MaxWithReferenceVideo)
+			constraint.MaxWithReferenceVideo = &limit
+			spec.Options["videoSeconds"] = constraint
 		}
 		spec.Options["size"] = anyValues(video.Ratios)
 		if len(video.Resolutions) > 0 {

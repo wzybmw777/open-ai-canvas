@@ -46,10 +46,11 @@ type InputConstraint struct {
 }
 
 type OptionConstraint struct {
-	Values []any    `json:"values,omitempty"`
-	Min    *float64 `json:"min,omitempty"`
-	Max    *float64 `json:"max,omitempty"`
-	Step   *float64 `json:"step,omitempty"`
+	Values                []any    `json:"values,omitempty"`
+	Min                   *float64 `json:"min,omitempty"`
+	Max                   *float64 `json:"max,omitempty"`
+	Step                  *float64 `json:"step,omitempty"`
+	MaxWithReferenceVideo *float64 `json:"maxWithReferenceVideo,omitempty"`
 }
 
 type ModelRequestIntent struct {
@@ -251,6 +252,28 @@ func NormalizeCapabilitySpec(spec CapabilitySpec) (CapabilitySpec, error) {
 		if constraint.Step != nil && *constraint.Step <= 0 {
 			return spec, BadAuthRequest("能力参数 step 必须大于 0")
 		}
+		if limit := constraint.MaxWithReferenceVideo; limit != nil {
+			if name != "videoSeconds" || spec.Capability != "video" || math.IsNaN(*limit) || math.IsInf(*limit, 0) || *limit < 1 || *limit > 3600 || math.Trunc(*limit) != *limit {
+				return spec, BadAuthRequest("参考视频条件时长上限无效")
+			}
+			if hasRange && (*limit < *constraint.Min || *limit > *constraint.Max) {
+				return spec, BadAuthRequest("参考视频条件时长上限必须位于基础范围内")
+			}
+			if hasValues {
+				covered, maximum := false, float64(0)
+				for _, value := range constraint.Values {
+					number, ok := numericScalar(value)
+					if !ok {
+						return spec, BadAuthRequest("条件时长固定值必须为数值")
+					}
+					covered = covered || number <= *limit
+					maximum = max(maximum, number)
+				}
+				if !covered || *limit > maximum {
+					return spec, BadAuthRequest("参考视频条件时长上限与固定值不匹配")
+				}
+			}
+		}
 		normalizedOptions[name] = constraint
 	}
 	spec.Options = normalizedOptions
@@ -302,6 +325,12 @@ func MatchCapability(spec CapabilitySpec, intent ModelRequestIntent) CapabilityM
 		}
 		if !matchOptionConstraint(name, constraint, value) {
 			reasons = append(reasons, "参数 "+capabilityOptionLabel(name)+"超出支持范围")
+		}
+		if intent.Inputs["video"] > 0 && constraint.MaxWithReferenceVideo != nil {
+			number, ok := numericScalar(value)
+			if !ok || number > *constraint.MaxWithReferenceVideo {
+				reasons = append(reasons, fmt.Sprintf("有参考视频时，输出视频最长 %g 秒", *constraint.MaxWithReferenceVideo))
+			}
 		}
 	}
 	return CapabilityMatch{Matched: len(reasons) == 0, Reasons: reasons}

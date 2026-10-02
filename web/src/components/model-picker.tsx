@@ -412,7 +412,8 @@ function publicScalarLabel(value: unknown) {
 function formatDurationSummary(profile: NonNullable<ReturnType<typeof modelCapabilityConfigFor>["video"]>) {
     const values = videoDurationOptions(profile);
     if (profile.duration.selection === "enum") return values.map((item) => `${item}s`).join("/");
-    return `${profile.duration.min || values[0]}-${profile.duration.max || values[values.length - 1]}s`;
+    const range = `${profile.duration.min || values[0]}-${profile.duration.max || values[values.length - 1]}s`;
+    return profile.duration.maxWithReferenceVideo ? `${range}（有参考视频≤${profile.duration.maxWithReferenceVideo}s）` : range;
 }
 
 type ModelMenuPrice = { kind: "tiers"; label: string; compactLabel: string; title: string } | { kind: "estimate"; label?: string; title?: string } | { kind: "fixed"; value: number; unit: "次" | "秒" };

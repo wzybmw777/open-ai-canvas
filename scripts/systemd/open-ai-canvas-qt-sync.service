@@ -1,0 +1,19 @@
+[Unit]
+Description=Sync QT channel prices and descriptions
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=@INSTALL_DIR@
+Environment=TZ=Asia/Shanghai
+Environment=QT_SYNC_NODE_BIN=@NODE_BIN@
+ExecStart=/usr/bin/bash @INSTALL_DIR@/scripts/sync-qt-channel.sh --apply
+TimeoutStartSec=180
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=@INSTALL_DIR@/.local

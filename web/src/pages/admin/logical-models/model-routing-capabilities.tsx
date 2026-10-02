@@ -114,6 +114,7 @@ export function capabilitySpecFromChannelModel(item?: ChannelModel): CapabilityS
         const video = item.capabilityConfig?.video;
         if (!video) return null;
         const duration: OptionConstraint = video.duration.selection === "enum" ? { values: video.duration.values || [] } : { min: video.duration.min, max: video.duration.max, step: video.duration.step };
+        if (video.duration.maxWithReferenceVideo) duration.maxWithReferenceVideo = video.duration.maxWithReferenceVideo;
         return {
             version: 1,
             capability,

@@ -21,7 +21,7 @@ import { CreditSymbol, requestCreditCost } from "@/constant/credits";
 import { ASSET_CATEGORY_LABELS } from "@/lib/asset-category";
 import { displayShotOrdinal } from "@/lib/shot-label";
 import { buildImageResolutionOptions, formatImageResolutionSize, supportsImageResolutionPresets } from "@/lib/image-resolution-tiers";
-import { normalizeVideoValue, videoDurationOptions, type ImageCapabilityConfig, type VideoCapabilityConfig } from "@/lib/model-capabilities";
+import { normalizeVideoValue, videoCapabilityForReferenceVideos, videoDurationOptions, type ImageCapabilityConfig, type VideoCapabilityConfig } from "@/lib/model-capabilities";
 import { mergedImageCapabilityConfig, type ModelRequirements } from "@/lib/model-selection";
 import { modelQuoteDescription, modelQuoteRequest } from "@/lib/model-pricing";
 import { quoteModel, type LogicalModelQuote } from "@/services/api/logical-models";
@@ -392,7 +392,7 @@ export function CreationComposer(props: ComposerProps) {
                 </Tooltip> : null}
 				<ModelPicker config={props.config} value={props.model} onChange={props.onModelChange} capability={props.mode} requirements={props.modelRequirements} className="creation-model-picker" placeholder={text(`选择${modeLabels[props.mode]}模型`, `Select ${creationModeLabel(props.mode, locale).toLowerCase()} model`)} showSelectedPrice={false} showOptionPrices variant="creation" />
                 {props.mode === "video" || (props.mode === "image" && imageSettingsSupported) ? <GenerationSettingsMenu {...props} /> : null}
-                {props.mode === "video" ? <DurationMenu profile={props.videoProfile} seconds={props.seconds} onChange={props.setSeconds} /> : null}
+                {props.mode === "video" ? <DurationMenu profile={videoCapabilityForReferenceVideos(props.videoProfile, props.modelRequirements?.input?.videoCount || 0)} seconds={props.seconds} onChange={props.setSeconds} /> : null}
                 {props.mode === "text" ? <>
                     <Tooltip title={interactionBusy ? text("生成中，此开关将在下次发送时生效", "This change will apply to the next prompt") : (props.textStreaming ? text("流式输出已开启", "Streaming on") : text("流式输出已关闭", "Streaming off"))}><button type="button" className="creation-chat-control" aria-pressed={props.textStreaming} disabled={interactionBusy} onClick={() => props.setTextStreaming(!props.textStreaming)}><Waves /><span>{text("流式", "Stream")}</span></button></Tooltip>
                     <Tooltip title={interactionBusy ? text("生成中，此开关将在下次发送时生效", "This change will apply to the next prompt") : (props.textThinking ? text("思考已开启，会展示模型返回的推理摘要", "Reasoning summary on") : text("开启模型思考", "Enable reasoning"))}><button type="button" className="creation-chat-control" aria-pressed={props.textThinking} disabled={interactionBusy} onClick={() => props.setTextThinking(!props.textThinking)}><Brain /><span>{text("思考", "Think")}</span></button></Tooltip>

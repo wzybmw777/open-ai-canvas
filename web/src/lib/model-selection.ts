@@ -138,7 +138,10 @@ export function modelCompatibilityError(config: AiConfig, model: string, require
 
     if (capability === "video") {
         const profile = modelCapabilityConfigFor(config, model).video!;
-        if (requirements.videoSeconds && !videoDurationAllowed(profile, Number(requirements.videoSeconds))) return "不支持当前视频时长";
+        if (requirements.videoSeconds && !videoDurationAllowed(profile, Number(requirements.videoSeconds), input?.videoCount)) {
+            if (input?.videoCount && profile.duration.maxWithReferenceVideo && Number(requirements.videoSeconds) > profile.duration.maxWithReferenceVideo) return `有参考视频时，输出视频最长 ${profile.duration.maxWithReferenceVideo} 秒`;
+            return "不支持当前视频时长";
+        }
         if (!input) return "";
         if (visualInputCount > profile.references.maxImages) return `最多支持 ${profile.references.maxImages} 张参考图`;
         if (input.videoCount > profile.references.maxVideos) return `最多支持 ${profile.references.maxVideos} 个参考视频`;
@@ -221,6 +224,7 @@ function logicalModelCompatibilityError(spec: NonNullable<NonNullable<AiConfig["
         if (value === undefined || value === null || value === "") continue;
         const constraint = spec.options?.[name];
         if (!constraint || !logicalOptionMatches(name, constraint, value)) return logicalOptionError(name);
+        if (input?.videoCount && constraint.maxWithReferenceVideo && Number(value) > constraint.maxWithReferenceVideo) return `有参考视频时，输出视频最长 ${constraint.maxWithReferenceVideo} 秒`;
     }
     return "";
 }

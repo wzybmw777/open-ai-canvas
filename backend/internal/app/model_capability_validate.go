@@ -161,10 +161,16 @@ func validateVideoCapabilityConfig(value *VideoCapabilityConfig) error {
 }
 
 func validateVideoDuration(value VideoDurationConfig) error {
+	if value.MaxWithReferenceVideo < 0 || value.MaxWithReferenceVideo > 3600 {
+		return BadAuthRequest("有参考视频时的输出时长上限无效")
+	}
 	switch value.Selection {
 	case "range":
 		if value.Min < 1 || value.Max < value.Min || value.Max > 3600 || value.Step < 1 || value.Default < value.Min || value.Default > value.Max || (value.Default-value.Min)%value.Step != 0 {
 			return BadAuthRequest("视频时长范围或默认值无效")
+		}
+		if value.MaxWithReferenceVideo > 0 && (value.MaxWithReferenceVideo < value.Min || value.MaxWithReferenceVideo > value.Max) {
+			return BadAuthRequest("有参考视频时的输出时长上限必须位于模型时长范围内")
 		}
 	case "enum":
 		if len(value.Values) == 0 || len(value.Values) > 100 {
@@ -179,6 +185,9 @@ func validateVideoDuration(value VideoDurationConfig) error {
 		}
 		if !containsInt(values, value.Default) {
 			return BadAuthRequest("视频默认时长必须属于固定时长选项")
+		}
+		if value.MaxWithReferenceVideo > 0 && (value.MaxWithReferenceVideo < values[0] || value.MaxWithReferenceVideo > values[len(values)-1]) {
+			return BadAuthRequest("有参考视频时的输出时长上限必须覆盖至少一个固定时长且不超过最大值")
 		}
 	default:
 		return BadAuthRequest("视频时长选择方式仅支持范围或固定值")
@@ -317,6 +326,9 @@ func validateVideoTask(profile *VideoCapabilityConfig, input canvasGenerationInp
 	seconds, err := strconv.Atoi(strings.TrimSpace(input.Config.VideoSeconds))
 	if err != nil || !videoDurationAllowed(profile.Duration, seconds) {
 		return BadAuthRequest("视频时长不在当前模型支持范围内")
+	}
+	if len(input.ReferenceVideos) > 0 && profile.Duration.MaxWithReferenceVideo > 0 && seconds > profile.Duration.MaxWithReferenceVideo {
+		return BadAuthRequest(fmt.Sprintf("有参考视频时，输出视频最长 %d 秒", profile.Duration.MaxWithReferenceVideo))
 	}
 	if input.Config.Size != "" && !videoRatioAllowed(profile.Ratios, input.Config.Size) {
 		return BadAuthRequest("画面比例不在当前模型支持范围内")
