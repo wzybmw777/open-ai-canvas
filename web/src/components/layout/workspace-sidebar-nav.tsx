@@ -73,7 +73,7 @@ function WorkspaceSidebarProfile({ collapsed, user }: { collapsed: boolean; user
     useEffect(() => setFailed(false), [avatarUrl]);
 
     if (!user) {
-        return <Link to="/login" className={cn("app-workspace-sidebar-profile", collapsed && "is-collapsed")} aria-label={text("登录", "Sign in")} title={text("登录", "Sign in")}><CircleUserRound className="size-5" /><span>{text("登录", "Sign in")}</span></Link>;
+        return <div className={cn("app-workspace-sidebar-profile", collapsed && "is-collapsed")} role="img" aria-label={text("游客模式", "Guest mode")} title={text("游客模式", "Guest mode")}><span className="app-workspace-sidebar-profile-avatar"><CircleUserRound aria-hidden /></span>{!collapsed ? <span>{text("游客模式", "Guest mode")}</span> : null}</div>;
     }
 
     const avatar = avatarUrl && !failed ? <img src={avatarUrl} alt="" referrerPolicy="no-referrer" onError={() => setFailed(true)} /> : <CircleUserRound aria-hidden />;

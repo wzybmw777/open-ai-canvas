@@ -85,8 +85,14 @@ func TestCloudAgentMutationResultReportsSavedChanges(t *testing.T) {
 				if err := json.Unmarshal([]byte(stringValue(message["content"])), &result); err != nil {
 					t.Fatal(err)
 				}
-				if result["status"] != "applied" || result["preview"] != nil || len(creationMaps(result["changes"])) == 0 || !strings.Contains(stringValue(result["summary"]), "已保存") {
+				if result["status"] != "applied" || len(creationMaps(result["changes"])) == 0 || !strings.Contains(stringValue(result["summary"]), "已保存") {
 					t.Fatalf("write result misrepresents persisted changes: %+v", result)
+				}
+				if tool == "canvas_apply_ops" {
+					preview, _ := result["preview"].(map[string]any)
+					if result["committed"] != true || preview["status"] != "applied" {
+						t.Fatalf("saved canvas preview still describes pending approval: %+v", result)
+					}
 				}
 				stored, _ := s.repo.CanvasProjectForUser("user", canvas.ID)
 				after, _ := creationDocument(stored.PayloadJSON)

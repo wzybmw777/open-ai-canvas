@@ -62,7 +62,10 @@ func TestCloudAgentPiModelPersistsParallelToolCallsBeforeResults(t *testing.T) {
 		}
 		state.Canonical.Messages = append(state.Canonical.Messages, map[string]any{"role": "tool", "tool_call_id": calls[index].ID, "content": `{}`})
 	}
-	wire := canonicalAgentResponsesBody(&state.Canonical)
+	wire, err := canonicalAgentResponsesBody(&state.Canonical)
+	if err != nil {
+		t.Fatal(err)
+	}
 	input := interfaceSlice(wire["input"])
 	for index := range calls {
 		call, _ := input[len(input)-6+index].(map[string]any)

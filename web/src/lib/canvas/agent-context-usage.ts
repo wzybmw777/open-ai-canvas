@@ -4,7 +4,10 @@ export type AgentContextUsage = {
     readingSeq: number;
     readingStale: boolean;
     compactionPending: Record<string, unknown> | null;
+    compactionSeq: number;
+    compactionId: string | null;
     lastCompaction: Record<string, unknown> | null;
+    compactionError: string | null;
 };
 
 export type AgentContextUsageEvent = {
@@ -41,14 +44,23 @@ export type AgentContextUsageView = {
     compactAtTokens?: number;
     contextWindowTokens?: number;
     protocolBytes?: number;
-    tokenSource?: "provider" | "estimate";
-    estimate: boolean;
+    tokenSource?: "pi";
     breakdown: AgentContextBreakdownItem[];
     lastCompaction: Record<string, unknown> | null;
+    compactionError?: string;
 };
 
 export function emptyAgentContextUsage(runId: string): AgentContextUsage {
-    return { runId, reading: null, readingSeq: 0, readingStale: false, compactionPending: null, lastCompaction: null };
+    return { runId, reading: null, readingSeq: 0, readingStale: false, compactionPending: null, compactionSeq: 0, compactionId: null, lastCompaction: null, compactionError: null };
+}
+
+function eventSequence(event: AgentContextUsageEvent): number | undefined {
+    return typeof event.seq === "number" && Number.isFinite(event.seq) && event.seq > 0 ? event.seq : undefined;
+}
+
+function payloadString(payload: Record<string, unknown>, key: string): string | undefined {
+    const value = payload[key];
+    return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 /** Reduces durable Agent events without mixing readings from different runs. */
@@ -56,13 +68,35 @@ export function reduceAgentContextUsage(current: AgentContextUsage, event: Agent
     const scoped = current.runId === event.runId ? current : emptyAgentContextUsage(event.runId);
     const payload = event.payload && typeof event.payload === "object" ? event.payload : {};
     if (event.type === "context_pressure") {
-        return { ...scoped, reading: payload, readingSeq: event.seq || 0, readingStale: false, compactionPending: null };
+        // Pi SDK is the only supported context-usage source. Ignore legacy Go/provider
+        // readings instead of letting them overwrite a valid Pi session reading.
+        if (payload.tokenSource !== "pi") return scoped;
+        const seq = eventSequence(event);
+        // A reading without a durable sequence cannot be ordered against a
+        // reconnect replay. Never let it move the ring backwards.
+        if (seq === undefined || seq <= scoped.readingSeq) return scoped;
+        return { ...scoped, reading: payload, readingSeq: seq, readingStale: false, compactionError: null };
     }
     if (event.type === "context_compaction_requested") {
-        return { ...scoped, compactionPending: payload };
+        const seq = eventSequence(event);
+        if (seq === undefined || seq <= scoped.compactionSeq) return scoped;
+        return { ...scoped, compactionPending: payload, compactionSeq: seq, compactionId: payloadString(payload, "compactionId") ?? null, compactionError: null };
     }
     if (event.type === "context_compacted") {
-        return { ...scoped, readingStale: Boolean(scoped.reading), compactionPending: null, lastCompaction: payload };
+        const seq = eventSequence(event);
+        if (seq === undefined || seq <= scoped.compactionSeq) return scoped;
+        const compactionId = payloadString(payload, "compactionId");
+        if (scoped.compactionId && compactionId && scoped.compactionId !== compactionId) return scoped;
+        return { ...scoped, readingStale: Boolean(scoped.reading), compactionPending: null, compactionSeq: seq, compactionId: compactionId ?? scoped.compactionId, lastCompaction: payload, compactionError: null };
+    }
+    if (event.type === "context_compaction_failed") {
+        const seq = eventSequence(event);
+        if (seq === undefined || seq <= scoped.compactionSeq) return scoped;
+        const compactionId = payloadString(payload, "compactionId");
+        if (scoped.compactionId && compactionId && scoped.compactionId !== compactionId) return scoped;
+        const aborted = payload.cancelled === true || payload.aborted === true;
+        const message = typeof payload.errorMessage === "string" ? payload.errorMessage : aborted ? "上下文压缩已取消，原有对话历史已保留" : "上下文压缩失败，原有对话历史已保留";
+        return { ...scoped, compactionPending: null, compactionSeq: seq, compactionId: compactionId ?? scoped.compactionId, compactionError: message };
     }
     return scoped;
 }
@@ -73,18 +107,14 @@ export function finiteContextNumber(value: unknown): number | undefined {
 
 /** Returns a ratio only when the backend has a trustworthy configured model budget. */
 export function contextPressureRatio(reading: Record<string, unknown> | null): number | undefined {
-    if (!reading || reading.modelLimitConfigured !== true) return undefined;
+    if (!reading || reading.tokenSource !== "pi" || reading.modelLimitConfigured !== true) return undefined;
     const contextWindow = finiteContextNumber(reading.contextWindowTokens);
     if (!contextWindow || contextWindow <= 0) return undefined;
-    const ratio = reading.tokenSource === "provider" ? finiteContextNumber(reading.projectedPressureRatio) : finiteContextNumber(reading.pressureRatio);
-    return ratio;
+    return finiteContextNumber(reading.pressureRatio);
 }
 
 export function contextInputTokens(reading: Record<string, unknown> | null): number | undefined {
-    if (!reading) return undefined;
-    if (reading.tokenSource === "provider") {
-        return finiteContextNumber(reading.projectedNextInputTokens) ?? finiteContextNumber(reading.estimatedInputTokens);
-    }
+    if (!reading || reading.tokenSource !== "pi") return undefined;
     return finiteContextNumber(reading.estimatedInputTokens);
 }
 
@@ -128,15 +158,14 @@ function formatContextTokens(tokens: number | undefined): string {
  * All visual scales use the model context window; the marker shows the shared 80% compaction line.
  */
 export function presentAgentContextUsage(usage: AgentContextUsage): AgentContextUsageView {
-    const reading = usage.reading;
+    const reading = usage.reading?.tokenSource === "pi" ? usage.reading : null;
     const inputTokens = contextInputTokens(reading);
     const contextWindowTokens = finiteContextNumber(reading?.contextWindowTokens);
     const usableTokens = contextWindowTokens;
     const compactAtTokens = finiteContextNumber(reading?.compactAtTokens);
     const ratio = contextPressureRatio(reading);
     const compactRatio = usableTokens && compactAtTokens ? Math.min(1, compactAtTokens / usableTokens) : undefined;
-    const tokenSource = reading?.tokenSource === "provider" ? "provider" : reading ? "estimate" : undefined;
-    const estimate = tokenSource !== "provider";
+    const tokenSource = reading ? "pi" : undefined;
     const remainingTokens = usableTokens !== undefined && inputTokens !== undefined ? Math.max(0, usableTokens - inputTokens) : undefined;
     const base: AgentContextUsageView = {
         phase: "idle",
@@ -152,9 +181,9 @@ export function presentAgentContextUsage(usage: AgentContextUsage): AgentContext
         contextWindowTokens,
         protocolBytes: contextProtocolBytes(reading),
         tokenSource,
-        estimate,
         breakdown: contextBreakdown(reading),
         lastCompaction: usage.lastCompaction,
+        compactionError: usage.compactionError ?? undefined,
     };
     if (usage.compactionPending) {
         const basis = usage.compactionPending.basis === "bytes" ? "消息体积已到兜底线" : "已到上下文压缩线";
@@ -171,7 +200,7 @@ export function presentAgentContextUsage(usage: AgentContextUsage): AgentContext
     const line = compactRatio && compactRatio > 0 ? compactRatio : 0.8;
     const ring = Math.max(0, Math.min(1, ratio));
     const percent = Math.round(ratio * 100);
-    const source = estimate ? "本地估算" : "模型实测校准";
+    const source = "Pi 会话估算";
     if (ratio >= line) {
         return {
             ...base,

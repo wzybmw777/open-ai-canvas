@@ -4,7 +4,7 @@ import { producedModelLabel, producedModelSearchTerms } from "@/lib/canvas/produ
 import type { AiConfig } from "@/stores/use-config-store";
 import { canvasNodeCreatedAt, canvasNodeUpdatedAt } from "@/lib/canvas/canvas-node-timestamps";
 import { CanvasNodeType, type CanvasNodeData } from "@/types/canvas";
-
+import { nodeGenerationPrompt } from "@/lib/canvas/generation-contract";
 const searchTimeFormatter = new Intl.DateTimeFormat("zh-CN", {
     month: "2-digit",
     day: "2-digit",
@@ -26,7 +26,7 @@ export function canvasNodeSearchContext(node: CanvasNodeData, locale: AppLocale 
     const textContent = node.type === CanvasNodeType.Text || node.type === CanvasNodeType.Markdown || node.type === CanvasNodeType.Script || node.type === CanvasNodeType.Skill
         ? node.metadata?.content
         : undefined;
-    return location || node.metadata?.prompt || node.metadata?.composerContent || node.metadata?.workflowDescription || textContent || getNodeListLabel(node.type, locale);
+    return location || nodeGenerationPrompt(node) || node.metadata?.workflowDescription || textContent || getNodeListLabel(node.type, locale);
 }
 
 export function canvasNodeMaterialSummary(node: CanvasNodeData, config?: AiConfig, locale: AppLocale = "zh-CN") {
@@ -58,8 +58,7 @@ function canvasNodeSearchTerms(node: CanvasNodeData, config?: AiConfig) {
         node.type,
         getNodeListLabel(node.type),
         getNodeListLabel(node.type, "en-US"),
-        node.metadata?.prompt,
-        node.metadata?.composerContent,
+        nodeGenerationPrompt(node),
         node.metadata?.model,
         ...producedModelSearchTerms(node.metadata, config),
         node.metadata?.chapterTitle,

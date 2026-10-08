@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const CurrentSchemaVersion int64 = 44
+const CurrentSchemaVersion int64 = 47
 
 const baselineSchemaChecksum = "sha256:open-ai-canvas-schema-v1-20260830"
 const schemaMigrationAppliedAtIndexChecksum = "sha256:schema-migrations-applied-at-index-v2-20260830"
@@ -64,6 +64,7 @@ type migration struct {
 }
 
 var schemaMigrations = []migration{
+	// Keep deployed local migrations 41-44; upstream additions continue at 45.
 	{version: 1, name: "baseline_gorm_schema", checksum: baselineSchemaChecksum, apply: migrateSchemaV1},
 	{version: 2, name: "schema_migrations_applied_at_index", checksum: schemaMigrationAppliedAtIndexChecksum, apply: migrateSchemaV2},
 	{version: 3, name: "asset_taxonomy_candidate_identity", checksum: assetTaxonomyCandidateIdentityChecksum, apply: migrateSchemaV3},
@@ -149,6 +150,11 @@ var schemaMigrations = []migration{
 	{version: 42, name: "resource_thumbnail", checksum: resourceThumbnailV42Checksum, apply: migrateResourceThumbnail},
 	{version: 43, name: "cloud_agent_pi_sessions", checksum: cloudAgentPiSessionsV43Checksum, apply: migrateCloudAgentPiSessions},
 	{version: 44, name: "topup_sale_strategies", checksum: topupSaleStrategiesV44Checksum, apply: migrateTopupSaleStrategies},
+	{version: 45, name: "upload_reservations", checksum: "sha256:upload-reservations-v45-20261005", apply: func(tx *gorm.DB) error {
+		return tx.AutoMigrate(&model.UploadReservation{})
+	}},
+	{version: 46, name: "skill_curation", checksum: "sha256:skill-curation-v46-20261005", apply: migrateSkillCuration},
+	{version: 47, name: "skill_curation_roots", checksum: "sha256:skill-curation-roots-v47-20261005", apply: migrateSkillCurationRoots},
 }
 
 func migrateAuthPhoneUniqueIndex(tx *gorm.DB) error {

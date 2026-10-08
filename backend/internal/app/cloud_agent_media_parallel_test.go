@@ -147,7 +147,11 @@ func TestCloudAgentParallelMediaCapacityRecoveryAndResults(t *testing.T) {
 					t.Fatalf("result crossed nodes or duplicated: %d %+v %+v", i, meta, results)
 				}
 			}
-			if !state.Canonical.ParallelToolCalls || canonicalAgentChatBody(&state.Canonical, false)["parallel_tool_calls"] != true || canonicalAgentResponsesBody(&state.Canonical)["parallel_tool_calls"] != true {
+			responses, err := canonicalAgentResponsesBody(&state.Canonical)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !state.Canonical.ParallelToolCalls || canonicalAgentChatBody(&state.Canonical, false)["parallel_tool_calls"] != true || responses["parallel_tool_calls"] != true {
 				t.Fatal("upstream still disables parallel calls")
 			}
 		})

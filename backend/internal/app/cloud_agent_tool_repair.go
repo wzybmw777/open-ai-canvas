@@ -27,7 +27,8 @@ func cloudAgentRetryReceipt(groupID string, attempt int, status string) map[stri
 }
 
 // Count per tool, not per model step: intervening reads must not reset a failed
-// write's allowance. Only explicitly typed, pre-execution errors are repairable.
+// write's allowance. Only explicitly typed argument errors and safe, pre-submission
+// transient admission errors are repairable.
 func cloudAgentTrackToolRepair(runID string, state *cloudAgentRuntime, call cloudAgentCall, result any, err error, payload map[string]any) bool {
 	previous, exists := state.ToolRepairs[call.Function.Name]
 	if err == nil {
@@ -39,9 +40,12 @@ func cloudAgentTrackToolRepair(runID string, state *cloudAgentRuntime, call clou
 	}
 	detail, _ := result.(map[string]any)
 	var argumentErr *cloudAgentArgumentError
+	argumentRepairable := errors.As(err, &argumentErr)
+	var admissionErr *cloudAgentMediaAdmissionError
+	admissionRepairable := errors.As(err, &admissionErr) && admissionErr.Retryable && detail["phase"] == "admission" && detail["taskSubmitted"] != true
 	retryable, _ := detail["retryable"].(bool)
 	stateConflict := detail["errorClass"] == cloudAgentToolErrorStateConflict && retryable
-	if (!errors.As(err, &argumentErr) && !stateConflict) || detail["taskSubmitted"] == true || detail["phase"] == "completion" {
+	if (!argumentRepairable && !admissionRepairable && !stateConflict) || detail["taskSubmitted"] == true || detail["phase"] == "completion" {
 		return false
 	}
 	if state.ToolRepairs == nil {

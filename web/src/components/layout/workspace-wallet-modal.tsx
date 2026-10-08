@@ -10,6 +10,7 @@ import { closePaymentOrder, createPaymentOrder, getExternalTopupShop, getPayment
 import { getWallet, redeemCredits, type CreditLedgerEntry, type WalletSummary } from "@/services/api/wallet";
 import { cn } from "@/lib/utils";
 import { openWorkspaceWallet, WORKSPACE_WALLET_OPEN_EVENT, type WorkspaceWalletOpenDetail } from "@/lib/workspace-wallet";
+import { useAppearanceStore } from "@/stores/use-appearance-store";
 import { useUserStore } from "@/stores/use-user-store";
 import { localizedErrorMessage, useLocaleText } from "@/lib/i18n";
 
@@ -66,6 +67,7 @@ export function WorkspaceWalletHost() {
 export function WorkspaceWalletModal({ open, onClose, pendingPaymentOrderId, paymentInvalid }: { open: boolean; onClose: () => void; pendingPaymentOrderId?: string; paymentInvalid?: boolean }) {
     const { message } = App.useApp();
     const { locale, text } = useLocaleText();
+    const redeemPurchaseUrl = useAppearanceStore((state) => state.appearance.redeemPurchaseUrl);
     const [tab, setTab] = useState<WalletModalTab>("topup");
     const [wallet, setWallet] = useState<WalletSummary | null>(null);
     const [walletLoading, setWalletLoading] = useState(false);
@@ -371,7 +373,20 @@ export function WorkspaceWalletModal({ open, onClose, pendingPaymentOrderId, pay
                     ) : tab === "redeem" ? (
                         <div className="workspace-wallet-content is-redeem">
                             <section className="workspace-wallet-section is-redeem">
-                                <div className="workspace-wallet-section-heading"><div><h3>{text("兑换码", "Redemption code")}</h3><p>{text("输入兑换码，将积分存入当前账户。", "Enter a code to add credits to your account.")}</p></div><TicketCheck /></div>
+                                <div className="workspace-wallet-section-heading">
+                                    <div>
+                                        <h3>{text("兑换码", "Redemption code")}</h3>
+                                        <p>
+                                            {text("购买后请复制卡密，返回此处兑换。", "After purchasing, copy the code and redeem it here.")}
+                                            {redeemPurchaseUrl ? (
+                                                <a className="workspace-wallet-redeem-link" href={redeemPurchaseUrl} target="_blank" rel="noopener noreferrer">
+                                                    {text("获取兑换码", "Get a redemption code")}
+                                                </a>
+                                            ) : null}
+                                        </p>
+                                    </div>
+                                    <TicketCheck />
+                                </div>
                                 <div className="workspace-wallet-redeem-row">
                                     <Input size="large" value={code} maxLength={32} placeholder={text("输入 32 位兑换码", "Enter 32-character code")} onChange={(event) => setCode(event.target.value.replace(/\s/g, ""))} onPressEnter={() => void redeem()} />
                                     <Button size="large" loading={redeeming} disabled={code.trim().length !== 32} onClick={() => void redeem()}>{text("确认兑换", "Redeem")}</Button>

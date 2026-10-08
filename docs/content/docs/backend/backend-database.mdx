@@ -5,6 +5,18 @@ description: 影策后端核心持久化表与状态边界
 
 # 后端数据库
 
+## 分片上传预留
+
+Schema 45 新增 `upload_reservations`：`id`、`user_id`、`size`、`day`、`expires_at`。创建会话时在数据库事务内检查并行会话数、现有资源容量、未到期预留和每日上传用量，更新既有 `user_daily_upload_usages` 后插入预留。SQLite 先取得写锁，PostgreSQL 使用账号级事务 advisory lock。
+
+资源变为 ready 与删除对应预留在同一事务中提交；普通资源上传及生成结果的容量提交也使用同一锁，并计入分片预留。沿用 `UserStoredFileBytes` 的 ready 物理对象去重口径，不改变容量配置。跨 UTC 日期完成时重新预留当天日额度并释放原日额度，失败则整体回滚。
+
+预留有效期 90 分钟。失败或会话删除时释放原日额度；再次创建该账号会话时清理已到期预留。进程重启不批量删除其他实例的预留。分片文件与路由会话仍在本机，需要粘性路由；崩溃后的残片需要部署侧临时目录清理策略，未增加跨实例文件恢复或启动时全局清扫。
+
+## 更新公告配置
+
+外观 JSON 合同版本 10 新增 `updates`：`enabled`、`currentVersion`、`releases`。每个版本保存 `id/version/title/date/blocks`，内容块保存 `id/type/text/resourceId/caption/layout`；公共媒体 URL 由服务端按当前引用生成，不保存客户端 URL。关闭开关保留公告和资源引用，只关闭公共展示。不增加数据库表或 schema 迁移。
+
 ## 画布 Agent 外观配置
 
 `system_settings` 的 `appearance` JSON 合同版本 9 新增 `canvas`：助手名称、入口标签、面板标题、欢迎文案、输入提示、`avatarType`（`orb|live2d`）、`avatarHeight`（120–360）、`live2dResourceId` 和服务端确认的 `live2dEntry`。独立于站点品牌；缺失时读取内置画布默认值。不新增数据库结构迁移，不改变全局 schema 版本。
@@ -19,13 +31,15 @@ description: 影策后端核心持久化表与状态边界
 
 ## 结构迁移与版本
 
-当前结构版本为 44。版本 41 和 42 已有三种历史路径：本地路径依次为 `auth_phone_unique_index`、`resource_thumbnail`；远端路径依次为 `resource_thumbnail`、`cloud_agent_pi_sessions`；此前合并路径依次为 `resource_thumbnail`、`auth_phone_unique_index`。升级时按原名称与校验和验证已有记录，不改写历史；版本 43 和 44 补齐各路径缺少的手机号唯一索引、Pi 会话表或充值商品发售策略。上游已在版本 43 应用 `topup_sale_strategies` 的数据库，版本 44 补手机号索引；本地版本 43 为 Pi 会话表的数据库，版本 44 补发售策略。`resource_thumbnail` 为 `resources` 增加缩略图状态、MIME、大小和宽高字段；手机号索引仅覆盖非空手机号，若已有重复值，升级会失败，需先核查数据。`cloud_agent_pi_sessions` 按运行 ID 保存 Pi 原生 JSONL 会话快照、用户 ID、乐观并发 revision 和更新时间；Go 将会话正文作为不透明快照读写，不替代控制检查点、事件日志或任务记录。`topup_sale_strategies` 为充值商品及订单增加发售时间、库存和周期限购配置与快照。
+版本 45 `upload_reservations` 增加分片上传容量预留；版本 46 `skill_curation` 增加平台技能子分类及指派；版本 47 `skill_curation_roots` 增加一级分类及技能根分类指派。新增迁移接续现有历史，不改写本地已部署的 41–44 版本记录。技能分类的数据表与 API 见[平台技能策展](/docs/backend/skill-curation)。
+
+当前结构版本为 47。版本 41 和 42 已有三种历史路径：本地路径依次为 `auth_phone_unique_index`、`resource_thumbnail`；远端路径依次为 `resource_thumbnail`、`cloud_agent_pi_sessions`；此前合并路径依次为 `resource_thumbnail`、`auth_phone_unique_index`。升级时按原名称与校验和验证已有记录，不改写历史；版本 43 和 44 补齐各路径缺少的手机号唯一索引、Pi 会话表或充值商品发售策略。上游已在版本 43 应用 `topup_sale_strategies` 的数据库，版本 44 补手机号索引；本地版本 43 为 Pi 会话表的数据库，版本 44 补发售策略。`resource_thumbnail` 为 `resources` 增加缩略图状态、MIME、大小和宽高字段；手机号索引仅覆盖非空手机号，若已有重复值，升级会失败，需先核查数据。`cloud_agent_pi_sessions` 按运行 ID 保存 Pi 原生 JSONL 会话快照、用户 ID、乐观并发 revision 和更新时间；Go 将会话正文作为不透明快照读写，不替代控制检查点、事件日志或任务记录。`topup_sale_strategies` 为充值商品及订单增加发售时间、库存和周期限购配置与快照。
 
 版本 40 `builtin_skill_tombstones` 新增内置技能删除记录，管理员删除平台技能后，后续启动同步不会重新创建该技能；版本 39 `skill_library_categories` 新增 `skill_library_categories` 表，并为 `user_skill_states` 增加 `library_category_id`，保存个人技能库分类及每个用户对技能的归类；分类不改变 `skills.tag` 的技能广场共享分类。版本 38 `prefixed_id_sequence_reconcile` 创建（若缺失）并校准 `id_sequences`：`CHANNEL`、`MODEL`、`PTIER`、`ATTEMPT`、`LMODEL`、`REVISION`、`ROUTE` 按对应业务表的最大有效 ID 前移，包含软删除记录，不回退已有序列、不重写业务 ID。分配新 ID 时再次校准并检查冲突；SQLite → PostgreSQL 迁移完成后也校准序列。
 
 版本 36 `cloud_agent_gemini_cache` 创建 `cloud_agent_gemini_caches`，保存用户范围内的官方 Gemini 缓存元数据；版本 37 `cloud_agent_gemini_cache_identity` 将缓存标识约束修正为 `(user_id, cache_key)`，移除旧的全局 cache_key 唯一索引。版本 35 `auth_notifications` 为认证通知与组合验证补齐 `auth_verifications`、`notification_quotas`、`sms_channels`、`sms_records` 四张表，并为 `users` 增加 `phone`、`email_verified_at`、`phone_verified_at`，为 `email_verification_codes` 增加 `attempts`；同时创建非空手机号唯一索引。版本 34 `task_media_recovery` 为 `tasks` 增加 `media_recovery_json`（text）和 `media_stage`（最长 24 字）。版本 33 `oauth_state_accepted_terms` 为 `o_auth_states` 增加非空布尔列 `accepted_terms`，默认 `false`，不替历史流程补造同意记录。
 
-升级前备份，按既有流程执行 `migrate-schema up` 和 `verify` 后再启动新后端。旧版本二进制不支持版本 44，回退需恢复匹配的数据库备份，并评估备份之后的新写入；不能只切回旧镜像。关闭自动迁移的生产环境必须运行正式迁移；手工改表不能更新 `schema_migrations` 的版本与校验和记录。
+升级前备份，按既有流程执行 `migrate-schema up` 和 `verify` 后再启动新后端。旧版本二进制不支持版本 47，回退需恢复匹配的数据库备份，并评估备份之后的新写入；不能只切回旧镜像。关闭自动迁移的生产环境必须运行正式迁移；手工改表不能更新 `schema_migrations` 的版本与校验和记录。
 
 ### 生成成功后的作品保存恢复
 
@@ -309,3 +323,9 @@ Schema 32 为 `channel_models` 新增 `tags`（TEXT、NOT NULL、默认 `'[]'`�
 - 启动幂等装载 87 个预设（风格 45、运镜 33、九宫格 9），不下载第三方媒体。显式 ID 与用户工具冲突时启动报错，不覆盖用户数据；PostgreSQL 同步自增序列。
 - 工具预览纳入资源引用检查；自定义预览必须是当前用户已上传完成的资源。公开工具暂不接受私人预览资源。
 - SQLite → PostgreSQL 迁移包含上述两表。首次启动前备份测试数据；回退旧代码不能视为数据库降级，应使用备份恢复，不手工重写迁移记录。
+
+## 可选技能策展
+
+迁移 46 新增 skill_curation_settings、skill_curation_categories、skill_curation_assignments；默认关闭，不导入技能内容。表结构与事务规则见 [平台技能策展](./skill-curation)。
+
+迁移 47 依赖 46，新增 skill_curation_roots 与 skill_curation_root_assignments；保留原五个根 ID，根停用时使用派生默认桶，根表为空回落固定五类。
