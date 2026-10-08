@@ -18,7 +18,7 @@ func skillSearchTestSkills() []cloudAgentSkill {
 }
 
 func TestCloudAgentPolicyRegistersSkillSearchAlongsideReadFile(t *testing.T) {
-	req := CloudAgentRequest{SkillIDs: []string{"s1"}}
+	req := CloudAgentRequest{PermissionMode: "read_only", SkillIDs: []string{"s1"}}
 	names := map[string]bool{}
 	for _, tool := range cloudAgentTools(req) {
 		fn, ok := tool["function"].(map[string]any)
@@ -37,7 +37,7 @@ func TestCloudAgentPolicyRegistersSkillSearchAlongsideReadFile(t *testing.T) {
 		t.Fatalf("skill tools not registered together: %v", names)
 	}
 	// 无技能时两个工具都不该出现
-	for _, tool := range cloudAgentTools(CloudAgentRequest{}) {
+	for _, tool := range cloudAgentTools(CloudAgentRequest{PermissionMode: "read_only"}) {
 		fn := tool["function"].(map[string]any)
 		if fn["name"] == "skill_search" || fn["name"] == "skill_read_file" {
 			t.Fatalf("skill tool leaked without skills: %v", fn["name"])

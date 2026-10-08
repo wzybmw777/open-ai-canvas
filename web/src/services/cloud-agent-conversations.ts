@@ -59,7 +59,14 @@ export async function loadCloudAgentConversations(canvasId: string): Promise<Clo
         throw new Error("Agent 对话历史已损坏");
     }
     if (!isConversationDocument(parsed)) throw new Error("Agent 对话历史格式无效");
-    return parsed;
+    return {
+        ...parsed,
+        conversations: parsed.conversations.map((conversation) => ({
+            ...conversation,
+            permissionMode: ["read_only", "auto", "request_approval"].includes(conversation.permissionMode)
+                ? conversation.permissionMode : "request_approval",
+        })),
+    };
 }
 
 export async function saveCloudAgentConversations(canvasId: string, activeId: string | null, conversations: CloudAgentConversation[]) {
@@ -138,6 +145,6 @@ function isConversationDocument(value: unknown): value is CloudAgentConversation
             && Array.isArray(candidate.messages)
             && typeof candidate.createdAt === "string"
             && typeof candidate.updatedAt === "string"
-            && ["read_only", "auto", "request_approval", "full_access"].includes(candidate.permissionMode || "");
+            && typeof candidate.permissionMode === "string";
     });
 }

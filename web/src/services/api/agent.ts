@@ -1,7 +1,7 @@
 import { http, apiBaseURL } from "@/services/api/request";
 import { consumeTaskTextStream, createTaskTextStreamParser } from "@/services/api/task-text-stream";
 
-export type AgentPermissionMode = "read_only" | "auto" | "request_approval" | "full_access";
+export type AgentPermissionMode = "read_only" | "auto" | "request_approval";
 export type AgentReasoningMode = "off" | "auto" | "deep";
 export type AgentMediaSettings = {
     logicalModelId?: string;
@@ -65,7 +65,8 @@ export type AgentRun = {
     id: string;
     canvasId: string;
     status: "queued" | "running" | "waiting_approval" | "completed" | "failed" | "cancelled" | "rejected";
-    permissionMode: AgentPermissionMode;
+    /** Frozen historical runs can contain a retired permission value. */
+    permissionMode: string;
     revision?: number;
     cleanupPending?: boolean;
     failureMessage?: string;

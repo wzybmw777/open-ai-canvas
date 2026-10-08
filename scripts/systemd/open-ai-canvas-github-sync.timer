@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily GitHub source upload at midnight Beijing time
+
+[Timer]
+OnCalendar=*-*-* 00:00:00 Asia/Shanghai
+AccuracySec=1s
+RandomizedDelaySec=0
+Persistent=true
+Unit=open-ai-canvas-github-sync.service
+
+[Install]
+WantedBy=timers.target

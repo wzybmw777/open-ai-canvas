@@ -11,7 +11,7 @@ import (
 
 func TestCloudAgentMutationResultReportsSavedChanges(t *testing.T) {
 	for _, tool := range []string{"canvas_apply_ops", "canvas_create_storyboard", "canvas_edit_storyboard", "canvas_edit_batch_table"} {
-		for _, mode := range []string{"auto", "request_approval", "full_access"} {
+		for _, mode := range []string{"auto", "request_approval"} {
 			t.Run(tool+"/"+mode, func(t *testing.T) {
 				var s *Service
 				var canvas *model.CanvasProject

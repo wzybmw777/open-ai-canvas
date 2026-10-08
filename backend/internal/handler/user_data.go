@@ -19,6 +19,7 @@ import (
 )
 
 func RegisterUserDataRoutes(r *gin.RouterGroup, svc *service.Service) {
+	RegisterTheatreRoutes(r, svc)
 	r.POST("/resources/access", func(c *gin.Context) {
 		user, err := currentUser(c, svc)
 		if err != nil {

@@ -5,6 +5,14 @@ description: 影策后端核心持久化表与状态边界
 
 # 后端数据库
 
+## 卓越剧场作品
+
+Schema 48 `theatre_works` 新增剧场作品表：`id`（主键）、`user_id`（作者索引）、`resource_id`（唯一索引）、`title`（最长 120 字）、`description`（text）、`created_at`（排序索引）、`updated_at`。Schema 49 增加 `cover_resource_id`（封面资源索引，非空字段默认空字符串表示未设置封面）。Schema 50 增加 `kind`（索引，默认 `video`，短剧为 `short_drama`）、`is_complete`（默认 false），原视频与封面保持不变。`resource_id` 指向普通视频或短剧当前首集，同一预览资源只对应一个作品；封面引用作者的图片资源，作者展示名、视频大小与时长由现有 `users`、`resources` 查询，不复制存储凭据或媒体 URL。
+
+Schema 50 新增 `theatre_episodes`：`id`（主键）、`work_id`、`resource_id`（资源索引）、`number`、`title`（最长 120 字）、`created_at`、`updated_at`。`(work_id, number)` 为唯一索引，集数连续为 1–200；作者归属由父作品确定。分集调整在事务中替换，按资源保留已有分集 ID 和创建时间，并用父作品 `updated_at` 拒绝过期编辑。SQLite → PostgreSQL 迁移工具同时包含父作品和分集表。
+
+发布或编辑分集时按 ID 顺序锁定作者的视频与封面资源，并在事务中登记引用；更换封面时锁定新图片资源，防止与后台无引用资源清理竞态。下架事务删除作品和分集条目，保留资源；已发布视频、所有分集及当前封面参与素材删除、管理员资源删除与后台清理的引用保护。前后端一起发布，关闭自动迁移的部署需先执行正式迁移至 schema 50。
+
 ## 分片上传预留
 
 Schema 45 新增 `upload_reservations`：`id`、`user_id`、`size`、`day`、`expires_at`。创建会话时在数据库事务内检查并行会话数、现有资源容量、未到期预留和每日上传用量，更新既有 `user_daily_upload_usages` 后插入预留。SQLite 先取得写锁，PostgreSQL 使用账号级事务 advisory lock。
@@ -33,13 +41,13 @@ Schema 45 新增 `upload_reservations`：`id`、`user_id`、`size`、`day`、`ex
 
 版本 45 `upload_reservations` 增加分片上传容量预留；版本 46 `skill_curation` 增加平台技能子分类及指派；版本 47 `skill_curation_roots` 增加一级分类及技能根分类指派。新增迁移接续现有历史，不改写本地已部署的 41–44 版本记录。技能分类的数据表与 API 见[平台技能策展](/docs/backend/skill-curation)。
 
-当前结构版本为 47。版本 41 和 42 已有三种历史路径：本地路径依次为 `auth_phone_unique_index`、`resource_thumbnail`；远端路径依次为 `resource_thumbnail`、`cloud_agent_pi_sessions`；此前合并路径依次为 `resource_thumbnail`、`auth_phone_unique_index`。升级时按原名称与校验和验证已有记录，不改写历史；版本 43 和 44 补齐各路径缺少的手机号唯一索引、Pi 会话表或充值商品发售策略。上游已在版本 43 应用 `topup_sale_strategies` 的数据库，版本 44 补手机号索引；本地版本 43 为 Pi 会话表的数据库，版本 44 补发售策略。`resource_thumbnail` 为 `resources` 增加缩略图状态、MIME、大小和宽高字段；手机号索引仅覆盖非空手机号，若已有重复值，升级会失败，需先核查数据。`cloud_agent_pi_sessions` 按运行 ID 保存 Pi 原生 JSONL 会话快照、用户 ID、乐观并发 revision 和更新时间；Go 将会话正文作为不透明快照读写，不替代控制检查点、事件日志或任务记录。`topup_sale_strategies` 为充值商品及订单增加发售时间、库存和周期限购配置与快照。
+当前结构版本为 50。版本 41 和 42 已有三种历史路径：本地路径依次为 `auth_phone_unique_index`、`resource_thumbnail`；远端路径依次为 `resource_thumbnail`、`cloud_agent_pi_sessions`；此前合并路径依次为 `resource_thumbnail`、`auth_phone_unique_index`。升级时按原名称与校验和验证已有记录，不改写历史；版本 43 和 44 补齐各路径缺少的手机号唯一索引、Pi 会话表或充值商品发售策略。上游已在版本 43 应用 `topup_sale_strategies` 的数据库，版本 44 补手机号索引；本地版本 43 为 Pi 会话表的数据库，版本 44 补发售策略。`resource_thumbnail` 为 `resources` 增加缩略图状态、MIME、大小和宽高字段；手机号索引仅覆盖非空手机号，若已有重复值，升级会失败，需先核查数据。`cloud_agent_pi_sessions` 按运行 ID 保存 Pi 原生 JSONL 会话快照、用户 ID、乐观并发 revision 和更新时间；Go 将会话正文作为不透明快照读写，不替代控制检查点、事件日志或任务记录。`topup_sale_strategies` 为充值商品及订单增加发售时间、库存和周期限购配置与快照。
 
 版本 40 `builtin_skill_tombstones` 新增内置技能删除记录，管理员删除平台技能后，后续启动同步不会重新创建该技能；版本 39 `skill_library_categories` 新增 `skill_library_categories` 表，并为 `user_skill_states` 增加 `library_category_id`，保存个人技能库分类及每个用户对技能的归类；分类不改变 `skills.tag` 的技能广场共享分类。版本 38 `prefixed_id_sequence_reconcile` 创建（若缺失）并校准 `id_sequences`：`CHANNEL`、`MODEL`、`PTIER`、`ATTEMPT`、`LMODEL`、`REVISION`、`ROUTE` 按对应业务表的最大有效 ID 前移，包含软删除记录，不回退已有序列、不重写业务 ID。分配新 ID 时再次校准并检查冲突；SQLite → PostgreSQL 迁移完成后也校准序列。
 
 版本 36 `cloud_agent_gemini_cache` 创建 `cloud_agent_gemini_caches`，保存用户范围内的官方 Gemini 缓存元数据；版本 37 `cloud_agent_gemini_cache_identity` 将缓存标识约束修正为 `(user_id, cache_key)`，移除旧的全局 cache_key 唯一索引。版本 35 `auth_notifications` 为认证通知与组合验证补齐 `auth_verifications`、`notification_quotas`、`sms_channels`、`sms_records` 四张表，并为 `users` 增加 `phone`、`email_verified_at`、`phone_verified_at`，为 `email_verification_codes` 增加 `attempts`；同时创建非空手机号唯一索引。版本 34 `task_media_recovery` 为 `tasks` 增加 `media_recovery_json`（text）和 `media_stage`（最长 24 字）。版本 33 `oauth_state_accepted_terms` 为 `o_auth_states` 增加非空布尔列 `accepted_terms`，默认 `false`，不替历史流程补造同意记录。
 
-升级前备份，按既有流程执行 `migrate-schema up` 和 `verify` 后再启动新后端。旧版本二进制不支持版本 47，回退需恢复匹配的数据库备份，并评估备份之后的新写入；不能只切回旧镜像。关闭自动迁移的生产环境必须运行正式迁移；手工改表不能更新 `schema_migrations` 的版本与校验和记录。
+升级前备份，按既有流程执行 `migrate-schema up` 和 `verify` 后再启动新后端。旧版本二进制不支持版本 50，回退需恢复匹配的数据库备份，并评估备份之后的新写入；不能只切回旧镜像。关闭自动迁移的生产环境必须运行正式迁移；手工改表不能更新 `schema_migrations` 的版本与校验和记录。
 
 ### 生成成功后的作品保存恢复
 

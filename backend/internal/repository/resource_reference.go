@@ -132,6 +132,30 @@ func (r *Repository) ResourceReferenceSnapshotExcludingAssets(userID string, exc
 		return snapshot, err
 	}
 	snapshot.Direct = append(snapshot.Direct, history...)
+	var theatreWorks []model.TheatreWork
+	if err := r.db.Where("user_id = ? AND (resource_id IN ? OR cover_resource_id IN ?)", userID, resourceIDs, resourceIDs).Find(&theatreWorks).Error; err != nil {
+		return snapshot, err
+	}
+	for _, work := range theatreWorks {
+		if slices.Contains(resourceIDs, work.ResourceID) {
+			snapshot.Direct = append(snapshot.Direct, ResourceDirectReference{Kind: "卓越剧场", ID: work.ID, Title: work.Title, ResourceID: work.ResourceID})
+		}
+		if work.CoverResourceID != "" && slices.Contains(resourceIDs, work.CoverResourceID) {
+			snapshot.Direct = append(snapshot.Direct, ResourceDirectReference{Kind: "卓越剧场封面", ID: work.ID, Title: work.Title, ResourceID: work.CoverResourceID})
+		}
+	}
+	var dramaEpisodes []struct {
+		model.TheatreEpisode
+		WorkTitle string
+	}
+	if err := r.db.Table("theatre_episodes").Select("theatre_episodes.*, theatre_works.title AS work_title").
+		Joins("JOIN theatre_works ON theatre_works.id = theatre_episodes.work_id").
+		Where("theatre_works.user_id = ? AND theatre_episodes.resource_id IN ?", userID, resourceIDs).Scan(&dramaEpisodes).Error; err != nil {
+		return snapshot, err
+	}
+	for _, episode := range dramaEpisodes {
+		snapshot.Direct = append(snapshot.Direct, ResourceDirectReference{Kind: "卓越短剧", ID: episode.ID, Title: episode.WorkTitle + " · 第" + strconv.Itoa(episode.Number) + "集", ResourceID: episode.ResourceID})
+	}
 	var leases []model.CloudAgentResourceLease
 	if err := r.db.Where("user_id = ? AND resource_id IN ? AND expires_at > ?", userID, resourceIDs, time.Now()).Find(&leases).Error; err != nil {
 		return snapshot, err
@@ -418,17 +442,32 @@ func (r *Repository) DeleteAssetsAndResources(userID string, assetIDs []string, 
 		if len(assetIDs) == 0 || len(ownedAssets) != len(assetIDs) {
 			return gorm.ErrRecordNotFound
 		}
+		if len(resourceIDs) > 0 {
+			if r.Dialect() == "postgres" {
+				var resources []model.Resource
+				if err := tx.Where("id IN ?", resourceIDs).Order("id").Clauses(clause.Locking{Strength: "UPDATE"}).Find(&resources).Error; err != nil {
+					return err
+				}
+			}
+			var theatreCount int64
+			if err := tx.Model(&model.TheatreWork{}).Where("resource_id IN ? OR cover_resource_id IN ?", resourceIDs, resourceIDs).Count(&theatreCount).Error; err != nil {
+				return err
+			}
+			if theatreCount > 0 {
+				return ErrResourceCleanupStillReferenced
+			}
+			if err := tx.Model(&model.TheatreEpisode{}).Where("resource_id IN ?", resourceIDs).Count(&theatreCount).Error; err != nil {
+				return err
+			}
+			if theatreCount > 0 {
+				return ErrResourceCleanupStillReferenced
+			}
+		}
 		if deleteReferencedResources {
 			// 彻底删除：移除被删资源的画布历史索引，让删除 worker 可以释放物理对象；
 			// 历史快照正文保留，恢复该版本时由画布断链修复处理失效媒体。
 			if len(resourceIDs) > 0 {
-				// 与历史快照写入串行化，避免清除索引后又插入外键引用。
-				if r.Dialect() == "postgres" {
-					var resources []model.Resource
-					if err := tx.Select("id").Where("id IN ?", resourceIDs).Order("id").Clauses(clause.Locking{Strength: "UPDATE"}).Find(&resources).Error; err != nil {
-						return err
-					}
-				}
+				// 前面已锁定资源，与历史快照及剧场发布串行化。
 				if err := tx.Where("resource_id IN ?", resourceIDs).Delete(&model.CanvasSnapshotResource{}).Error; err != nil {
 					return err
 				}

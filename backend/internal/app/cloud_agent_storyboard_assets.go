@@ -31,7 +31,7 @@ type cloudAgentStoryboardBindingsArgs struct {
 
 func cloudAgentStoryboardBindingsSchema() map[string]any {
 	binding := map[string]any{"type": "object", "additionalProperties": false, "required": []string{"nodeId", "role", "priority"}, "properties": map[string]any{
-		"nodeId":   map[string]any{"type": "string", "description": "当前画布内已保存且就绪的图片、视频或音频资产节点 ID"},
+		"nodeId":   map[string]any{"type": "string", "description": "当前画布内已保存且就绪的图片、视频、音频资产或角色卡节点 ID；角色卡须具备可用的形象引用"},
 		"role":     map[string]any{"type": "string", "enum": cloudAgentStoryboardAssetRoles},
 		"priority": map[string]any{"type": "integer", "minimum": 0, "maximum": 100},
 	}}
@@ -137,7 +137,7 @@ func prepareCloudAgentStoryboardBindings(repo *repository.Repository, userID, ca
 			if asset == nil || binding.NodeID == args.NodeID {
 				return nil, BadAuthRequest("关联资产必须是当前画布中的媒体节点")
 			}
-			if _, _, err := cloudAgentReference(repo, userID, asset); err != nil {
+			if _, _, err := cloudAgentMediaReference(repo, userID, canvas.ProjectID, asset); err != nil {
 				return nil, err
 			}
 		}

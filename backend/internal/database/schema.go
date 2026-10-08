@@ -75,6 +75,8 @@ func Models() []any {
 		&model.Tool{},
 		&model.ToolFavorite{},
 		&model.Resource{},
+		&model.TheatreWork{},
+		&model.TheatreEpisode{},
 		&model.ResourceDeletionJob{},
 		&model.AnnouncementImageDraft{},
 		&model.Asset{},

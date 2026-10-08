@@ -1,5 +1,6 @@
 const workspaceRouteLoaders = {
     assets: () => import("@/pages/assets"),
+    theatre: () => import("@/pages/theatre"),
     canvas: () => import("@/pages/canvas"),
     create: () => import("@/pages/create"),
     projects: () => import("@/pages/projects"),
@@ -7,6 +8,7 @@ const workspaceRouteLoaders = {
 };
 
 export const loadAssetsPage = workspaceRouteLoaders.assets;
+export const loadTheatrePage = workspaceRouteLoaders.theatre;
 export const loadCanvasPage = workspaceRouteLoaders.canvas;
 export const loadCanvasProjectPage = () => import("@/pages/canvas/project");
 export const loadCreatePage = workspaceRouteLoaders.create;

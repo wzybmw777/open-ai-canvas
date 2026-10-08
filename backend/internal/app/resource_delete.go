@@ -48,7 +48,7 @@ func (s *Service) deleteUserAssetsWithResources(userID string, ids []string, pur
 	//     不因画布、任务、项目或画布历史快照仍引用而拒绝；旧引用随之失效，画布保存时由
 	//     repairMissingResources 修复断链。
 	//   - purge=false 是内部普通删除：回收站（archived）素材同样直接删除，其余素材保留引用保护。
-	//   - 无论哪种，被其他素材复用的资源与物理对象都保留，物理删除一律经 Outbox 异步执行。
+	//   - 无论哪种，被其他素材复用的资源与物理对象都保留；已发布剧场作品须先下架，物理删除一律经 Outbox 异步执行。
 	deleteReferencedResources := purge
 	if !purge {
 		if len(assetRecords) != 1 {
@@ -193,6 +193,9 @@ func (s *Service) deleteUserAssetsWithResources(userID string, ids []string, pur
 		}
 		if errors.Is(err, repository.ErrCanvasHistoryResourceReferenced) {
 			return BadAuthRequest("素材仍被画布历史版本引用，已保留文件")
+		}
+		if errors.Is(err, repository.ErrResourceCleanupStillReferenced) {
+			return BadAuthRequest("视频仍被卓越剧场作品引用，请先下架作品")
 		}
 		return fmt.Errorf("素材记录删除失败，请重试：%w", err)
 	}

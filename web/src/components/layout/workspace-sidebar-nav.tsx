@@ -49,6 +49,7 @@ function buildNav(features: FeatureAvailability, locale: AppLocale): { groups: W
                 { ...toolItem("create", "/"), id: "home", title: text("创作", "Create") },
                 { ...toolItem("projects", "/projects"), title: "短剧 Agent" },
                 { ...toolItem("canvas", "/canvas"), title: text("自由画布", "Canvas") },
+                { ...toolItem("theatre", "/theatre"), title: text("卓越剧场", "Excellence Theatre") },
             ],
         },
         {

@@ -97,7 +97,7 @@ func completeParallelTask(t *testing.T, db *gorm.DB, task model.Task, mode strin
 func TestCloudAgentParallelMediaCapacityRecoveryAndResults(t *testing.T) {
 	for _, mode := range []string{"image", "video"} {
 		t.Run(mode, func(t *testing.T) {
-			s, db, id := agentParallelFixture(t, 5, "full_access", mode)
+			s, db, id := agentParallelFixture(t, 5, "auto", mode)
 			advanceAgentParallel(t, s, id, 18)
 			tasks := agentParallelTasks(t, s, id)
 			if len(tasks) != 4 {
@@ -191,7 +191,7 @@ func TestCloudAgentParallelMediaApprovalKeepsCollecting(t *testing.T) {
 func TestCloudAgentParallelMediaCancellationIncludesAllChildren(t *testing.T) {
 	for _, corrupt := range []bool{false, true} {
 		t.Run(fmt.Sprint(corrupt), func(t *testing.T) {
-			s, db, id := agentParallelFixture(t, 4, "full_access", "video")
+			s, db, id := agentParallelFixture(t, 4, "auto", "video")
 			advanceAgentParallel(t, s, id, 14)
 			if len(agentParallelTasks(t, s, id)) != 4 {
 				t.Fatal("missing concurrent tasks")
@@ -228,7 +228,7 @@ func TestCloudAgentParallelMediaCancellationIncludesAllChildren(t *testing.T) {
 func TestCloudAgentParallelMediaDependenciesWait(t *testing.T) {
 	for _, dependency := range []string{"target", "reference", "non_media"} {
 		t.Run(dependency, func(t *testing.T) {
-			s, db, id := agentParallelFixture(t, 2, "full_access", "image")
+			s, db, id := agentParallelFixture(t, 2, "auto", "image")
 			run, state := agentInterjectionState(t, s, id)
 			args, _ := cloudAgentParallelMediaArgs(state.Calls[1])
 			switch dependency {
@@ -265,8 +265,8 @@ func TestCloudAgentParallelMediaDependenciesWait(t *testing.T) {
 func TestCloudAgentParallelMediaBudgetsIncludeInFlightTasks(t *testing.T) {
 	for _, budget := range []string{"count", "seconds", "credits"} {
 		t.Run(budget, func(t *testing.T) {
-			s, _, id := agentParallelFixture(t, 3, "full_access", "video")
-			advanceAgentParallel(t, s, id, 5)
+			s, _, id := agentParallelFixture(t, 3, "auto", "video")
+			advanceAgentParallel(t, s, id, 3)
 			if len(agentParallelTasks(t, s, id)) != 2 {
 				t.Fatal("expected two in-flight reservations")
 			}
@@ -305,12 +305,12 @@ func TestCloudAgentParallelMediaBudgetsIncludeInFlightTasks(t *testing.T) {
 }
 
 func TestCloudAgentParallelMediaConcurrentAdmissionUsesOneReservation(t *testing.T) {
-	s, _, id := agentParallelFixture(t, 2, "full_access", "video")
-	advanceAgentParallel(t, s, id, 4)
+	s, _, id := agentParallelFixture(t, 2, "auto", "video")
+	advanceAgentParallel(t, s, id, 2)
 	run, first := agentInterjectionState(t, s, id)
 	_, second := agentInterjectionState(t, s, id)
-	if first.Approval == nil || first.CallIndex != 1 {
-		t.Fatal("second call is not prepared")
+	if first.Approval != nil || first.CallIndex != 1 || first.MediaTaskID != "" || len(first.PendingMedia) != 1 {
+		t.Fatal("second automatic call is not ready for admission")
 	}
 	if err := s.advanceCloudAgentTool(run, &first); err != nil {
 		t.Fatal(err)
@@ -330,7 +330,7 @@ func TestCloudAgentParallelMediaConcurrentAdmissionUsesOneReservation(t *testing
 }
 
 func TestCloudAgentParallelMediaFailureDoesNotRetryOrLoseSiblings(t *testing.T) {
-	s, db, id := agentParallelFixture(t, 3, "full_access", "video")
+	s, db, id := agentParallelFixture(t, 3, "auto", "video")
 	advanceAgentParallel(t, s, id, 9)
 	tasks := agentParallelTasks(t, s, id)
 	if len(tasks) != 3 {
@@ -365,7 +365,7 @@ func TestCloudAgentParallelMediaFailureDoesNotRetryOrLoseSiblings(t *testing.T) 
 func TestCloudAgentParallelMediaSnapshotChainIncludesCompletions(t *testing.T) {
 	for _, mediaHash := range []bool{false, true} {
 		t.Run(fmt.Sprint(mediaHash), func(t *testing.T) {
-			s, db, id := agentParallelFixture(t, 3, "full_access", "video")
+			s, db, id := agentParallelFixture(t, 3, "auto", "video")
 			canvas, err := s.repo.CanvasProjectForUser("user", "agent-canvas")
 			if err != nil {
 				t.Fatal(err)
@@ -385,7 +385,7 @@ func TestCloudAgentParallelMediaSnapshotChainIncludesCompletions(t *testing.T) {
 			}); err != nil {
 				t.Fatal(err)
 			}
-			advanceAgentParallel(t, s, id, 5)
+			advanceAgentParallel(t, s, id, 3)
 			tasks := agentParallelTasks(t, s, id)
 			if len(tasks) != 2 {
 				t.Fatalf("shared snapshot blocked sibling submission: %d", len(tasks))
@@ -400,7 +400,7 @@ func TestCloudAgentParallelMediaSnapshotChainIncludesCompletions(t *testing.T) {
 }
 
 func TestCloudAgentParallelMediaWritebackFailureCleansUpSiblings(t *testing.T) {
-	s, db, id := agentParallelFixture(t, 3, "full_access", "video")
+	s, db, id := agentParallelFixture(t, 3, "auto", "video")
 	advanceAgentParallel(t, s, id, 9)
 	tasks := agentParallelTasks(t, s, id)
 	if len(tasks) != 3 {

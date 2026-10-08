@@ -22,6 +22,29 @@ func agentStoryboardBindingsFixture(t *testing.T) (*Service, *gorm.DB, *model.Ca
 	return s, db, canvas, rows
 }
 
+func agentStoryboardCharacterBindingsFixture(t *testing.T) (*Service, *gorm.DB, *model.CanvasProject, []map[string]any) {
+	t.Helper()
+	s, db, canvas, rows := agentStoryboardBindingsFixture(t)
+	character := seedCloudAgentCharacter(t, db, canvas.ID)
+	doc, err := creationDocument(canvas.PayloadJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc["nodes"] = append(doc["nodes"].([]any), character)
+	raw, err := json.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&model.CanvasProject{}).Where("id = ?", canvas.ID).Update("payload_json", string(raw)).Error; err != nil {
+		t.Fatal(err)
+	}
+	canvas, err = s.repo.CanvasProjectForUser("user", canvas.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s, db, canvas, rows
+}
+
 func storyboardBinding(nodeID, role string, priority int) map[string]any {
 	return map[string]any{"nodeId": nodeID, "role": role, "priority": priority}
 }
@@ -35,82 +58,143 @@ func storyboardBindingsArgs(canvas *model.CanvasProject, rows []map[string]any) 
 }
 
 func TestCloudAgentStoryboardBindingsModesPersistAndUndo(t *testing.T) {
-	for _, mode := range []string{"read_only", "request_approval", "auto", "full_access"} {
-		t.Run(mode, func(t *testing.T) {
-			s, db, canvas, rows := agentStoryboardBindingsFixture(t)
-			args := storyboardBindingsArgs(canvas, rows)
-			call := cloudAgentStoryboardCall(t, "canvas_bind_storyboard_assets", "bind-assets", args)
-			req := agentTestRequest()
-			req.PermissionMode = mode
-			root, err := s.CreateCloudAgentRun("user", req, "")
-			if err != nil {
-				t.Fatal(err)
-			}
-			run, state := agentInterjectionState(t, s, root.ID)
-			state.ActiveTaskID, state.Calls, state.CallIndex = "", []cloudAgentCall{call}, 0
-			if err := s.repo.MutateCloudAgent("user", run.ID, run.Revision, func(current *model.CloudAgentExecution, _ *repository.Repository) error {
-				return cloudAgentSave(current, &state)
-			}); err != nil {
-				t.Fatal(err)
-			}
-			var tasksBefore, ordersBefore int64
-			db.Model(&model.Task{}).Where("type IN ?", []string{"image", "video", "audio"}).Count(&tasksBefore)
-			db.Model(&model.BillingOrder{}).Where("capability IN ?", []string{"image", "video", "audio"}).Count(&ordersBefore)
-			advanceAgentParallel(t, s, run.ID, 1)
-			if mode == "request_approval" {
-				waiting, err := s.CloudAgentRun("user", run.ID)
-				if err != nil || waiting.Approval == nil || waiting.Status != "waiting_approval" || len(waiting.Approval.Preview.Items) != 2 {
-					t.Fatalf("missing binding approval: %+v %v", waiting, err)
+	for _, assetID := range []string{"cat", "character-card"} {
+		for _, mode := range []string{"read_only", "request_approval", "auto"} {
+			t.Run(assetID+"/"+mode, func(t *testing.T) {
+				fixture := agentStoryboardBindingsFixture
+				if assetID == "character-card" {
+					fixture = agentStoryboardCharacterBindingsFixture
 				}
-				stored, _ := s.repo.CanvasProjectForUser("user", canvas.ID)
-				if stored.PayloadJSON != canvas.PayloadJSON {
-					t.Fatal("binding written before approval")
+				s, db, canvas, rows := fixture(t)
+				args := storyboardBindingsArgs(canvas, rows)
+				if assetID == "character-card" {
+					args["rows"].([]any)[1].(map[string]any)["assetBindings"] = []any{storyboardBinding(assetID, "character", 80)}
 				}
-				if err := s.DecideCloudAgentApproval("user", run.ID, waiting.Approval.ID, "approve", ""); err != nil {
+				call := cloudAgentStoryboardCall(t, "canvas_bind_storyboard_assets", "bind-assets", args)
+				req := agentTestRequest()
+				req.PermissionMode = mode
+				root, err := s.CreateCloudAgentRun("user", req, "")
+				if err != nil {
 					t.Fatal(err)
 				}
-				advanceAgentParallel(t, s, run.ID, 1)
-			}
-			stored, _ := s.repo.CanvasProjectForUser("user", canvas.ID)
-			_, state = agentInterjectionState(t, s, run.ID)
-			if mode == "read_only" {
-				if stored.PayloadJSON != canvas.PayloadJSON || state.Events[len(state.Events)-1].Type != "tool_failed" {
-					t.Fatal("read-only run gained binding authority")
+				run, state := agentInterjectionState(t, s, root.ID)
+				state.ActiveTaskID, state.Calls, state.CallIndex = "", []cloudAgentCall{call}, 0
+				if err := s.repo.MutateCloudAgent("user", run.ID, run.Revision, func(current *model.CloudAgentExecution, _ *repository.Repository) error {
+					return cloudAgentSave(current, &state)
+				}); err != nil {
+					t.Fatal(err)
 				}
-				return
-			}
-			doc, _ := creationDocument(stored.PayloadJSON)
-			_, _, bound, err := storyboardNodeFromDocument(doc, "storyboard-1")
+				var tasksBefore, ordersBefore int64
+				db.Model(&model.Task{}).Where("type IN ?", []string{"image", "video", "audio"}).Count(&tasksBefore)
+				db.Model(&model.BillingOrder{}).Where("capability IN ?", []string{"image", "video", "audio"}).Count(&ordersBefore)
+				advanceAgentParallel(t, s, run.ID, 1)
+				if mode == "request_approval" {
+					waiting, err := s.CloudAgentRun("user", run.ID)
+					if err != nil || waiting.Approval == nil || waiting.Status != "waiting_approval" || len(waiting.Approval.Preview.Items) != 2 {
+						t.Fatalf("missing binding approval: %+v %v", waiting, err)
+					}
+					stored, _ := s.repo.CanvasProjectForUser("user", canvas.ID)
+					if stored.PayloadJSON != canvas.PayloadJSON {
+						t.Fatal("binding written before approval")
+					}
+					if err := s.DecideCloudAgentApproval("user", run.ID, waiting.Approval.ID, "approve", ""); err != nil {
+						t.Fatal(err)
+					}
+					advanceAgentParallel(t, s, run.ID, 1)
+				}
+				stored, _ := s.repo.CanvasProjectForUser("user", canvas.ID)
+				_, state = agentInterjectionState(t, s, run.ID)
+				if mode == "read_only" {
+					if stored.PayloadJSON != canvas.PayloadJSON || state.Events[len(state.Events)-1].Type != "tool_failed" {
+						t.Fatal("read-only run gained binding authority")
+					}
+					return
+				}
+				doc, _ := creationDocument(stored.PayloadJSON)
+				_, _, bound, err := storyboardNodeFromDocument(doc, "storyboard-1")
+				if err != nil {
+					t.Fatal(err)
+				}
+				for i, nodeID := range []string{"hero", assetID} {
+					bindings := creationMaps(bound[i]["assetBindings"])
+					if len(bindings) != 1 || bindings[0]["nodeId"] != nodeID {
+						t.Fatalf("wrong row binding: %+v", bound)
+					}
+					for key, value := range rows[i] {
+						if key != "assetBindings" && !reflect.DeepEqual(value, bound[i][key]) {
+							t.Fatalf("association changed protected row field %s", key)
+						}
+					}
+				}
+				var tasksAfter, ordersAfter int64
+				db.Model(&model.Task{}).Where("type IN ?", []string{"image", "video", "audio"}).Count(&tasksAfter)
+				db.Model(&model.BillingOrder{}).Where("capability IN ?", []string{"image", "video", "audio"}).Count(&ordersAfter)
+				if tasksBefore != tasksAfter || ordersBefore != ordersAfter {
+					t.Fatal("binding unexpectedly generated or billed media")
+				}
+				patch := agentCanvasPatchForOperation(t, state, call.Function.Name)
+				if patch["status"] != "applied" || patch["text"] != "画布修改已保存" {
+					t.Fatal("saved binding misreported as pending")
+				}
+				if _, err := s.UndoCloudAgentCanvas("user", run.ID, call.ID, cloudAgentCanvasHash(doc), "撤销关联"); err != nil {
+					t.Fatal(err)
+				}
+				restored, _ := s.repo.CanvasProjectForUser("user", canvas.ID)
+				if restored.PayloadJSON != canvas.PayloadJSON {
+					t.Fatal("undo did not restore original storyboard")
+				}
+			})
+		}
+	}
+}
+
+func TestCloudAgentStoryboardBindingsRejectUnusableCharactersAtomically(t *testing.T) {
+	for _, change := range []string{"asset_owner", "resource_owner", "resource_unready", "resource_mime", "missing_image", "missing_version", "foreign_version"} {
+		t.Run(change, func(t *testing.T) {
+			s, db, canvas, rows := agentStoryboardCharacterBindingsFixture(t)
+			doc, err := creationDocument(canvas.PayloadJSON)
 			if err != nil {
 				t.Fatal(err)
 			}
-			for i, nodeID := range []string{"hero", "cat"} {
-				bindings := creationMaps(bound[i]["assetBindings"])
-				if len(bindings) != 1 || bindings[0]["nodeId"] != nodeID {
-					t.Fatalf("wrong row binding: %+v", bound)
-				}
-				for key, value := range rows[i] {
-					if key != "assetBindings" && !reflect.DeepEqual(value, bound[i][key]) {
-						t.Fatalf("association changed protected row field %s", key)
-					}
-				}
+			nodes, _ := creationObjects(doc["nodes"])
+			meta := nodes["character-card"]["metadata"].(map[string]any)
+			// A ready image in node metadata must not bypass validation of the actual character asset.
+			meta["storageKey"] = "resource:ref-one"
+			switch change {
+			case "asset_owner":
+				err = db.Model(&model.Asset{}).Where("id = ?", "character-asset").Update("user_id", "other").Error
+			case "resource_owner":
+				err = db.Model(&model.Resource{}).Where("id = ?", "character-image").Update("user_id", "other").Error
+			case "resource_unready":
+				err = db.Model(&model.Resource{}).Where("id = ?", "character-image").Update("status", "pending").Error
+			case "resource_mime":
+				err = db.Model(&model.Resource{}).Where("id = ?", "character-image").Update("mime_type", "video/mp4").Error
+			case "missing_image":
+				err = db.Delete(&model.AssetRepresentation{}, "id = ?", "character-representation").Error
+			case "missing_version":
+				meta["characterVersionPolicy"], meta["characterVersionId"] = "pinned", "missing-version"
+			case "foreign_version":
+				err = db.Create(&model.AssetVersion{ID: "foreign-version", AssetID: "other-asset", Version: 1, DefinitionJSON: `{}`}).Error
+				meta["characterVersionPolicy"], meta["characterVersionId"] = "pinned", "foreign-version"
 			}
-			var tasksAfter, ordersAfter int64
-			db.Model(&model.Task{}).Where("type IN ?", []string{"image", "video", "audio"}).Count(&tasksAfter)
-			db.Model(&model.BillingOrder{}).Where("capability IN ?", []string{"image", "video", "audio"}).Count(&ordersAfter)
-			if tasksBefore != tasksAfter || ordersBefore != ordersAfter {
-				t.Fatal("binding unexpectedly generated or billed media")
-			}
-			patch := agentCanvasPatchForOperation(t, state, call.Function.Name)
-			if patch["status"] != "applied" || patch["text"] != "画布修改已保存" {
-				t.Fatal("saved binding misreported as pending")
-			}
-			if _, err := s.UndoCloudAgentCanvas("user", run.ID, call.ID, cloudAgentCanvasHash(doc), "撤销关联"); err != nil {
+			if err != nil {
 				t.Fatal(err)
 			}
-			restored, _ := s.repo.CanvasProjectForUser("user", canvas.ID)
-			if restored.PayloadJSON != canvas.PayloadJSON {
-				t.Fatal("undo did not restore original storyboard")
+			raw, _ := json.Marshal(doc)
+			if err := db.Model(&model.CanvasProject{}).Where("id = ?", canvas.ID).Update("payload_json", string(raw)).Error; err != nil {
+				t.Fatal(err)
+			}
+			canvas, _ = s.repo.CanvasProjectForUser("user", canvas.ID)
+			args := storyboardBindingsArgs(canvas, rows)
+			args["rows"].([]any)[1].(map[string]any)["assetBindings"] = []any{storyboardBinding("character-card", "character", 80)}
+			policy, _ := s.RuntimePolicy()
+			call := cloudAgentStoryboardCall(t, "canvas_bind_storyboard_assets", "bind-character", args)
+			if _, err := applyCloudAgentStoryboardMutation(s.repo, "user", canvas.ID, call, policy); err == nil {
+				t.Fatal("unusable character card was bound")
+			}
+			stored, _ := s.repo.CanvasProjectForUser("user", canvas.ID)
+			if stored.PayloadJSON != canvas.PayloadJSON {
+				t.Fatal("rejected character binding persisted part of the batch")
 			}
 		})
 	}

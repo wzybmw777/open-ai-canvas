@@ -9,6 +9,7 @@ import { useAppearanceStore } from "@/stores/use-appearance-store";
 import { getAdminLinuxDOSetting, getAdminRegistrationSetting, updateAdminLinuxDOSetting, updateAdminRegistrationSetting, type LinuxDOSetting, type RegistrationSetting } from "@/services/api/wallet";
 import { AdminStatusBadge, configuredSecretText, SettingsSectionCard } from "./admin-ui";
 import { Select } from "@/components/ui/base/select";
+import AuthVerificationSettings from "./auth-verification-settings";
 
 const DEFAULT_AGREEMENT_TEMPLATE = `一、服务说明与接受
 欢迎使用本平台提供的 AI 影视与内容创作服务。在注册或使用本平台各项功能前，请务必仔细阅读并理解本协议。当您勾选同意或点击注册、登录按钮，即表示您已自愿接受本协议所有条款的约束。
@@ -45,6 +46,7 @@ export default function AccessSettingsPanel() {
     const [agreementTitle, setAgreementTitle] = useState("");
     const [agreementContent, setAgreementContent] = useState("");
     const [agreementDirty, setAgreementDirty] = useState(false);
+    const [verificationUnsaved, setVerificationUnsaved] = useState(false);
     const [loadError, setLoadError] = useState("");
     const [saveError, setSaveError] = useState("");
     const [form] = Form.useForm<LinuxDOFormValues>();
@@ -97,7 +99,7 @@ export default function AccessSettingsPanel() {
         setDraftLinuxDOEnabled(linuxdo.enabled);
     }, [form, linuxdo, loading, registration]);
 
-    const unsaved = (dirty && !savingLinuxDO) || (agreementDirty && !savingAgreement);
+    const unsaved = (dirty && !savingLinuxDO) || (agreementDirty && !savingAgreement) || verificationUnsaved;
     const blocker = useBlocker(unsaved);
 
     // 条款编辑区下方的字数与段落提示：与注册页的分段规则保持一致（按空行分段），
@@ -349,6 +351,8 @@ export default function AccessSettingsPanel() {
                     </div>
                 </SettingsSectionCard>
             </div>
+
+            <AuthVerificationSettings onUnsavedChange={setVerificationUnsaved} />
 
             <div id="admin-access-linuxdo" className="admin-settings-anchor">
                 <SettingsSectionCard

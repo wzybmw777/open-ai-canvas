@@ -36,8 +36,11 @@ func (t *singleSendTransport) RoundTrip(req *http.Request) (*http.Response, erro
 		return nil, err
 	}
 	defer response.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
-	if err != nil {
+	body, err := io.ReadAll(io.LimitReader(response.Body, (1<<20)+1))
+	if err != nil || len(body) > 1<<20 {
+		if err == nil {
+			err = ErrSendUnknown
+		}
 		return nil, err
 	}
 	t.body, t.status = body, response.StatusCode
@@ -54,6 +57,8 @@ func SendMessageContext(ctx context.Context, client SmsClient, transport http.Ro
 	}
 	t := &singleSendTransport{ctx: ctx, base: transport}
 	switch c := client.(type) {
+	case *HuyiClient:
+		return sendHuyiTemplate(ctx, c, t, params, phone)
 	case *AliyunClient:
 		t.host = "dysmsapi.aliyuncs.com"
 		c.core.GetConfig().AutoRetry = false

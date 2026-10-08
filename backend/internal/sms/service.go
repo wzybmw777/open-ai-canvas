@@ -21,8 +21,10 @@ import (
 
 const Aliyun = "aliyun"
 const Tencent = "tencent"
+const Huyi = "huyi"
 const PluginAliyun = "official-sms-aliyun"
 const PluginTencent = "official-sms-tencent"
+const PluginHuyi = "official-sms-huyi"
 
 type Host interface {
 	RequireAdmin(*model.User) error
@@ -33,7 +35,7 @@ type Host interface {
 type Template struct {
 	Purpose    string `json:"purpose"`
 	TemplateID string `json:"templateId"`
-	// Aliyun: named keys; Tencent: ordered keys "0", "1", ... .
+	// Aliyun: named keys; Tencent and Huyi: ordered keys "0", "1", ... .
 	Parameters []Parameter `json:"parameters"`
 }
 type Parameter struct {
@@ -84,6 +86,9 @@ func PluginID(provider string) string {
 	}
 	if provider == Tencent {
 		return PluginTencent
+	}
+	if provider == Huyi {
+		return PluginHuyi
 	}
 	return ""
 }
@@ -138,7 +143,10 @@ func (s *Service) SaveChannel(actor *model.User, id string, req ChannelRequest) 
 		return nil, err
 	}
 	req.Name, req.SignName, req.AppID = strings.TrimSpace(req.Name), strings.TrimSpace(req.SignName), strings.TrimSpace(req.AppID)
-	if PluginID(req.Provider) == "" || req.Name == "" || len(req.Name) > 240 || req.SignName == "" || len(req.SignName) > 240 || len(req.AppID) > 80 || req.Priority < 0 || req.Priority > 1000 || req.DailyLimit < 1 || req.DailyLimit > 100000 {
+	if req.Provider == Huyi {
+		req.SignName, req.AppID = "", ""
+	}
+	if PluginID(req.Provider) == "" || req.Name == "" || len(req.Name) > 240 || (req.Provider != Huyi && req.SignName == "") || len(req.SignName) > 240 || len(req.AppID) > 80 || req.Priority < 0 || req.Priority > 1000 || req.DailyLimit < 1 || req.DailyLimit > 100000 {
 		return nil, kernel.BadAuthRequest("请填写有效的渠道名称、供应商、签名、优先级（0–1000）和日限额（1–100000）")
 	}
 	if req.Provider == Tencent && req.AppID == "" {
@@ -211,8 +219,8 @@ func validateTemplates(provider string, values []Template) error {
 			return kernel.BadAuthRequest("请配置模板参数")
 		}
 		for i, p := range t.Parameters {
-			if !paramPattern.MatchString(p.Name) || keys[p.Name] || (p.Value != "code" && p.Value != "minutes") || (provider == Tencent && p.Name != strconv.Itoa(i)) {
-				return kernel.BadAuthRequest("参数值仅支持 code、minutes；腾讯云参数名必须按 0、1 顺序填写")
+			if !paramPattern.MatchString(p.Name) || keys[p.Name] || (p.Value != "code" && p.Value != "minutes") || ((provider == Tencent || provider == Huyi) && p.Name != strconv.Itoa(i)) {
+				return kernel.BadAuthRequest("参数值仅支持 code、minutes；腾讯云和互亿无线参数名必须按 0、1 顺序填写")
 			}
 			keys[p.Name] = true
 			hasCode = hasCode || p.Value == "code"
@@ -345,9 +353,16 @@ func sanitize(value string) string {
 	return ""
 }
 func sendAggregate(ctx context.Context, channel model.SMSChannel, t Template, id, key, phone, code string) (sender.SendResult, error) {
-	provider := sender.Aliyun
-	if channel.Provider == Tencent {
+	var provider string
+	switch channel.Provider {
+	case Aliyun:
+		provider = sender.Aliyun
+	case Tencent:
 		provider = sender.TencentCloud
+	case Huyi:
+		provider = sender.Huyi
+	default:
+		return sender.SendResult{State: "rejected", Code: "invalid_configuration"}, errors.New("sms configuration invalid")
 	}
 	client, err := sender.NewSmsClient(provider, id, key, channel.SignName, t.TemplateID, channel.AppID)
 	if err != nil {
@@ -361,7 +376,7 @@ func sendAggregate(ctx context.Context, channel model.SMSChannel, t Template, id
 			params[p.Name] = "10"
 		}
 	}
-	if channel.Provider == Aliyun {
+	if channel.Provider == Aliyun || channel.Provider == Huyi {
 		phone = strings.TrimPrefix(phone, "+86")
 	}
 	return sender.SendMessageContext(ctx, client, outbound.OutboundHTTPClient(10*time.Second).Transport, params, phone)

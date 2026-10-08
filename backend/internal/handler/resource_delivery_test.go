@@ -65,6 +65,43 @@ func TestServeResourceDeliveryReturnsAccessDescriptorWithoutRedirect(t *testing.
 	}
 }
 
+type resourceDeliveryCloseTracker struct {
+	io.Reader
+	closes int
+}
+
+func (body *resourceDeliveryCloseTracker) Close() error {
+	body.closes++
+	return nil
+}
+
+func TestServeResourceDeliveryClosesStreamWhenReturningAccessDescriptor(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := &resourceDeliveryCloseTracker{Reader: strings.NewReader("video-bytes")}
+	resource := &model.Resource{ID: "resource-1", MimeType: "video/mp4"}
+	router := gin.New()
+	router.GET("/resource", func(c *gin.Context) {
+		serveResourceDelivery(c, &service.ResourceDelivery{
+			Resource: resource,
+			Access:   &assets.ResourceAccess{ResourceID: resource.ID, URL: "/api/resources/resource-1/file", Delivery: assets.DeliveryLocal},
+			Stream:   &assets.ResourceStream{Resource: resource, Body: body},
+		}, "private, no-store", "")
+	})
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/resource?access=1", nil))
+
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"resourceId":"resource-1"`) {
+		t.Fatalf("access descriptor response = status %d body %q", recorder.Code, recorder.Body.String())
+	}
+	if body.closes != 1 {
+		t.Fatalf("stream closed %d times, want 1", body.closes)
+	}
+	if strings.Contains(recorder.Body.String(), "video-bytes") {
+		t.Fatal("access descriptor response contains video bytes")
+	}
+}
+
 func TestServeResourceDeliveryStreamsPlatformBytesAndRangeMetadata(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	resource := &model.Resource{ID: "resource-1", MimeType: "video/mp4", UpdatedAt: time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)}

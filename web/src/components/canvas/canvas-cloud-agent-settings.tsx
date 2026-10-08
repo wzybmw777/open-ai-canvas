@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Button, Checkbox, Input } from "antd";
-import { ArrowLeft, BookMarked, Check, ChevronRight, Cpu, Gauge, LockKeyhole, PlugZap, Search, ShieldCheck, Sparkles, Wrench, Zap } from "lucide-react";
+import { ArrowLeft, BookMarked, Check, ChevronRight, Cpu, Gauge, LockKeyhole, PlugZap, Search, ShieldCheck, Sparkles, Wrench } from "lucide-react";
 
 import { ModelPicker } from "@/components/model-picker";
 import type { CanvasTheme } from "@/lib/canvas-theme";
@@ -55,7 +55,6 @@ const permissionOptions: Array<{ value: AgentPermissionMode; label: string; desc
     { value: "read_only", label: "只读", description: "只分析和建议", icon: LockKeyhole, color: "#4f7cff" },
     { value: "request_approval", label: "请求审批", description: "写入和生成前确认", icon: ShieldCheck, color: "#b58336" },
     { value: "auto", label: "自动执行", description: "服务端准入后直接编辑和生成", icon: Sparkles, color: "#429477" },
-    { value: "full_access", label: "绝对权限", description: "图片、视频直接生成并计费", icon: Zap, color: "var(--primary)" },
 ];
 
 const contextOptions: Array<{ value: AgentContextKey; label: string; description: string }> = [
@@ -122,7 +121,7 @@ function SettingsHome({ props, theme, onOpen }: { props: AgentSettingsProps; the
                         );
                     })}
                 </div>
-                <p className="mt-2 text-xs leading-5" style={{ color: theme.node.muted }}>默认逐项审批。自动执行可编辑画布，生成仍需批准；绝对权限会在本轮预算内直接生成图片、视频并计费，无需逐项批准。权限切换从新运行生效。</p>
+                <p className="mt-2 text-xs leading-5" style={{ color: theme.node.muted }}>默认逐项审批。自动执行会在本轮预算内编辑画布，并在服务端准入通过后直接生成媒体、计费。权限切换从新运行生效。</p>
             </section>
             <section>
                 <SettingLabel label="能力与范围" />

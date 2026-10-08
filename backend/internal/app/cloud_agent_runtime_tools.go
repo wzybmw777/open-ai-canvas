@@ -415,8 +415,8 @@ func (s *Service) advanceCloudAgentTool(run *model.CloudAgentExecution, state *c
 	}
 	allowed := cloudAgentToolAllowed(state.Request, call.Function.Name)
 	mediaTool := call.Function.Name == "generate_media" || call.Function.Name == "image_layer_split"
-	// 媒体工具先固定生成输入和报价；auto 直接提交，full_access 持久授权后提交。
-	if allowed && cloudAgentWrite(call.Function.Name) && (state.Request.PermissionMode == "request_approval" || mediaTool) && state.Approval == nil {
+	// 媒体工具先固定生成输入和报价；auto 直接提交，request_approval 等待用户批准。
+	if allowed && cloudAgentWrite(call.Function.Name) && (state.Request.PermissionMode == "request_approval" || mediaTool) && state.Approval == nil && state.MediaTaskID == "" {
 		var plan *cloudAgentMediaPlan
 		var modelName string
 		var mediaRequest CreateTaskRequest
@@ -631,23 +631,6 @@ func (s *Service) advanceCloudAgentTool(run *model.CloudAgentExecution, state *c
 					return err
 				}
 			}
-			if state.Request.PermissionMode == "full_access" && preparedMedia != nil {
-				approvalID := state.Approval.ID
-				state.Approval.Decision = "approve"
-				state.Approval.Reason = "用户选择绝对权限，本轮媒体生成无需逐项审批"
-				state.Decisions[approvalID] = "approve"
-				if state.DecisionPreparedHashes == nil {
-					state.DecisionPreparedHashes = map[string]string{}
-				}
-				state.DecisionPreparedHashes[approvalID] = preparedMedia.Hash
-				current.Status = "running"
-				state.event(run.ID, "approval_decided", map[string]any{
-					"approvalId": approvalID, "decision": "approve", "source": "permission_mode", "permissionMode": "full_access",
-					"toolName": call.Function.Name, "modelName": modelName, "preparedHash": preparedMedia.Hash, "generationId": preparedMedia.GenerationID,
-					"text": "已按绝对权限授权，将在预算内直接提交生成任务",
-				})
-				return cloudAgentSave(current, state)
-			}
 			current.Status = "waiting_approval"
 			state.event(run.ID, "approval_requested", map[string]any{"approvalId": state.Approval.ID, "toolName": call.Function.Name, "modelName": modelName, "arguments": json.RawMessage(call.Function.Arguments), "preview": preview, "prepared": preparedMedia.publicView(), "text": preview.Description})
 			return cloudAgentSave(current, state)
@@ -664,7 +647,8 @@ func (s *Service) advanceCloudAgentTool(run *model.CloudAgentExecution, state *c
 			})
 		}
 	}
-	if allowed && (call.Function.Name == "generate_media" || call.Function.Name == "image_layer_split") && state.Approval != nil && state.Approval.Decision == "approve" {
+	// Submitted auto tasks have no approval object; resume their receipts directly.
+	if allowed && mediaTool && (state.MediaTaskID != "" || (state.Approval != nil && state.Approval.Decision == "approve")) {
 		return s.advanceCloudAgentMedia(run, state, cloudAgentMediaCall(call))
 	}
 	policy, err := s.RuntimePolicy()

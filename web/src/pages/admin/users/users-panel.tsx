@@ -155,7 +155,7 @@ export default function UsersPanel({ onUserChanged }: { onUserChanged?: (user: L
                             prefix={<Search className="size-4 text-foreground/40" />}
                             value={state.filter}
                             aria-label="搜索用户"
-                            placeholder="搜索用户名、名称或邮箱"
+                            placeholder="搜索用户名、名称、邮箱或手机号"
                             onChange={(event) => update({ filter: event.target.value, page: 1 }, true)}
                         />
                     </>

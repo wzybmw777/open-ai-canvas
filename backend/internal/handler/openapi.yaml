@@ -15,6 +15,7 @@ servers:
 security:
   - sessionCookie: []
 tags:
+  - name: theatre
   - name: meta
   - name: auth
   - name: projects
@@ -27,6 +28,196 @@ tags:
   - name: admin
   - name: skills
 paths:
+  /theatre/works:
+    get:
+      tags: [theatre]
+      summary: 分页浏览已发布剧场作品
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string, maxLength: 120 }
+        - in: query
+          name: mine
+          schema: { type: boolean, default: false }
+        - in: query
+          name: kind
+          schema: { type: string, enum: [video, short_drama] }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, maximum: 1000000, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 48, default: 12 }
+      responses:
+        "200":
+          description: 信封 data 为作品分页，只返回作者展示名，不返回私有存储字段
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [works, total, page, pageSize]
+                        properties:
+                          works:
+                            type: array
+                            items: { $ref: "#/components/schemas/TheatreWork" }
+                          total: { type: integer }
+                          page: { type: integer }
+                          pageSize: { type: integer }
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [theatre]
+      summary: 发布本人视频或多集短剧
+      description: 复用资源上传与配额，JSON 最大 256KiB。普通视频提供 resourceId；短剧提供 kind=short_drama 和 1–200 集 episodes，首集作为预览资源。相同首集资源与类型重复提交返回已有作品；资源已用于另一类型时返回 409。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TheatreWorkWrite"
+      responses:
+        "200":
+          description: 信封 data.work 为持久化作品记录，包含类型、完结状态与时间戳；分集详情通过 GET 读取
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+  /theatre/works/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [theatre]
+      summary: 登录用户读取作品和有序分集
+      responses:
+        "200":
+          description: 信封 data 为作品与分集详情，普通视频 episodes 为空
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/TheatreWorkDetail" }
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [theatre]
+      summary: 作者编辑作品或调整短剧分集
+      description: 类型不可更改。提供 episodes 时整体替换分集列表，必须同时提供详情中的 expectedUpdatedAt，过期返回 409；相同资源的分集 ID 保留。省略 episodes 保留分集，省略封面保留封面，空封面 ID 移除封面。JSON 最大 256KiB。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TheatreWorkWrite" }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [theatre]
+      summary: 作者下架作品
+      description: 事务删除作品与分集条目，保留上传资源并沿用既有引用与清理策略。
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /theatre/works/{id}/video:
+    get:
+      tags: [theatre]
+      summary: 登录用户播放已发布作品
+      description: 只授权当前发布作品；私有资源接口继续校验归属。云端按既有资源合同重定向，已签发存储地址到期前可能继续可用。
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: header
+          name: Range
+          schema: { type: string }
+      responses:
+        "200": { description: 视频字节流 }
+        "206": { description: 视频范围字节流 }
+        "307": { description: 云存储交付地址 }
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /theatre/works/{id}/cover:
+    get:
+      tags: [theatre]
+      summary: 登录用户读取已发布作品封面
+      description: 仅通过作品授权当前封面，私有资源接口仍校验归属。作品未设置封面或已下架时返回 404。
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: JPG、PNG 或 WebP 图片字节流 }
+        "307": { description: 云存储交付地址 }
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /theatre/works/{id}/episodes/{episodeId}/video:
+    get:
+      tags: [theatre]
+      summary: 登录用户播放短剧的一集
+      description: 校验当前作品、作者状态和分集归属后复用资源播放交付。私有资源访问权限保持不变；分集移除或作品下架后返回 404。
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: episodeId
+          required: true
+          schema: { type: string }
+        - in: header
+          name: Range
+          schema: { type: string }
+      responses:
+        "200": { description: 视频字节流，private no-store }
+        "206": { description: 视频范围字节流 }
+        "307": { description: 云存储交付地址 }
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
   /admin/settings/appearance/live2d:
     post:
       tags: [admin]
@@ -1325,6 +1516,74 @@ components:
       in: cookie
       name: open_ai_canvas_session
   schemas:
+    TheatreWorkMetadata:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 2000 }
+        coverResourceId:
+          type: string
+          description: 本人已上传完成的 JPG、PNG 或 WebP 图片资源 ID，大小不超过 10MB。创建时可省略；编辑时省略保留当前封面，空字符串移除封面。
+    TheatreWork:
+      allOf:
+        - $ref: "#/components/schemas/TheatreWorkMetadata"
+        - type: object
+          required: [id, userId, resourceId, coverResourceId, kind, isComplete, episodeCount, authorName, size, durationMs, createdAt, updatedAt]
+          properties:
+            id: { type: string }
+            userId: { type: string }
+            resourceId: { type: string }
+            kind: { type: string, enum: [video, short_drama] }
+            isComplete: { type: boolean }
+            episodeCount: { type: integer, minimum: 0, maximum: 200 }
+            authorName: { type: string }
+            size: { type: integer, format: int64 }
+            durationMs: { type: integer, format: int64 }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    TheatreEpisodeInput:
+      type: object
+      required: [resourceId]
+      properties:
+        resourceId: { type: string, minLength: 1 }
+        title: { type: string, maxLength: 120, description: 空标题按顺序使用第 N 集 }
+    TheatreWorkWrite:
+      allOf:
+        - $ref: "#/components/schemas/TheatreWorkMetadata"
+        - type: object
+          properties:
+            resourceId: { type: string, description: 普通视频创建时必填；短剧可省略或等于首集资源 ID }
+            kind: { type: string, enum: [video, short_drama], default: video }
+            isComplete: { type: boolean, description: 仅短剧可标记完结 }
+            episodes:
+              type: array
+              minItems: 1
+              maxItems: 200
+              description: 按播放顺序排列，资源不能重复，全部为作者已完成上传的视频
+              items: { $ref: "#/components/schemas/TheatreEpisodeInput" }
+            expectedUpdatedAt: { type: string, format: date-time, description: 编辑分集时必须使用详情返回的 updatedAt }
+    TheatreEpisode:
+      allOf:
+        - $ref: "#/components/schemas/TheatreEpisodeInput"
+        - type: object
+          required: [id, workId, number, title, size, durationMs, createdAt, updatedAt]
+          properties:
+            id: { type: string }
+            workId: { type: string }
+            number: { type: integer, minimum: 1, maximum: 200 }
+            size: { type: integer, format: int64 }
+            durationMs: { type: integer, format: int64 }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    TheatreWorkDetail:
+      type: object
+      required: [work, episodes]
+      properties:
+        work: { $ref: "#/components/schemas/TheatreWork" }
+        episodes:
+          type: array
+          items: { $ref: "#/components/schemas/TheatreEpisode" }
     ToolMutation:
       type: object
       required: [type, label, prompt]
@@ -1492,7 +1751,7 @@ components:
           type: string
         permissionMode:
           type: string
-          enum: [read_only, request_approval, auto, full_access]
+          enum: [read_only, request_approval, auto]
         reasoningMode:
           type: string
           enum: [off, auto, deep]

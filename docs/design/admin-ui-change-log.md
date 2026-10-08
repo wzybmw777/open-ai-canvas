@@ -2,6 +2,20 @@
 
 本文档是管理后台 UI 的追踪与回滚台账。后续每批 UI 调整都必须在实施时追加，不覆盖历史记录。
 
+## 互亿无线短信供应商
+
+- 在现有 `sms-channels-panel.tsx` 增加互亿无线、APIID/APIKEY 和模板变量说明；隐藏无需提交的签名与 AppID，保留原有渠道管理、草稿及凭据保护。未新增样式。
+- 腾讯云及互亿无线使用有序参数，删除参数后重排编号，编号只读；阿里云保留命名变量。
+- 接口文档、功能地图与专项验证状态同步在 HTTP API 合同及待测试清单；真实供应商收件与浏览器验收尚待确认。
+
+## 邮箱与手机号验证码配置入口
+
+- 目的：让现有验证码与短信服务可由真实后台「登录与注册」配置，支持邮箱、手机号和双重验证；用户管理补充手机号展示与搜索。
+- 涉及组件：`auth-verification-settings.tsx`、`sms-channels-panel.tsx` 为新增；接入 `access-settings-panel.tsx`，同步页头、导航及用户联系方式列和详情。
+- 复用后台 `SettingsSectionCard`、`Switch`、`Select`、`AdminDrawer`、`AdminModal` 及现有 token，不新增全局样式。策略与渠道分开保存；凭据不回显，草稿受页面离开保护。
+- 原文件可验证基线为本次修改前的 Git HEAD（上述后台文件当时无工作区修改）；SHA-256：`access-settings-panel.tsx` 为 `6f016fa9b51631fc8da5b29cbce658c05671a6630b016bc1446b512b19fbe5d9`，`admin-shell.tsx` 为 `b9c448b57bc057acf214c45971a135282bf4f60b42c953b9264b07481b007f1e`，`admin-route-pages.tsx` 为 `6ffad000e811f64d51627c2b1d579ad3db9f6732c0c9a2d5ddd609251ce2fb54`，`admin-user-detail-drawer.tsx` 为 `89963fd80d1401f04de9009d4edfaa816acb7b058a843f26e68ca1a2aa7e4f85`，`users-columns.tsx` 为 `17370f552ca3290eea32f55d71c274f223944fc23362d0b2661e5092d9c7c89f`，`users-panel.tsx` 为 `139e8a11b2fa09dd3490e5dc7b17e725b4fdc5a57cbf02f94844fe577139a0aa`。
+- 验证与尚待验收的真实短信、浏览器边界维护在待测试清单。不以静态渲染作为真实页面验收。
+
 ## 记录和回滚约定
 
 - 项目实际已存在 Git 工作树（工作树根目录为项目根），本次不初始化、不提交、不改写任何 Git 历史。

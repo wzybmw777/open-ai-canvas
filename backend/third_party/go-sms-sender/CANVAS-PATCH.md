@@ -10,6 +10,9 @@ SDKs for signing and payload construction, injects the host's outbound transport
 and strictly checks the raw provider response. Unknown results are never retried.
 `tencent.go` additionally rejects missing response/status objects before dereferencing.
 
-Only Aliyun and Tencent have the safe transport capability. Other upstream
+Aliyun, Tencent and Huyi have the safe transport capability. `safe_huyi.go`
+uses Huyi's documented HTTPS `Submit.json` template-variable endpoint, POST form
+credentials and ordered variables; only code 2 with a message ID is accepted.
+It bypasses the upstream Huyi full-text HTTP sender. Other upstream
 providers are not exposed by Canvas. No delivery-receipt capability is claimed.
 Before upgrading, run the host's SMS transport contract tests.

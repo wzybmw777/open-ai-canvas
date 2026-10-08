@@ -5,11 +5,28 @@ description: 从产品功能快速定位主要代码入口
 
 # 代码功能地图
 
+## 邮箱与手机号登录注册
+
+- 后台入口：`web/src/pages/admin/components/access-settings-panel.tsx`，`auth-verification-settings.tsx` 编辑登录/注册策略，`sms-channels-panel.tsx` 管理渠道、模板、测试及发送记录；API 合同在 `services/api/verification.ts`、`sms.ts`。
+- 用户端：`web/src/pages/auth/login.tsx`、`register.tsx` 根据公开策略展示方式切换，`components/auth/verification-fields.tsx` 独立填写邮箱/短信验证码。
+- 后端沿用 `handler/notifications.go` → `app/notifications_bridge.go` → `auth/verification_policy.go`、`auth/verification.go`、`sms/service.go` → `repository/notifications.go`；`repository/repository_users.go` 支持手机号搜索。
+- 短信插件在 `app/sms_plugins.go`；互亿无线通过 `third_party/go-sms-sender/safe_huyi.go` 使用受控 HTTPS 模板变量接口，`internal/sms/huyi_test.go` 校验协议、受理、权限及插件开关。
+
+## 卓越剧场
+
+- 导航与页面：`web/src/components/layout/workspace-sidebar-nav.tsx`、`workspace-command-palette.tsx`、`web/src/pages/theatre/index.tsx`；上传与编辑弹窗：`theatre-work-editor.tsx`，分集文件排序与编辑：`theatre-episode-drafts.ts`、`theatre-episode-editor.tsx`；选集与连播：`theatre-work-player.tsx`；按用户保存本机观看进度：`theatre-watch-progress.ts`；API：`web/src/services/api/theatre.ts`。
+- 后端：`handler/theatre.go` 处理登录态与 HTTP，`app/theatre.go` 校验作者权限、视频与封面图片资源、分集数量/重复及过期编辑、共享播放和封面读取场景，`repository/theatre.go` 事务保存作品和分集、分页查询并锁定发布资源，`model/theatre.go` 定义作品与分集表。`service/aliases_theatre.go` 保持稳定导入面。
+- 资源保护：`repository/resource_reference.go`、`resource_cleanup.go`、`admin_storage_delete.go`；共享播放复用已有资源交付合同，私有资源接口仍校验资源归属。
+
 ## 自定义更新公告
 
 - 后台编辑：`web/src/pages/admin/settings/components/update-announcement-editor.tsx`；版本、排序与草稿校验：`web/src/lib/update-announcement.ts`。
 - 统一入口与弹窗：`web/src/components/layout/app-changelog-modal.tsx`、`app-changelog-dialog.tsx`；图文视频展示：`update-announcement-content.tsx`。
 - 服务端持久化、校验、公开投影及媒体访问：`backend/internal/app/appearance_updates.go` 与 `appearance.go`；HTTP 边界：`backend/internal/handler/appearance.go`。
+
+## QT 渠道每日同步
+
+`scripts/sync-qt-channel.mjs` 核对 QT 公开价格和渠道密钥授权目录，精确匹配 SKU 与规格并事务更新价格、简介与启用状态；`scripts/qt-channel-models.mjs` 定义已确认新型号的协议与能力配置。`scripts/sync-qt-channel.sh` 防止重复运行，`scripts/install-qt-channel-sync.sh` 安装每天北京时间零点的 systemd 定时任务。规则和排查见 [QT 渠道每日同步](/docs/backend/qt-channel-sync)。
 
 ## 画布 Agent 配置与 Live2D
 
@@ -22,7 +39,7 @@ description: 从产品功能快速定位主要代码入口
 
 ## 前端页面
 
-Agent 分镜资产关联：`app/cloud_agent_storyboard_assets.go` 定义批量绑定 schema、合并 / 替换及强校验，复用 `app/cloud_agent_storyboard.go` 的保存与撤销记录；`canvas_bind_storyboard_assets` 在 `cloud_agent_tools.go` 注册，前端 `canvas-storyboard-materializer.ts` 使用保存的镜头级引用准备后续生成。
+Agent 分镜资产关联：`app/cloud_agent_storyboard_assets.go` 定义批量绑定 schema、合并 / 替换及强校验，复用 `app/cloud_agent_storyboard.go` 的保存与撤销记录；媒体与角色卡引用共用 `app/cloud_agent_character.go` 的 `cloudAgentMediaReference`，角色卡通过实际角色版本及形象资源校验。`canvas_bind_storyboard_assets` 在 `cloud_agent_tools.go` 注册，前端 `canvas-storyboard-materializer.ts` 使用保存的镜头级引用准备后续生成。
 
 Agent 媒体并发：`app/cloud_agent_media_parallel.go` 管理同一模型步骤内的独立媒体调用、4 项在途上限和乱序结果；`app/cloud_agent_runtime.go` 保持准入、预留账单、任务与画布原子写入；`app/cloud_agent_recovery.go` 按持久任务归属收尾全部子任务，`repository/cloud_agent.go` 调度有在途生成的待审批运行。
 

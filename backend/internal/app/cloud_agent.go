@@ -110,6 +110,10 @@ type CloudAgentRunViewOptions struct {
 	EventLimit int
 }
 
+func cloudAgentPermissionModeSupported(mode string) bool {
+	return mode == "read_only" || mode == "request_approval" || mode == "auto"
+}
+
 func validateCloudAgentRequest(req *CloudAgentRequest) error {
 	if req == nil {
 		return BadAuthRequest("请求不能为空")
@@ -127,7 +131,7 @@ func validateCloudAgentRequest(req *CloudAgentRequest) error {
 	if err := validateCloudAgentID(req.IdempotencyKey, "幂等键", 128); err != nil || utf8.RuneCountInString(req.IdempotencyKey) < 8 {
 		return BadAuthRequest("需要 8–128 个字符的幂等键")
 	}
-	if req.PermissionMode != "read_only" && req.PermissionMode != "request_approval" && req.PermissionMode != "auto" && req.PermissionMode != "full_access" {
+	if !cloudAgentPermissionModeSupported(req.PermissionMode) {
 		return BadAuthRequest("无效的 Agent 执行权限")
 	}
 	for value, spec := range map[string]struct {

@@ -119,6 +119,7 @@ export function AdminUserDetailDrawer({ userId, onClose, previousUserId, nextUse
                                         items={[
                                             { key: "username", label: "用户名", children: `@${detail.user.username}` },
                                             { key: "email", label: "邮箱", children: detail.user.email || "未填写" },
+                                            { key: "phone", label: "手机号", children: detail.user.phone ? `${detail.user.phone} · ${detail.user.phoneVerifiedAt ? "已验证" : "未验证"}` : "未填写" },
                                             { key: "role", label: "角色", children: detail.user.role === "admin" ? "管理员" : "普通用户" },
                                             { key: "status", label: "状态", children: <AdminStatusBadge label={detail.user.status === "active" ? "启用" : "停用"} tone={detail.user.status === "active" ? "success" : "neutral"} /> },
                                             { key: "available", label: "可用积分", children: formatCredits(detail.account.availableMicrocredits) },

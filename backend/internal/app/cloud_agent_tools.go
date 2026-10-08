@@ -77,6 +77,9 @@ func cloudAgentTools(req CloudAgentRequest) []map[string]any {
 
 func compileCloudAgentTools(req CloudAgentRequest, includeProfileTool bool) []map[string]any {
 	tools := []map[string]any{}
+	if !cloudAgentPermissionModeSupported(req.PermissionMode) {
+		return tools
+	}
 	add := func(name, description string, properties map[string]any, required ...string) {
 		if required == nil {
 			required = []string{}
@@ -202,7 +205,7 @@ func compileCloudAgentTools(req CloudAgentRequest, includeProfileTool bool) []ma
 			"topic", "category", "situation")
 	}
 	if req.PermissionMode != "read_only" && len(req.ContextScope) > 0 {
-		add("image_layer_split", "将图片按用户指定对象拆分为独立透明图层。参数与 generate_media 的图片生成参数一致，但 mode 固定为 image；request_approval 需用户批准，auto 和 full_access 经服务端准入后直接提交。", map[string]any{
+		add("image_layer_split", "将图片按用户指定对象拆分为独立透明图层。参数与 generate_media 的图片生成参数一致，但 mode 固定为 image；request_approval 需用户批准，auto 经服务端准入后直接提交。", map[string]any{
 			"prompt": str("需要拆分的对象与透明背景要求"), "logicalModelId": str("selection.logicalModelId"), "channelId": str("selection.channelId"), "channelModelKey": str("selection.channelModelKey"),
 			"quality": str("模型支持的质量档位"), "snapshotHash": str("最近画布读取返回的 mediaSnapshotHash，可省略"), "nodeId": str("新的结果节点ID"), "title": str("结果节点名称"), "referenceNodeIds": map[string]any{"type": "array", "maxItems": 16, "items": str("源图片节点ID")},
 		}, "prompt", "nodeId", "title", "referenceNodeIds")

@@ -6,10 +6,10 @@ import { localizedErrorMessage, useLocaleText } from "@/lib/i18n";
 // 验证码输入框与「获取验证码」按钮同排显示：按钮贴右侧、竖线分隔。
 // 倒计时文案长度变化会撑动按钮宽度，因此按钮用 tabular-nums + nowrap 固定视觉节奏，
 // 输入框通过 flex: 1 吸收剩余宽度，避免每次倒计时跳一下布局。
-function CodeField({ label, value, onChange, onSend, sending, remaining, targetReady, disabled, placeholder, autoComplete, inputMode, sendLabel }: {
+function CodeField({ label, value, onChange, onSend, sending, remaining, targetReady, disabled, placeholder, autoComplete, inputMode, sendLabel, showSend = true }: {
     label: string; value: string; onChange: (next: string) => void;
     onSend: () => void; sending: boolean; remaining: number; targetReady: boolean;
-    disabled: boolean; placeholder: string; autoComplete: string; inputMode: "text" | "email" | "tel" | "numeric"; sendLabel: string;
+    disabled: boolean; placeholder: string; autoComplete: string; inputMode: "text" | "email" | "tel" | "numeric"; sendLabel: string; showSend?: boolean;
 }) {
     const { text } = useLocaleText();
     const counting = remaining > 0;
@@ -27,8 +27,11 @@ function CodeField({ label, value, onChange, onSend, sending, remaining, targetR
                     inputMode={inputMode}
                     placeholder={placeholder}
                     disabled={disabled || sending}
+                    required
+                    pattern="[0-9]{6}"
+                    maxLength={6}
                 />
-                <Button
+                {showSend && <Button
                     className="auth-code-send"
                     size="large"
                     type="text"
@@ -38,7 +41,7 @@ function CodeField({ label, value, onChange, onSend, sending, remaining, targetR
                     onClick={onSend}
                 >
                     {counting ? text(`${remaining} 秒后重发`, `Resend in ${remaining}s`) : sendLabel}
-                </Button>
+                </Button>}
             </span>
         </label>
     );
@@ -53,6 +56,8 @@ export function VerificationFields({ purpose, method, value, onChange, disabled 
     const [sending, setSending] = useState(false);
     const [remaining, setRemaining] = useState(0);
     const inFlight = useRef(false);
+    const active = useRef(true);
+    useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
     const sms = method !== "email", email = method !== "sms";
     useEffect(() => {
         if (!remaining) return;
@@ -71,26 +76,23 @@ export function VerificationFields({ purpose, method, value, onChange, disabled 
         onChange({ ...value, ticket: "", emailCode: "", smsCode: "" });
         try {
             const result = await startVerification({ purpose, method, email: email ? value.email.trim() : undefined, phone: sms ? value.phone.trim() : undefined, password });
+            if (!active.current) return;
             onChange({ ...value, email: email ? value.email.trim().toLowerCase() : "", phone: sms ? value.phone.trim() : "", emailCode: "", smsCode: "", ticket: result.ticket });
             setRemaining(result.retryAfter);
             message.success(purpose === "login" ? text("如该联系方式已验证且账号可用，验证码将发送至该联系方式", "If this contact is verified, a code will be sent.") : text("验证码已发送，10 分钟内有效", "Code sent. It expires in 10 minutes."));
-        } catch (error) { message.error(localizedErrorMessage(error, "发送失败，请稍后重试", "Could not send code. Try again later.")); }
+        } catch (error) { if (active.current) message.error(localizedErrorMessage(error, "发送失败，请稍后重试", "Could not send code. Try again later.")); }
         finally { setSending(false); inFlight.current = false; }
     };
     const sendLabel = text("获取验证码", "Get code");
     return <div className="space-y-4">
         {sms && <label className="block space-y-2"><span className="auth-scene-label text-xs font-medium">{text("手机号", "Phone number")}</span><Input size="large" value={value.phone} onChange={(e) => changeTarget("phone", e.target.value)} autoComplete="tel" inputMode="tel" placeholder={text("中国大陆手机号，支持 +86", "Mainland China number (+86 only)")} required disabled={disabled || sending} /></label>}
         {email && <label className="block space-y-2"><span className="auth-scene-label text-xs font-medium">{text("邮箱", "Email")}</span><Input size="large" type="email" value={value.email} onChange={(e) => changeTarget("email", e.target.value)} autoComplete="email" placeholder={text("请输入邮箱", "Enter your email")} required disabled={disabled || sending} /></label>}
-        {/* 双通道（sms_email）一次请求同时下发两种验证码，此时按钮文案不区分通道。 */}
-        {(sms || email) && (
+        {[...(sms ? ["smsCode" as const] : []), ...(email ? ["emailCode" as const] : [])].map((key, index) => (
             <CodeField
-                label={method === "sms_email" ? text("验证码", "Verification code") : sms ? text("短信验证码", "SMS code") : text("邮件验证码", "Email code")}
-                value={method === "sms_email" ? value.smsCode : sms ? value.smsCode : value.emailCode}
-                onChange={(next) => {
-                    const code = next.replace(/\D/g, "").slice(0, 6);
-                    if (method === "sms_email" || sms) onChange({ ...value, smsCode: code, ...(method === "sms_email" ? { emailCode: code } : {}) });
-                    else onChange({ ...value, emailCode: code });
-                }}
+                key={key}
+                label={key === "smsCode" ? text("短信验证码", "SMS code") : text("邮件验证码", "Email code")}
+                value={value[key]}
+                onChange={(next) => onChange({ ...value, [key]: next.replace(/\D/g, "").slice(0, 6) })}
                 onSend={() => void send()}
                 sending={sending}
                 remaining={remaining}
@@ -101,8 +103,9 @@ export function VerificationFields({ purpose, method, value, onChange, disabled 
                 autoComplete="one-time-code"
                 inputMode="numeric"
                 sendLabel={sendLabel}
+                showSend={index === 0}
             />
-        )}
-        {method === "sms_email" && <p className="auth-scene-muted m-0 text-xs leading-5">{text("两项验证必须在本次注册中同时通过；修改联系方式后需要重新获取。", "Both methods must be verified. Request new codes after changing your contact details.")}</p>}
+        ))}
+        {method === "sms_email" && <p className="auth-scene-muted m-0 text-xs leading-5">{text("获取验证码会同时发送短信和邮件，请分别填写收到的验证码；修改联系方式后需要重新获取。", "Requesting codes sends both SMS and email. Enter each code separately; request new codes after changing contact details.")}</p>}
     </div>;
 }

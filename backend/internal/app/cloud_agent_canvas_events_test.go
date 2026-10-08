@@ -36,6 +36,8 @@ func TestCloudAgentCanvasPatchesPersistDraftSubmissionAndAllTerminalStates(t *te
 				t.Fatal(err)
 			}
 			approveAgentMediaDraft(t, s, run.ID)
+			// This test advances completion itself; fence the asynchronous approval waiter.
+			s.closeApprovedCloudAgentMediaWaiters()
 			run, _ = s.repo.CloudAgent("user", run.ID)
 			state, _ := cloudAgentDecode(run)
 			taskID := state.MediaTaskID

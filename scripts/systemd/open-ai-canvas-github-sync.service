@@ -1,0 +1,23 @@
+[Unit]
+Description=Commit and push source changes to the configured GitHub repository
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@INSTALL_DIR@
+Environment=TZ=Asia/Shanghai
+Environment=GITHUB_SYNC_REMOTE=@REMOTE@
+Environment=GITHUB_SYNC_BRANCH=@BRANCH@
+Environment=GITHUB_SYNC_EXPECTED_URL=@EXPECTED_URL@
+ExecStart=@PYTHON_BIN@ @INSTALL_DIR@/scripts/sync-github.py
+TimeoutStartSec=15min
+UMask=0077
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=@INSTALL_DIR@
+

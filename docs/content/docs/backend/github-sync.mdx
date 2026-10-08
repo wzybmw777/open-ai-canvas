@@ -1,0 +1,61 @@
+---
+title: GitHub 每日代码同步
+description: 每天北京时间零点自动提交源码并推送到指定 GitHub 仓库
+---
+
+# GitHub 每日代码同步
+
+`scripts/sync-github.py` 将当前工作区的源码变化提交到本地 `main`，再推送到明确配置的个人远端 `user/main`。`scripts/install-github-sync.sh` 安装 systemd 服务及定时器，每天 **北京时间 00:00** 执行，时区固定为 `Asia/Shanghai`。停机错过任务后会在定时器恢复时补跑一次。
+
+## 安装与使用
+
+运行环境需要 Linux、systemd、Python 3.9+、Git 和 SSH。先配置个人 GitHub 远端 `user`、Git 提交身份和能在无人值守时使用的凭据；`origin` 可以继续指向上游。SSH 必须已有可信的 GitHub 主机密钥，脚本不会关闭主机校验或交互询问密码。
+
+在仓库根目录运行：
+
+```bash
+# 检查目标远端；只配置个人仓库，不改动上游 origin。
+git remote get-url --push user
+
+# 预览：读取远端并检查本地快照，不提交、不推送、不改变暂存区。
+python3 scripts/sync-github.py \
+  --expected-url "$(git remote get-url --push user)" --dry-run
+
+# root 安装并启用定时器，不立即提交工作区。
+bash scripts/install-github-sync.sh
+
+# 检查下次触发时间和运行日志。
+systemctl list-timers open-ai-canvas-github-sync.timer
+journalctl -u open-ai-canvas-github-sync.service -n 60 --no-pager
+```
+
+默认远端名为 `user`，分支为 `main`。安装时可以通过 `GITHUB_SYNC_REMOTE`、`GITHUB_SYNC_BRANCH`、`INSTALL_DIR` 指定配置；安装器固定远端 URL，运行时若远端被改到其他仓库则失败退出。部署使用 root 的 SSH 配置，服务只读访问其主目录。
+
+需要立即运行或停止定时时：
+
+```bash
+systemctl start open-ai-canvas-github-sync.service
+systemctl disable --now open-ai-canvas-github-sync.timer
+```
+
+## 同步范围与失败处理
+
+- 有变化时生成 `chore(sync): 代码备份 - 每日自动同步 ...` 提交，包括源码新增、修改和删除。没有变化不产生空提交；已有未上传提交也会推送。
+- 自动提交保存当时读取到的文件内容，不代表代码经过测试或发布验收。它不执行部署、构建、Git commit hooks 或提交签名。
+- 遵守 `.gitignore`，另行排除备份、运行数据、依赖、构建产物、数据库导出、压缩归档、非示例 `.env` 和密钥路径；`.env.example` 可以同步。被跟踪的敏感路径发生变化时拒绝整次同步。
+- 检查本次快照与每一个未推送提交中的新增、修改文件，拒绝私钥头、GitHub Token 格式和超过 50 MiB 的文件。此检查是有限的防误传措施，不能识别所有供应商密钥，真实凭据仍须放在忽略的配置或秘密存储中。
+- 使用专用锁防止重复任务，使用临时索引和 Git 索引锁生成快照。已有暂存修改、合并冲突、rebase、cherry-pick、其他 Git 索引锁或当前分支不符时退出，保留手工作业。
+- 远端领先或历史分叉时失败，不自动合并或强推。处理分叉后可手动重新运行服务。
+- 推送失败保留本地提交，下次可继续推送；日志只记录状态、路径和提交号，不输出文件内容。网络或权限失败时检查 SSH 凭据与服务日志。
+
+定时器使用 `Persistent=true`，因此恢复机器时可能在零点以外补跑。它不会自动切换分支，也不会把其他分支或标签一并上传。
+
+## 验证
+
+专项测试使用临时本地裸仓库，不连接 GitHub：
+
+```bash
+python3 scripts/sync-github.test.py
+```
+
+安装预览和隔离测试不能代替第一次真实零点执行；首次执行后应检查服务退出状态，以及 GitHub 上的提交和目标分支。

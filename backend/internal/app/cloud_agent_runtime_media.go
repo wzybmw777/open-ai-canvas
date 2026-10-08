@@ -1,6 +1,6 @@
 // 画布 Agent 的媒体生成：提交任务、等待结果、处理审批。
 //
-// request_approval 经用户批准后创建收费任务；auto 和 full_access 经服务端准入后直接提交。
+// request_approval 经用户批准后创建收费任务；auto 经服务端准入后直接提交。
 // 用户直接在节点上生成时，待审批的 Agent 草稿会被关闭为 superseded_by_node。
 
 package app

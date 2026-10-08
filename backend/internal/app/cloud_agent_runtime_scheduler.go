@@ -58,7 +58,7 @@ func (s *Service) cloudAgentExecutionOutput(task *model.Task, initial cloudAgent
 		out.EventsTruncated = true
 	}
 	out.Approval = state.Approval
-	if cloudAgentRunTerminal(run.Status) || (state.Request.PermissionMode == "full_access" && state.Approval != nil && state.Approval.Decision == "approve") {
+	if cloudAgentRunTerminal(run.Status) {
 		out.Approval = nil
 	}
 	out.Step = state.Step

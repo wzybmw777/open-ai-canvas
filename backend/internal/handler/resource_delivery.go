@@ -30,6 +30,9 @@ func resourceAccessOptions(c *gin.Context) service.ResourceAccessOptions {
 // delivery selection happen in app; this function only applies the already-resolved
 // contract to an HTTP response.
 func serveResourceDelivery(c *gin.Context, delivery *service.ResourceDelivery, cacheControl string, disposition string) {
+	if delivery != nil && delivery.Stream != nil && delivery.Stream.Body != nil {
+		defer delivery.Stream.Body.Close()
+	}
 	if delivery == nil || delivery.Access == nil {
 		fail(c, http.StatusServiceUnavailable, fmt.Errorf("资源分发结果无效"))
 		return
@@ -62,7 +65,6 @@ func serveResourceDelivery(c *gin.Context, delivery *service.ResourceDelivery, c
 		fail(c, http.StatusServiceUnavailable, fmt.Errorf("资源流不可用"))
 		return
 	}
-	defer stream.Body.Close()
 	if cacheControl != "" {
 		c.Header("Cache-Control", cacheControl)
 	}

@@ -158,12 +158,14 @@ describe("Agent SSE recovery", () => {
 });
 
 describe("Agent admission replay and durable pending records", () => {
-    it("restores full-access conversations without downgrading permissions", async () => {
-        const conversation = { id: "full-access-chat", title: "直接生成", messages: [], run: null, permissionMode: "full_access" as const, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" };
-        await conversations.saveCloudAgentConversations("canvas", conversation.id, [conversation]);
+    it.each(["full_access", "unsupported"])("resets retired selection %s while retaining conversation history", async (permissionMode) => {
+        const conversation = { id: "historical-chat", title: "旧对话", messages: [{ id: "message", role: "assistant", text: "已保存的回复" }], run: { id: "old-run", permissionMode, status: "completed" }, permissionMode, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" };
+        storage.data.set("cloud-agent-conversations-v1:canvas", JSON.stringify({ version: 1, activeId: conversation.id, conversations: [conversation] }));
         const restored = await conversations.loadCloudAgentConversations("canvas");
         expect(restored.activeId).toBe(conversation.id);
-        expect(restored.conversations[0]?.permissionMode).toBe("full_access");
+        expect(restored.conversations[0]).toEqual({ ...conversation, permissionMode: "request_approval" });
+        await conversations.saveCloudAgentConversations("canvas", restored.activeId, restored.conversations);
+        expect((await conversations.loadCloudAgentConversations("canvas")).conversations[0]?.permissionMode).toBe("request_approval");
     });
     const input: CreateAgentRunInput = { canvasId: "canvas", prompt: "generate", model: "original", idempotencyKey: "stable-key-123" };
     it("retries with a frozen original body/key and a bounded HTTP timeout", async () => {

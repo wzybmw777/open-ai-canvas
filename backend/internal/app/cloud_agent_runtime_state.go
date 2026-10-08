@@ -103,6 +103,9 @@ func cloudAgentDecodeForExecution(run *model.CloudAgentExecution) (cloudAgentRun
 	if err != nil {
 		return state, WrapAppError(409, "Agent 运行记录无法安全恢复；请新建一轮消息", err)
 	}
+	if !cloudAgentPermissionModeSupported(state.Request.PermissionMode) {
+		return state, NewAppError(409, "Agent 执行权限已停用，无法继续原运行；请选择当前权限并新建一轮消息")
+	}
 	if err := validateCloudAgentPolicySnapshot(state.Policy); err != nil {
 		return state, WrapAppError(409, "Agent 运行使用旧版执行合同，无法继续原运行；请新建一轮消息", err)
 	}
@@ -121,7 +124,12 @@ func validateCloudAgentRuntime(run *model.CloudAgentExecution, state *cloudAgent
 	if state.Request.CanvasID == "" || state.Request.Prompt == "" || state.Request.PermissionMode == "" {
 		return errors.New("Agent runtime request is incomplete")
 	}
-	if err := validateCloudAgentRequest(&state.Request); err != nil {
+	request := state.Request
+	// Retired permissions remain in frozen history; execution rejects them above.
+	if request.PermissionMode == "full_access" {
+		request.PermissionMode = "request_approval"
+	}
+	if err := validateCloudAgentRequest(&request); err != nil {
 		return fmt.Errorf("invalid Agent runtime request: %w", err)
 	}
 	if err := validateCloudAgentPolicySnapshotStructure(state.Policy); err != nil {

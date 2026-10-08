@@ -10,7 +10,7 @@ export type UserColumnKey = "user" | "email" | "credits" | "role" | "status" | "
 
 export const userColumnOptions: Array<{ key: UserColumnKey; label: string; locked?: boolean }> = [
     { key: "user", label: "用户", locked: true },
-    { key: "email", label: "邮箱" },
+    { key: "email", label: "邮箱 / 手机号" },
     { key: "credits", label: "当前积分" },
     { key: "role", label: "角色" },
     { key: "status", label: "状态" },
@@ -43,7 +43,7 @@ export function createUserColumns({
                 </div>
             ),
         },
-        { key: "email", title: "邮箱", dataIndex: "email", align: "center", render: (email) => email || <span className="text-foreground/40">未填写</span> },
+        { key: "email", title: "邮箱 / 手机号", align: "center", render: (_, user) => <div>{user.email && <div>{user.email}</div>}{user.phone && <div>{user.phone} · {user.phoneVerifiedAt ? "已验证" : "未验证"}</div>}{!user.email && !user.phone && <span className="text-foreground/40">未填写</span>}</div> },
         {
             key: "credits",
             title: "当前积分",

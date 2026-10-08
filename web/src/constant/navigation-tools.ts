@@ -1,4 +1,4 @@
-import { Blocks, CircleDollarSign, Clapperboard, Images, LibraryBig, ListTodo, PanelsTopLeft, Settings, WandSparkles } from "lucide-react";
+import { Blocks, CircleDollarSign, Clapperboard, Film, Images, LibraryBig, ListTodo, PanelsTopLeft, Settings, WandSparkles } from "lucide-react";
 
 export const navigationTools = [
     {
@@ -23,6 +23,12 @@ export const navigationTools = [
         slug: "tasks",
         label: "任务",
         icon: ListTodo,
+        section: "创作空间",
+    },
+    {
+        slug: "theatre",
+        label: "卓越剧场",
+        icon: Film,
         section: "创作空间",
     },
     {

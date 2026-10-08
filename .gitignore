@@ -1,6 +1,7 @@
 .next/
 out/
 node_modules/
+__pycache__/
 open-storyboard-canvas/
 docs/*
 !docs/design/
@@ -28,6 +29,7 @@ docs/content/docs/backend/*
 !docs/content/docs/backend/newapi-channel-2.mdx
 !docs/content/docs/backend/video-token-billing.mdx
 !docs/content/docs/backend/qt-channel-sync.mdx
+!docs/content/docs/backend/github-sync.mdx
 !docs/content/docs/backend/creative-agent-runtime.mdx
 # Keep the creative Agent design versioned without unignoring generated docs.
 !docs/content/docs/overview/
@@ -37,6 +39,7 @@ docs/content/docs/overview/*
 !.env.example
 data/
 .local/
+/backups/
 /.local/docker-compose.postgres.yml
 coverage/
 dist/
