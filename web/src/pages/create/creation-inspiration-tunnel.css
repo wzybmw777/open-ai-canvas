@@ -93,6 +93,9 @@
     left: 0;
     /* 只有舞台能收到滚轮，避免整页滚动被劫持。 */
     pointer-events: auto;
+    /* 允许页面纵向滚动，同时把横向手势交给画廊切换。 */
+    touch-action: pan-y;
+    user-select: none;
 }
 
 .creation-tunnel-card {

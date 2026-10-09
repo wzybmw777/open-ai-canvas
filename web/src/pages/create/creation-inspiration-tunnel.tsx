@@ -13,7 +13,7 @@
 // 每张卡片等自己的封面加载完再露面。不这么做的话，先到的图先显示、
 // 慢的那几张只剩一块空面板，观感就是"右边出来了左边还空着"。
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { ArrowUp, ChevronLeft, ChevronRight } from "lucide-react";
 import { useReducedMotion } from "motion/react";
 
@@ -39,6 +39,8 @@ const AUTO_ADVANCE_MS = 6500;
 /** 记住最近展示过的条目数，换页/刷新时不会又抽到同一批。 */
 const RECENT_MEMORY = 66;
 const RECENT_KEY = "yingce:creation-gallery-recent";
+const GALLERY_DRAG_AXIS_THRESHOLD = 10;
+const GALLERY_SWIPE_THRESHOLD = 52;
 /**
  * 等封面的兜底时长。正常情况下封面几百毫秒就回来了，这条不会生效；
  * 万一某张请求挂住不回，也不能让队列永远缺一块，超时就先放行。
@@ -110,6 +112,8 @@ export function CreationInspirationTunnel({ mode, onStartPrompt }: { mode: Creat
     const reducedMotion = useReducedMotion();
     const stageRef = useRef<HTMLDivElement>(null);
     const activeRef = useRef(0);
+    const dragRef = useRef<{ pointerId: number; startX: number; startY: number; axis: "horizontal" | "vertical" | null; moved: boolean } | null>(null);
+    const suppressClickRef = useRef(false);
     activeRef.current = active;
 
     const modePool = useMemo(() => pool.filter((item) => item.mode === mode), [pool, mode]);
@@ -159,6 +163,44 @@ export function CreationInspirationTunnel({ mode, onStartPrompt }: { mode: Creat
         [shots.length],
     );
 
+    /** 横向拖拽切换，纵向手势交还给页面滚动。 */
+    const handlePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+        if (event.pointerType === "mouse" && event.button !== 0) return;
+        suppressClickRef.current = false;
+        dragRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, axis: null, moved: false };
+        event.currentTarget.setPointerCapture(event.pointerId);
+        setPaused(true);
+    }, []);
+
+    const handlePointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+        const drag = dragRef.current;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        const deltaX = event.clientX - drag.startX;
+        const deltaY = event.clientY - drag.startY;
+        if (!drag.axis && Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= GALLERY_DRAG_AXIS_THRESHOLD) {
+            drag.axis = Math.abs(deltaX) > Math.abs(deltaY) ? "horizontal" : "vertical";
+        }
+        if (drag.axis === "horizontal") {
+            drag.moved = true;
+            event.preventDefault();
+        }
+    }, []);
+
+    const finishPointerDrag = useCallback(
+        (event: ReactPointerEvent<HTMLDivElement>) => {
+            const drag = dragRef.current;
+            if (!drag || drag.pointerId !== event.pointerId) return;
+            const deltaX = event.clientX - drag.startX;
+            const shouldAdvance = event.type !== "pointercancel" && drag.axis === "horizontal" && Math.abs(deltaX) >= GALLERY_SWIPE_THRESHOLD;
+            if (drag.moved) suppressClickRef.current = true;
+            dragRef.current = null;
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+            if (shouldAdvance) step(deltaX < 0 ? 1 : -1);
+            if (event.pointerType !== "mouse") setPaused(false);
+        },
+        [step],
+    );
+
     // 自动轮播：走完一轮就换一批新的，用户不会反复看到同样那几张。
     useEffect(() => {
         if (paused || reducedMotion || shots.length < 2) return;
@@ -206,7 +248,15 @@ export function CreationInspirationTunnel({ mode, onStartPrompt }: { mode: Creat
 
     return (
         <div className="creation-inspiration-tunnel" onPointerEnter={() => setPaused(true)} onPointerLeave={() => setPaused(false)} onFocusCapture={() => setPaused(true)} onBlurCapture={() => setPaused(false)}>
-            <div ref={stageRef} className="creation-gallery-stage" aria-hidden="true">
+            <div
+                ref={stageRef}
+                className="creation-gallery-stage"
+                aria-hidden="true"
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={finishPointerDrag}
+                onPointerCancel={finishPointerDrag}
+            >
                 {shots.map((inspiration, index) => {
                     const id = catalogIdOf(inspiration);
                     // 相对当前卡片的距离，绕成最短路径，形成首尾相接的队列。
@@ -230,7 +280,13 @@ export function CreationInspirationTunnel({ mode, onStartPrompt }: { mode: Creat
                             tabIndex={-1}
                             className={`creation-tunnel-card ${depth === 0 ? "is-active" : ""} ${readyIds.has(id) ? "is-ready" : ""}`}
                             style={style}
-                            onClick={() => onStartPrompt(inspiration.mode, inspiration.prompt)}
+                            onClick={() => {
+                                if (suppressClickRef.current) {
+                                    suppressClickRef.current = false;
+                                    return;
+                                }
+                                onStartPrompt(inspiration.mode, inspiration.prompt);
+                            }}
                         >
                             <img
                                 src={inspiration.image}
