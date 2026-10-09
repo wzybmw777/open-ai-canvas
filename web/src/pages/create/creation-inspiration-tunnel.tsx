@@ -229,6 +229,8 @@ export function CreationInspirationTunnel({ mode, onStartPrompt }: { mode: Creat
         if (!node) return;
         let latched = false;
         const handleWheel = (event: WheelEvent) => {
+            const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+            if (delta === 0) return;
             event.preventDefault();
             // 触控板一次滑动会连发多个事件，锁一小段时间，避免一次滑过好几张。
             if (latched) return;
@@ -236,7 +238,7 @@ export function CreationInspirationTunnel({ mode, onStartPrompt }: { mode: Creat
             window.setTimeout(() => {
                 latched = false;
             }, 240);
-            step(event.deltaY > 0 ? 1 : -1);
+            step(delta > 0 ? 1 : -1);
         };
         node.addEventListener("wheel", handleWheel, { passive: false });
         return () => node.removeEventListener("wheel", handleWheel);
