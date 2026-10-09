@@ -18,6 +18,7 @@ export function TheatreWorkPlayer({ work, userId, onClose }: { work: TheatreWork
             title={<span className="block min-w-0 truncate pr-8" title={work.title}>{work.title}</span>}
             width={1080}
             footer={null}
+            styles={{ header: { padding: "16px 52px 16px 24px" } }}
             onCancel={onClose}
         >
             {detail.isPending ? (
@@ -123,7 +124,7 @@ function TheatrePlayback({ detail, userId }: { detail: TheatreWorkDetail; userId
     const unavailable = isDrama && !initializing && !selected;
     return (
         <div className={`hide-scrollbar grid max-h-[88dvh] overflow-y-auto ${isDrama ? "lg:grid-cols-[minmax(0,1fr)_320px]" : ""}`}>
-            <div className="min-w-0 p-4 sm:p-5">
+            <div className="min-w-0 p-5 sm:p-6">
                 {initializing ? (
                     <div className="flex min-h-80 items-center justify-center" role="status" aria-label={text("正在恢复播放进度", "Restoring playback")}>
                         <Spin />
@@ -206,7 +207,7 @@ function TheatrePlayback({ detail, userId }: { detail: TheatreWorkDetail; userId
                 <p className="mt-3 text-[var(--fs-caption)] text-muted-foreground">{work.authorName}</p>
             </div>
             {isDrama && (
-                <aside className="border-t border-border p-4 lg:border-l lg:border-t-0 sm:p-5">
+                <aside className="border-t border-border p-5 lg:border-l lg:border-t-0 sm:p-6">
                     <div className="flex items-center justify-between gap-3">
                         <h2 className="flex items-center gap-2 text-[var(--fs-body)] font-semibold">
                             <ListVideo className="size-4" aria-hidden />
