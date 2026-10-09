@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"gorm.io/gorm"
-	"infinite-canvas/backend/internal/model"
-	"infinite-canvas/backend/internal/repository"
+	"yingce/backend/internal/model"
+	"yingce/backend/internal/repository"
 )
 
 func agentParallelFixture(t *testing.T, count int, permission, mode string) (*Service, *gorm.DB, string) {

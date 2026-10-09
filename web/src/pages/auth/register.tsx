@@ -79,7 +79,7 @@ export default function RegisterPage() {
             await register({ username, ...(settings?.firstUser ? { email } : verification), displayName, password, acceptedTerms: agreementAccepted });
             const { applyUserSession } = await import("@/lib/user-session");
             await applyUserSession(await getAuthSession());
-            if (!settings?.firstUser) window.sessionStorage.setItem("infinite-canvas:model-setup-guide", "1");
+            if (!settings?.firstUser) window.sessionStorage.setItem("yingce:model-setup-guide", "1");
             message.success(settings?.firstUser ? text("管理员账号已创建", "Administrator account created") : text("注册成功", "Account created"));
             navigate(next, { replace: true });
         } catch (error) {

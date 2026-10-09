@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"infinite-canvas/backend/internal/model"
+	"yingce/backend/internal/model"
 )
 
 func TestAuthSMSUpgradeFromV34PreservesAccounts(t *testing.T) {

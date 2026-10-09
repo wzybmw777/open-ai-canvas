@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	"infinite-canvas/backend/internal/repository"
+	"yingce/backend/internal/repository"
 )
 
 const maxCloudAgentBindingRows = 20

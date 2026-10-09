@@ -11,9 +11,9 @@ import (
 	sender "github.com/casdoor/go-sms-sender"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"infinite-canvas/backend/internal/kernel"
-	"infinite-canvas/backend/internal/model"
-	"infinite-canvas/backend/internal/repository"
+	"yingce/backend/internal/kernel"
+	"yingce/backend/internal/model"
+	"yingce/backend/internal/repository"
 )
 
 type huyiTransport func(*http.Request) (*http.Response, error)

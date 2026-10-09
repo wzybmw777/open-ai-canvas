@@ -3,7 +3,7 @@ package database
 import (
 	"testing"
 
-	"infinite-canvas/backend/internal/model"
+	"yingce/backend/internal/model"
 )
 
 func TestTheatreDramaUpgradeFrom49KeepsVideosAndCovers(t *testing.T) {

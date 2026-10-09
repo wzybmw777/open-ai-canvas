@@ -3,8 +3,8 @@ package app
 import (
 	"testing"
 
-	"infinite-canvas/backend/internal/protocol"
-	"infinite-canvas/backend/internal/sms"
+	"yingce/backend/internal/protocol"
+	"yingce/backend/internal/sms"
 )
 
 func TestBundledSMSPluginsMatchHostProviders(t *testing.T) {

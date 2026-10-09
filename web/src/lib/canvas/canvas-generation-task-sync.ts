@@ -307,9 +307,15 @@ export function generationTaskOutputsApplied(node: CanvasNodeData, task: Generat
 }
 
 export function shouldRecoverCanvasImageOutputs(node: CanvasNodeData) {
-    return node.type === CanvasNodeType.Image && node.metadata?.status === "success" && Boolean(node.metadata.taskId)
-        && node.metadata.generationOutputCount === undefined && !node.metadata.isBatchRoot && !node.metadata.batchRootId
-        && /(?:midjourney|(?:^|::)mj-)/i.test(node.metadata.producedModel || node.metadata.model || "");
+    return (
+        node.type === CanvasNodeType.Image &&
+        node.metadata?.status === "success" &&
+        Boolean(node.metadata.taskId) &&
+        node.metadata.generationOutputCount === undefined &&
+        !node.metadata.isBatchRoot &&
+        !node.metadata.batchRootId &&
+        /(?:midjourney|(?:^|::)mj-)/i.test(node.metadata.producedModel || node.metadata.model || "")
+    );
 }
 
 async function buildGenerationTaskNodeResults(node: CanvasNodeData, task: GenerationTask, nodes: CanvasNodeData[]) {
@@ -320,7 +326,10 @@ async function buildGenerationTaskNodeResults(node: CanvasNodeData, task: Genera
     for (let index = 0; index < images.length; index += 1) {
         const id = `${node.id}:task:${task.id}:image:${index}`;
         const existing = nodes.find((item) => item.id === id);
-        if (existing) { children.push(existing); continue; }
+        if (existing) {
+            children.push(existing);
+            continue;
+        }
         const child = await buildGenerationTaskNodeResult({ ...node, id, title: `${node.title} · ${index + 1}`, parentId: undefined }, task, nodes, index);
         children.push({
             ...child,
@@ -328,8 +337,14 @@ async function buildGenerationTaskNodeResults(node: CanvasNodeData, task: Genera
             metadata: {
                 ...child.metadata,
                 assetId: task.outputs?.find((output) => output.outputIndex === index)?.materializedAssetId,
-                isBatchRoot: undefined, batchChildIds: undefined, primaryImageId: undefined, imageBatchExpanded: undefined,
-                batchRootId: node.id, versionOfNodeId: undefined, versionLabel: undefined, versionPrimary: undefined,
+                isBatchRoot: undefined,
+                batchChildIds: undefined,
+                primaryImageId: undefined,
+                imageBatchExpanded: undefined,
+                batchRootId: node.id,
+                versionOfNodeId: undefined,
+                versionLabel: undefined,
+                versionPrimary: undefined,
                 agentGenerationContinuation: undefined,
             },
         });
@@ -341,9 +356,12 @@ async function buildGenerationTaskNodeResults(node: CanvasNodeData, task: Genera
             metadata: {
                 ...resultNode.metadata,
                 ...imageMetadata({
-                    url: primary.metadata!.content!, storageKey: primary.metadata!.storageKey!,
-                    width: primary.metadata!.naturalWidth!, height: primary.metadata!.naturalHeight!,
-                    bytes: primary.metadata!.bytes || 0, mimeType: primary.metadata!.mimeType || "image/png",
+                    url: primary.metadata!.content!,
+                    storageKey: primary.metadata!.storageKey!,
+                    width: primary.metadata!.naturalWidth!,
+                    height: primary.metadata!.naturalHeight!,
+                    bytes: primary.metadata!.bytes || 0,
+                    mimeType: primary.metadata!.mimeType || "image/png",
                 }),
                 assetId: primary.metadata?.assetId,
                 isBatchRoot: true,

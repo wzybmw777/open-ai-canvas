@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"gorm.io/gorm"
-	"infinite-canvas/backend/internal/model"
-	"infinite-canvas/backend/internal/repository"
+	"yingce/backend/internal/model"
+	"yingce/backend/internal/repository"
 )
 
 func agentStoryboardBindingsFixture(t *testing.T) (*Service, *gorm.DB, *model.CanvasProject, []map[string]any) {
