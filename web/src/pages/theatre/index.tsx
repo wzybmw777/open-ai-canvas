@@ -176,7 +176,7 @@ function TheatreWorkspace({ userId }: { userId: string }) {
                                         <span className="truncate">{work.authorName}</span>
                                         <time dateTime={work.createdAt}>{new Date(work.createdAt).toLocaleDateString(locale)}</time>
                                     </div>
-                                    {work.userId === userId && (
+                                    {mine && work.userId === userId && (
                                         <div className="mt-3 flex gap-2 border-t border-border pt-3">
                                             <Button size="small" icon={<Pencil className="size-3.5" />} onClick={() => setEditor(work)}>
                                                 {text("编辑", "Edit")}
