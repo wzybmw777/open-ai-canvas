@@ -225,7 +225,7 @@ function TheatreWorkEditorForm({ work, userId, initialKind = "video", initialEpi
             keyboard={!busy}
             maskClosable={!busy}
         >
-            <Form className="max-h-[75dvh] overflow-y-auto px-1" form={form} layout="vertical" initialValues={{ title: work?.title || "", description: work?.description || "" }} onFinish={(values) => void save(values)}>
+            <Form className="hide-scrollbar max-h-[75dvh] overflow-y-auto px-1" form={form} layout="vertical" initialValues={{ title: work?.title || "", description: work?.description || "" }} onFinish={(values) => void save(values)}>
                 <p className="mb-5 text-[var(--fs-body)] text-muted-foreground">
                     {text("发布后，所有登录用户都能观看。你可以随时编辑作品信息或将作品下架。", "All signed-in users can watch published works. You can edit or unpublish your work at any time.")}
                 </p>
