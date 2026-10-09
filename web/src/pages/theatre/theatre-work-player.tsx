@@ -12,7 +12,14 @@ export function TheatreWorkPlayer({ work, userId, onClose }: { work: TheatreWork
     const { text, locale } = useLocaleText();
     const detail = useQuery({ queryKey: ["theatre-detail", userId, work.id], queryFn: ({ signal }) => getTheatreWork(work.id, signal), refetchOnWindowFocus: false });
     return (
-        <AppModal open flush title={work.title} width={1080} footer={null} onCancel={onClose}>
+        <AppModal
+            open
+            flush
+            title={<span className="block min-w-0 truncate pr-8" title={work.title}>{work.title}</span>}
+            width={1080}
+            footer={null}
+            onCancel={onClose}
+        >
             {detail.isPending ? (
                 <div role="status" aria-label={text("正在加载作品", "Loading work")} className="flex justify-center p-12">
                     <Spin />
@@ -115,7 +122,7 @@ function TheatrePlayback({ detail, userId }: { detail: TheatreWorkDetail; userId
     };
     const unavailable = isDrama && !initializing && !selected;
     return (
-        <div className={`grid max-h-[88dvh] overflow-y-auto ${isDrama ? "lg:grid-cols-[minmax(0,1fr)_320px]" : ""}`}>
+        <div className={`hide-scrollbar grid max-h-[88dvh] overflow-y-auto ${isDrama ? "lg:grid-cols-[minmax(0,1fr)_320px]" : ""}`}>
             <div className="min-w-0 p-4 sm:p-5">
                 {initializing ? (
                     <div className="flex min-h-80 items-center justify-center" role="status" aria-label={text("正在恢复播放进度", "Restoring playback")}>
@@ -213,7 +220,7 @@ function TheatrePlayback({ detail, userId }: { detail: TheatreWorkDetail; userId
                         {text("自动播放下一集", "Play next episode automatically")}
                         <Switch checked={autoNext} onChange={setAutoNext} aria-label={text("自动播放下一集", "Play next episode automatically")} />
                     </label>
-                    <div className="grid grid-cols-5 gap-2 lg:max-h-[56dvh] lg:overflow-y-auto">
+                    <div className="hide-scrollbar grid grid-cols-5 gap-2 lg:max-h-[56dvh] lg:overflow-y-auto">
                         {episodes.map((episode, index) => (
                             <button
                                 key={episode.id}
