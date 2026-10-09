@@ -48,6 +48,7 @@ function TheatrePlayback({ detail, userId }: { detail: TheatreWorkDetail; userId
     const [progressWarning, setProgressWarning] = useState(false);
     const [resumed, setResumed] = useState(false);
     const [ended, setEnded] = useState(false);
+    const [videoReady, setVideoReady] = useState(false);
     const restoreSeconds = useRef(0);
     const currentId = useRef("");
     const lastSaved = useRef(0);
@@ -112,6 +113,7 @@ function TheatrePlayback({ detail, userId }: { detail: TheatreWorkDetail; userId
         setError(false);
         setEnded(false);
         setResumed(false);
+        setVideoReady(false);
         persist({ episodeId: episode.id, seconds: 0 });
     };
     const remember = (video: HTMLVideoElement, force = false) => {
@@ -134,18 +136,23 @@ function TheatrePlayback({ detail, userId }: { detail: TheatreWorkDetail; userId
                         {text("剧集暂时不可观看，请重新加载作品。", "Episodes are currently unavailable. Reload this work.")}
                     </p>
                 ) : (
-                    <div className="flex items-center justify-center overflow-hidden rounded-xl bg-secondary">
+                    <div className="relative flex aspect-video min-h-48 max-h-[68dvh] items-center justify-center overflow-hidden rounded-xl bg-secondary">
                         <video
                             key={isDrama ? selected!.id : work.id}
                             src={isDrama ? theatreEpisodeVideoUrl(work.id, selected!.id) : theatreVideoUrl(work.id)}
                             poster={work.coverResourceId ? theatreCoverUrl(work.id, work.updatedAt) : undefined}
-                            controls
+                            controls={videoReady}
                             autoPlay
                             playsInline
                             preload="metadata"
-                            className={isDrama ? "max-h-[68dvh] min-h-48 w-full object-contain" : "aspect-video w-full object-contain"}
+                            className="size-full object-contain"
                             aria-label={selected ? `${work.title} · 第 ${selected.number} 集 ${selected.title}` : work.title}
-                            onError={() => setError(true)}
+                            onError={() => {
+                                setError(true);
+                                setVideoReady(true);
+                            }}
+                            onLoadStart={() => setVideoReady(false)}
+                            onLoadedData={() => setVideoReady(true)}
                             onPlay={() => setEnded(false)}
                             onTimeUpdate={(event) => remember(event.currentTarget)}
                             onPause={(event) => remember(event.currentTarget, true)}
@@ -163,6 +170,11 @@ function TheatrePlayback({ detail, userId }: { detail: TheatreWorkDetail; userId
                                 }
                             }}
                         />
+                        {!videoReady && (
+                            <div className="absolute inset-0 grid place-items-center bg-secondary" role="status" aria-label={text("正在加载视频", "Loading video")}>
+                                <Spin size="large" />
+                            </div>
+                        )}
                     </div>
                 )}
                 {error && (
