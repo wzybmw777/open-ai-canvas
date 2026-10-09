@@ -160,20 +160,39 @@ export default function SMSChannelsPanel({ onUnsavedChange }: { onUnsavedChange:
     const remove = (channel: SMSChannel) =>
         modal.confirm({
             title: `删除短信渠道「${channel.name}」？`,
-            content: "发送记录将保留。",
-            okText: "删除渠道",
+            content: channel.enabled ? "该渠道当前已启用。确认后会先停用渠道，再删除配置；已有发送记录会保留。" : "已有发送记录会保留。",
+            okText: channel.enabled ? "停用并删除" : "删除渠道",
             cancelText: "取消",
             okButtonProps: { danger: true },
             onOk: async () => {
                 if (mutation.current) return;
                 mutation.current = true;
                 setDeleting(true);
+                let disabled = false;
                 try {
+                    if (channel.enabled) {
+                        const result = await updateSMSChannel(channel.id, {
+                            name: channel.name,
+                            provider: channel.provider,
+                            enabled: false,
+                            priority: channel.priority,
+                            dailyLimit: channel.dailyLimit,
+                            signName: channel.signName,
+                            appId: channel.appId,
+                            accessId: "",
+                            accessKey: "",
+                            templates: channel.templates,
+                            version: channel.version,
+                        });
+                        if (result.id !== channel.id || result.enabled || !result.hasCredentials) throw new Error("停用结果未确认，请刷新渠道后重试");
+                        disabled = true;
+                    }
                     await deleteSMSChannel(channel.id);
                     setChannels((current) => current?.filter((item) => item.id !== channel.id) ?? null);
                     message.success("短信渠道已删除");
                 } catch (err) {
-                    message.error(err instanceof Error ? err.message : "删除失败");
+                    if (disabled) void load();
+                    message.error(disabled ? `渠道已停用，但删除失败：${err instanceof Error ? err.message : "请刷新后重试"}` : err instanceof Error ? err.message : "删除失败");
                     throw err;
                 } finally {
                     mutation.current = false;
@@ -266,7 +285,7 @@ export default function SMSChannelsPanel({ onUnsavedChange }: { onUnsavedChange:
                                     >
                                         测试
                                     </Button>
-                                    <Button size="small" danger icon={<Trash2 className="size-3.5" />} disabled={row.enabled || deleting} title={row.enabled ? "请先编辑并停用渠道" : "删除渠道"} onClick={() => remove(row)}>
+                                    <Button size="small" danger icon={<Trash2 className="size-3.5" />} disabled={deleting} title={row.enabled ? "确认后会先停用再删除" : "删除渠道"} onClick={() => remove(row)}>
                                         删除
                                     </Button>
                                 </div>
