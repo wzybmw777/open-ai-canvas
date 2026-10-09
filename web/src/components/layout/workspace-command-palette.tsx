@@ -29,12 +29,11 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
     const entries = useMemo<PaletteEntry[]>(() => {
         const toolEntry = (slug: string, to?: string): PaletteEntry => {
             const tool = navigationTools.find((item) => item.slug === slug);
-            const english = ({ projects: "Projects", canvas: "Canvas", theatre: "Excellence Theatre", tasks: "Tasks", assets: "Assets", skills: "Skills", wallet: "Credits", settings: "Settings" } as Record<string, string>)[slug];
+            const english = ({ canvas: "Canvas", theatre: "Excellence Theatre", tasks: "Tasks", assets: "Assets", skills: "Skills", wallet: "Credits", settings: "Settings" } as Record<string, string>)[slug];
             return { id: slug, title: locale === "en-US" ? english || slug : tool?.label ?? slug, icon: tool?.icon ?? Home, to };
         };
         return [
             { id: "home", title: text("首页", "Home"), icon: Home, to: "/" },
-            toolEntry("projects", "/projects"),
             toolEntry("canvas", "/canvas"),
             toolEntry("theatre", "/theatre"),
             ...(features.taskCenterEnabled ? [toolEntry("tasks", "/tasks")] : []),

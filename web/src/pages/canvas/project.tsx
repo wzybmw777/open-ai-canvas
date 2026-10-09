@@ -286,7 +286,6 @@ function CanvasViewportPage() {
     const [titleEditing, setTitleEditing] = useState(false);
     const [titleDraft, setTitleDraft] = useState("");
     const [shortcutRequestNonce, setShortcutRequestNonce] = useState(0);
-    const [cinematicAgentEntry, setCinematicAgentEntry] = useState(false);
     const { assistantOpen, closeAgent, openAgent: openAssistant } = useCanvasAssistantVisibility();
     const agentMentionReferences = useMemo(() => buildCanvasAgentMentionReferences(nodes), [nodes]);
 
@@ -411,6 +410,13 @@ function CanvasViewportPage() {
     const versions = useCanvasVersionHistory(projectId, restoreCanvasProjectVersion);
     const openVersions = () => { closeAgent(); setVersionCompareRootId(null); versions.show(); };
     const openAgent = useCallback(() => { versions.close(); openAssistant(); }, [versions.close, openAssistant]);
+    const openShortDramaAgent = useCallback(() => {
+        setAgentPrefillRequest((current) => ({
+            id: (current?.id ?? 0) + 1,
+            text: "我想在当前自由画布中创作一部短剧，请先帮我建立短剧创作流程，并确认题材、角色、冲突、画风和集数。",
+        }));
+        openAgent();
+    }, [openAgent]);
 
     const sendSelectionToAgent = useCallback((nodeId?: string) => {
         const ids = nodeId ? [nodeId] : Array.from(selectedNodeIdsRef.current);
@@ -2481,7 +2487,11 @@ function CanvasViewportPage() {
     });
     const emptyCanvasState =
         emptyStateKind === "freeform" ? (
-            <CanvasFreeformEmptyState commands={freeformCreateCommands} />
+            <CanvasFreeformEmptyState
+                commands={freeformCreateCommands}
+                onCreateShortDrama={shortDramaEnabled && !currentProject?.projectId ? createShortDramaPipeline : undefined}
+                onOpenAgent={shortDramaEnabled && !currentProject?.projectId ? openShortDramaAgent : undefined}
+            />
         ) : emptyStateKind === "linked" ? (
             <CanvasLinkedProjectEmptyState
                 projectName={linkedProjectQuery.data?.project.name || currentProject?.title || "项目画布"}
@@ -2496,10 +2506,7 @@ function CanvasViewportPage() {
         ) : emptyStateKind === "guided" ? (
             <CanvasShortDramaEmptyState
                 onCreatePipeline={createShortDramaPipeline}
-                onOpenAgent={() => {
-                    setCinematicAgentEntry(true);
-                    openAgent();
-                }}
+                onOpenAgent={openShortDramaAgent}
                 onStartFreeform={() => updateProject(projectId, { starterMode: "freeform" })}
                 onUpload={() => handleUploadRequest()}
                 onAddText={() => createNode(CanvasNodeType.Text)}

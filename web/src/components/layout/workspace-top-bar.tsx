@@ -16,7 +16,7 @@ import { useLocaleText } from "@/lib/i18n";
 const PAGE_TITLES: Record<string, string> = {
     home: "创作",
     create: "创作",
-    projects: "短剧 Agent",
+    projects: "项目",
     canvas: "自由画布",
     tasks: "创作历史",
     assets: "资产",
@@ -36,7 +36,7 @@ export function WorkspaceTopBar({ sidebarOpen, onToggleSidebar }: { sidebarOpen:
     const { availableMicrocredits } = useWalletBalance(user?.id, creditsEnabled);
     const { pathname } = useLocation();
     const slug = pathname.split("/").filter(Boolean)[0];
-    const englishTitles: Record<string, string> = { home: "Create", create: "Create", projects: "Short Drama Agent", canvas: "Canvas", theatre: "Excellence Theatre", tasks: "History", assets: "Assets", skills: "Skills", plugins: "Plugins", settings: "Settings" };
+    const englishTitles: Record<string, string> = { home: "Create", create: "Create", projects: "Projects", canvas: "Canvas", theatre: "Excellence Theatre", tasks: "History", assets: "Assets", skills: "Skills", plugins: "Plugins", settings: "Settings" };
     const pageTitle = slug ? (locale === "en-US" ? englishTitles[slug] : PAGE_TITLES[slug]) || brandName : text(PAGE_TITLES.home, englishTitles.home);
     const balance = availableMicrocredits === null ? "--" : (availableMicrocredits / 1_000_000).toLocaleString(locale, { maximumFractionDigits: 2 });
 
