@@ -1,4 +1,6 @@
 import { CanvasWorkspacePanel } from "@/components/canvas/canvas-workspace-panel";
+import { useCanvasImageLayerGroups } from "./use-canvas-image-layer-groups";
+import { useCanvasImageLayerMaterials } from "./use-canvas-image-layer-materials";
 import { isCanvasNodeGenerating } from "@/lib/canvas/canvas-node-task-state";
 import { createCanvasStateWriter } from "@/lib/canvas/canvas-editor-state";
 import { canCancelGenerationTask } from "@/lib/generation-task-display";
@@ -897,6 +899,7 @@ function CanvasViewportPage() {
         openBackgroundRemoval,
         openLayerDecomposition,
         decomposeImageLayers,
+        activeLayerGroupIds,
         setLayerDecompositionNodeId,
         setTextEditNodeId,
         openTextEditNode,
@@ -930,7 +933,11 @@ function CanvasViewportPage() {
         startGenerationRequest,
         finishGenerationRequest,
         bindGenerationTask,
+        applyGenerationTaskResult,
     });
+
+    useCanvasImageLayerGroups({ projectId, enabled: projectLoaded, nodes, nodesRef, setNodes, runningNodeId, activeLayerGroupIds });
+    const extractLayerMaterials = useCanvasImageLayerMaterials({ projectId, domainProjectId: currentProject?.projectId, enabled: projectLoaded, nodes, nodesRef, setNodes, setConnections });
 
     const handleNodesDeleted = useCallback(
         (removedIds: Set<string>, nextNodes: CanvasNodeData[], removedNodes: CanvasNodeData[]) => {
@@ -1590,8 +1597,9 @@ function CanvasViewportPage() {
             updateMediaNode: updateMediaNodeFromContent,
             openArtCritique,
             addPanoramaCaptureNode,
+            extractLayerMaterials,
         }),
-        [addPanoramaCaptureNode, deleteNodeFromContent, downloadNodeImage, duplicateNodeFromContent, openArtCritique, replaceCanvasNodeMedia, updateMediaNodeFromContent, updateNodeFromContent, updateNodeMetadataFromContent],
+        [addPanoramaCaptureNode, deleteNodeFromContent, downloadNodeImage, duplicateNodeFromContent, extractLayerMaterials, openArtCritique, replaceCanvasNodeMedia, updateMediaNodeFromContent, updateNodeFromContent, updateNodeMetadataFromContent],
     );
     const { dismissLastAgentChange, lastAgentChange, undoAgentOps, viewLastAgentChange } = useCanvasOperationHistory({
         projectId,
@@ -2440,6 +2448,12 @@ function CanvasViewportPage() {
     );
     const retryCanvasNode = useCallback(
         (node: CanvasNodeData) => {
+            if (node.metadata?.imageLayerWorkflow && !node.metadata.experimentalLayerPlan && !node.metadata.layerDecomposition) {
+                const source = nodesRef.current.find((item) => item.id === node.metadata!.imageLayerWorkflow!.sourceNodeId);
+                if (source?.metadata?.content) setLayerDecompositionNodeId(source.id);
+                else message.error("拆层源图片已不存在，请重新选择图片");
+                return;
+            }
             if (node.type === CanvasNodeType.Script) {
                 const prompt = (node.metadata?.composerContent || node.metadata?.prompt || "").trim();
                 if (!prompt) {
@@ -2447,6 +2461,10 @@ function CanvasViewportPage() {
                     return;
                 }
                 void generateScriptRows(node.id, prompt);
+                return;
+            }
+            if (node.metadata?.experimentalLayerPlan || node.metadata?.layerExtraction) {
+                void handleRetryNode(node);
                 return;
             }
             if (node.type === CanvasNodeType.Image && node.metadata?.isBatchRoot) {
@@ -2465,7 +2483,7 @@ function CanvasViewportPage() {
             }
             void handleRetryNode(node);
         },
-        [generateScriptRows, handleRetryNode, message, nodesRef, retryImageBatchChildren],
+        [generateScriptRows, handleRetryNode, message, nodesRef, retryImageBatchChildren, setLayerDecompositionNodeId],
     );
     const openCanvasNodeTaskDetails = useCallback(
         (node: CanvasNodeData) => {

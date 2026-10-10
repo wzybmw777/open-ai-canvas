@@ -170,7 +170,8 @@ func (s *Service) buildFeaturesConfig(state *cloudAgentRuntime) map[string]any {
 	}
 }
 
-// buildPermissionsConfig 构建权限配置
+// buildPermissionsConfig 根据当前账号的画布归属生成运行时权限。
+// userID 是登录账号，canvasID 是画布 ID（不是所属项目 ID）；查询失败时拒绝访问。
 func (s *Service) buildPermissionsConfig(userID, canvasID string) map[string]any {
 	// 从数据库读取实际权限
 	canvas, err := s.repo.CanvasProjectForUser(userID, canvasID)

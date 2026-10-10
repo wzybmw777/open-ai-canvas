@@ -5,6 +5,10 @@ description: 信封、错误码与 OpenAPI
 
 # HTTP API 合同
 
+## Agent 画布事件与 KM 图片能力
+
+Agent 按当前登录账号校验画布归属；超过单事件 128 KiB 的画布增量返回 `requiresRefresh: true`，由客户端重新读取完整画布。Pi 单步最多保存 8 个工具调用、正文最多 32000 字节，超限整批纠正，不执行部分调用。Seedream 图片能力支持 1K、1.5K、2K 预设，仍沿用现有模型目录、任务和计费合同。
+
 ## 邮箱与手机号验证码登录注册
 
 后台「登录与注册」可独立开启 `smsLogin` / `emailLogin`；注册可配置 `smsRegistration`、`emailRegistration`（两者同时开启表示用户任选一种），或单独开启 `smsAndEmailRegistration`（两者必须验证，不能同时开启单通道注册）。账号密码登录保留；注册开放仍由 `registration.enabled` 控制。开启邮箱方式需已启用邮件服务，开启短信方式需对应供应商插件及场景渠道可用，否则保存返回 400。公开 `/auth/settings` 会隐藏已不可用的验证方式，不仅取决于已保存的策略。

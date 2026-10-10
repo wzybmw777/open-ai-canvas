@@ -16,6 +16,9 @@ func TestLoadAgentPoliciesUsesDocumentMetadata(t *testing.T) {
 	if strings.Contains(system.Text, "id: cloud-agent-system") || !strings.HasPrefix(system.Text, "# Cloud Agent") {
 		t.Fatalf("metadata leaked into compiled policy body: %q", system.Text)
 	}
+	if !strings.Contains(system.Text, "maxToolCalls") || !strings.Contains(system.Text, "收到这一批的真实执行结果后再继续") {
+		t.Fatal("system policy lost the tool-call batching instruction")
+	}
 	for _, phrase := range []string{
 		"auto 只有在服务端准入成功后才提交",
 		"request_approval 必须等待界面独立审批",

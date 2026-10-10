@@ -16,6 +16,7 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { ModelPicker } from "@/components/model-picker";
 import { CreditSymbol, requestCreditCost } from "@/constant/credits";
 import { modelCapabilityConfigFor, normalizeImageValue, normalizeVideoValue, videoDurationOptions } from "@/lib/model-capabilities";
+import { imageQualityLabel } from "@/lib/image-quality";
 import { modelQuoteDescription, modelQuoteRequest } from "@/lib/model-pricing";
 import { customShotTitle, displayShotOrdinal, normalizeDefaultShotTitle } from "@/lib/shot-label";
 import { modelCompatibilityError, resolveCompatibleModel, resolveModelVideoBooleanOptions, type ModelRequirements } from "@/lib/model-selection";
@@ -530,7 +531,7 @@ export default function WorkflowProductionWorkbench(props: Props) {
                                         {generationCapability === "video" ? (
                                             <Form.Item label={text("分辨率", "Resolution")}><Select value={resolution} onChange={setResolution} options={(videoProfile?.resolutions || []).map((value) => ({ value, label: formatVideoResolutionLabel(value) }))} /></Form.Item>
                                         ) : imageProfile?.quality.supported && !imageResolutionUsesQuality(imageProfile) ? (
-                                            <Form.Item label={text("生成画质", "Image quality")}><Select value={imageQuality} onChange={setImageQuality} options={imageProfile.quality.values.map((value) => ({ value, label: value.toUpperCase() }))} /></Form.Item>
+                                            <Form.Item label={text("生成画质", "Image quality")}><Select value={imageQuality} onChange={setImageQuality} options={imageProfile.quality.values.map((value) => ({ value, label: imageQualityLabel(value) }))} /></Form.Item>
                                         ) : <div />}
                                     </div>
                                     {generationCapability === "image" && imageProfile ? <ImageSizePicker profile={imageProfile} size={aspectRatio} quality={imageQuality} onChange={(size, quality) => { setAspectRatio(size); if (quality) setImageQuality(quality); }} /> : null}
