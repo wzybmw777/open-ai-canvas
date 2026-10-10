@@ -1151,6 +1151,81 @@ paths:
           $ref: "#/components/responses/Error"
         "404":
           $ref: "#/components/responses/Error"
+  /admin/channel-sync:
+    get:
+      tags: [admin]
+      summary: 管理员查看所有渠道的每日同步配置和最近执行记录
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "403":
+          $ref: "#/components/responses/Error"
+  /admin/channel-sync/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    put:
+      tags: [admin]
+      summary: 保存受管同步脚本配置，每日北京时间零点执行
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled, script, syncPrices, importNew]
+              properties:
+                enabled: { type: boolean }
+                script: { type: string, enum: [authorized-models, model-plaza] }
+                sourceUrl: { type: string, maxLength: 512 }
+                groupId: { type: integer }
+                syncPrices: { type: boolean, description: 保留各价格档现有成本与售价比例 }
+                importNew: { type: boolean, description: 新模型保持停用 }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "400":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+  /admin/channel-sync/{id}/run:
+    post:
+      tags: [admin]
+      summary: 异步启动一次渠道同步，返回执行记录
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+  /admin/channel-sync/{id}/runs:
+    get:
+      tags: [admin]
+      summary: 管理员查看渠道最近三十条同步执行记录
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "403":
+          $ref: "#/components/responses/Error"
   /admin/channels/{id}/models/batch-reprice:
     post:
       tags: [admin]

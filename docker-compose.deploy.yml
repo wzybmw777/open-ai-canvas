@@ -103,6 +103,9 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    # Publishing retained static assets can take minutes on a busy disk.
+    healthcheck:
+      start_period: 5m
     restart: unless-stopped
 
 volumes:

@@ -31,6 +31,8 @@ description: 从产品功能快速定位主要代码入口
 
 ## QT 渠道每日同步
 
+后台受管同步入口为 `web/src/pages/admin/channels/channel-sync-page.tsx`，API 在 `services/api/channel-sync.ts`；`handler/channel_sync.go` → `app/channel_sync.go` 编排权限、HTTP 读取和 Worker 调度，`channelsync/plan.go` 校验价格与准备变更，`repository/channel_sync.go` 负责租约、执行历史和原子提交，`model/channel_sync.go` 定义 Schema 53 表。见 [上游渠道同步管理](/docs/backend/channel-sync)。后台启用后停用以下旧宿主机 timer，避免并发执行。
+
 `scripts/sync-qt-channel.mjs` 核对 QT 公开价格和渠道密钥授权目录，精确匹配 SKU 与规格并事务更新价格、简介与启用状态；`scripts/qt-channel-models.mjs` 定义已确认新型号的协议与能力配置。`scripts/sync-qt-channel.sh` 防止重复运行，`scripts/install-qt-channel-sync.sh` 安装每天北京时间零点的 systemd 定时任务。规则和排查见 [QT 渠道每日同步](/docs/backend/qt-channel-sync)。
 
 ## 画布 Agent 配置与 Live2D

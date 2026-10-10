@@ -461,3 +461,16 @@ CSV 使用中文表头、UTF-8 BOM、CRLF；金额按整数分精确转换为两
 新增登录读取 `/api/skills/curation` 与管理员 GET／PUT `/api/admin/skill-curation`；原技能列表仅在策展开启时应用新增分类筛选，响应结构不变。见 [接口与行为](./skill-curation)。
 
 一级分类扩展：管理写入增加 root 命令，assignment.rootId 与子分类完整集合一起保存；列表增加 platformRootId 筛选。关闭模式继续忽略新增筛选。
+
+## 上游渠道同步
+
+以下接口均要求登录的管理员，使用统一业务信封：
+
+| 方法 | 路径 | 行为 |
+| --- | --- | --- |
+| GET | `/api/admin/channel-sync` | 返回所有系统渠道及同步配置、最近执行记录；同时返回 `timezone: Asia/Shanghai`、`schedule: 00:00` |
+| PUT | `/api/admin/channel-sync/:id` | 保存 `enabled/script/sourceUrl/groupId/syncPrices/importNew`；脚本为 `authorized-models` 或 `model-plaza`；启用后从下一零点开始 |
+| POST | `/api/admin/channel-sync/:id/run` | 异步启动已配置渠道，返回 `run`；同渠道已有执行租约时返回 HTTP 409 |
+| GET | `/api/admin/channel-sync/:id/runs` | 返回最近 30 条执行记录，包含状态、摘要、来源和起止时间 |
+
+公开价格目录只能使用不带凭证、查询参数或片段的 HTTPS URL，仍受服务端 SSRF 与代理策略约束。授权目录使用渠道保存在服务端的密钥。行为边界与失败处理见 [上游渠道同步管理](./channel-sync)。

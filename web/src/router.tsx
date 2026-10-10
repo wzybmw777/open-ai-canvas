@@ -21,6 +21,7 @@ const EmailSettingsPage = lazy(() => import("@/pages/admin/admin-route-pages").t
 const FeatureAvailabilityPage = lazy(() => import("@/pages/admin/admin-route-pages").then((module) => ({ default: module.FeatureAvailabilityPage })));
 const AgentLessonsPage = lazy(() => import("@/pages/admin/admin-route-pages").then((module) => ({ default: module.AgentLessonsPage })));
 const ChannelsPage = lazy(() => import("@/pages/admin/channels/channels-page"));
+const ChannelSyncPage = lazy(() => import("@/pages/admin/channels/channel-sync-page"));
 const LogicalModelsPage = lazy(() => import("@/pages/admin/logical-models/logical-models-page"));
 const AdminPluginsPage = lazy(() => import("@/pages/admin/plugins/plugins-page"));
 const SkillCurationPage = lazy(() => import("@/pages/admin/skill-curation-page"));
@@ -200,6 +201,7 @@ export const router = createBrowserRouter([
                     { index: true, element: <AnalyticsPage /> },
                     { path: "users", element: <UsersPage /> },
                     { path: "channels", element: <ChannelsPage /> },
+                    { path: "channel-sync", element: <ChannelSyncPage /> },
                     { path: "models", element: <RequireFeature feature="frontendModelsEnabled"><LogicalModelsPage /></RequireFeature> },
                     { path: "plugins", element: <AdminPluginsPage /> },
                     { path: "skill-curation", element: <SkillCurationPage /> },

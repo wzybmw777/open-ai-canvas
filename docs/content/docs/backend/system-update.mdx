@@ -68,7 +68,40 @@ curl -fsSL https://raw.githubusercontent.com/ddcat-ai/open-ai-canvas/main/script
 5. 同一 SHA 的 main/tag 发布串行运行；后到的一轮仍经过质量门禁，然后复用已有 SHA 镜像，不重复编译。只有明确的镜像不存在可以转入构建，鉴权、限流、网络和异常摘要必须报错。
 6. 发布保留完整 SHA 和短 SHA 标签；只有版本 tag 推送写入具体版本标签。`main` 只有在仍是远端最新提交时才更新 `latest`，旧提交的慢任务不能覆盖新版本。正式部署由安装器和更新器解析并落盘 digest，不依赖 `latest`。
 
-Go 检查显式使用 `backend/go.sum` 作为缓存依赖键，并上传 `go-test-timings`（JSONL），可按 `Test` / `Elapsed` 定位慢测试。Docker 的后端模块下载保留在普通镜像层，编译步骤可以直接读取；支付插件只按实际 import 下载依赖，不重复预取完整后端模块图。版本参数下移到编译入口。GHA 构建缓存按镜像和架构隔离，避免并行任务共用同一 scope。`go-build` cache mount 只用于同一个 builder 内的复用，当前没有额外的跨 Runner mount 导出方案；不能把它当作持久编译缓存。冷缓存首轮和缓存上传仍可能较慢，需要比较连续两轮的实际耗时。
+Go 检查显式使用 `backend/go.sum` 作为缓存依赖键，并上传 `go-test-timings`（JSONL），可按 `Test` / `Elapsed` 定位慢测试。Docker 的后端模块下载通过持久化 cache mount 复用，编译步骤可以直接读取；支付插件只按实际 import 下载依赖，不重复预取完整后端模块图。版本参数下移到编译入口。GHA 构建缓存按镜像和架构隔离，避免并行任务共用同一 scope。`go-build` cache mount 只用于同一个 builder 内的复用，当前没有额外的跨 Runner mount 导出方案；不能把它当作持久编译缓存。冷缓存首轮和缓存上传仍可能较慢，需要比较连续两轮的实际耗时。
+
+源码部署使用 `scripts/build-images.sh`。脚本默认复用 Docker 的持久化 `default` BuildKit builder；不要在每次发布结束时删除它，也不会自动创建临时 Builder。当前独立依赖镜像通过 `--load` 供后端复用，因此脚本要求 Docker 驱动和同一宿主机上的 `default` Builder。后端 Dockerfile 将 Go 编译缓存保存在 `/root/.cache/go-build`，模块缓存保存在 `/go/pkg/mod`，Agent 的 npm 缓存保存在 `/root/.npm`，三者都由 BuildKit cache mount 管理。脚本默认先使用附近的 `https://goproxy.cn`，网络异常时回退到 `https://proxy.golang.org` 和 `direct`，可通过 `GOPROXY` 指定企业内网代理；基础镜像固定时使用 `--pull=false`。Agent 的 `node_modules` 先构建为独立的 `open-ai-canvas-pi-runtime-deps:local` 镜像，并作为后端运行镜像的基础层复用，业务代码变更不会重新安装或复制整份依赖。构建上下文继续排除 `**/node_modules`、`dist`、`out`、`coverage`、临时目录和插件包内的生成式 backend 产物；官方 `.yingce-plugin` 包必须保留在上下文中，供运行时加载协议适配器。
+
+### 前端与静态素材分层缓存
+
+前端 Dockerfile 将 Nginx 配置与入口脚本放在稳定的 `web-runtime` 层，将 `web/public` 放在独立的 `web-static` 层。Vite 构建阶段只复制入口、配置、源码和被源码引用的根目录资源，不复制测试、工具脚本或整份静态图片。Docker 设置 `CANVAS_BUILD_COPY_PUBLIC=false`，生成的 `dist` 只包含打包产物，再与静态素材层合并到 `/opt/canvas-release`；灵感封面、目录 JSON、模型和欢迎页素材仍随完整镜像发布。宿主机和 Vercel 默认继续复制 public，仍输出完整的 dist。
+
+前端使用现代 BuildKit 自带的 Dockerfile 解析器，避免每次额外解析外部 Dockerfile 前端镜像。构建仍需要支持 cache mount 和 `COPY --chmod` 的 BuildKit。
+
+图片不变而源码变化时，运行基底与静态图片层可复用；只改 public 图片时，Vite 源码层也可复用。首次建立新的缓存层仍需要完整构建。Tailwind 只扫描 `src`、`index.html` 和明确声明的 Streamdown 依赖，避免把测试、工具和静态目录中的文本当作页面样式来源。源码变化仍会触发 Vite 的全量模块构建，不把开发依赖预构建缓存当成生产增量编译缓存。
+
+用户上传和生成的图片、视频保存在资源存储或后端数据卷内，不在源码构建上下文中，不随前端打包；与镜像内置的 public 素材分别管理。大量素材的导出、转码或视频合成可能争用同一服务器的磁盘和 CPU，属于运行任务负载，需要与构建耗时分开判断。
+
+默认构建时间与 CI 一致，取当前 Git 提交时间，避免同一提交重跑时因时钟变化使编译层失效；可用 `BUILD_TIME` 显式覆盖。未提交源码的内容变化仍会使对应 COPY 层失效。局部发布选择对应服务：
+
+```bash
+bash scripts/build-images.sh web      # 只构建前端
+bash scripts/build-images.sh backend  # 构建 Agent 依赖与后端
+bash scripts/build-images.sh all      # 默认，构建前后端
+```
+
+构建命令只生成镜像，不自动切换生产服务。局部上线仍应把对应服务固定到新镜像 digest，并使用 Compose 的 `--no-deps --pull never` 切换，保留旧摘要以便回退。
+
+生产 web 启动时先向静态资源卷发布文件，再启动 Nginx。Compose 为此保留 5 分钟健康检查启动宽限期，避免繁忙磁盘上的文件发布被误判为服务故障；入口提前就绪时仍会立即转为健康，正常运行后的健康检查周期与失败次数保持镜像默认值。
+
+```bash
+cd /opt/open-ai-canvas
+GOPROXY='https://goproxy.cn|https://proxy.golang.org|direct' \
+  CANVAS_BUILD_BACKEND_IMAGE=open-ai-canvas-backend:server \
+  CANVAS_BUILD_WEB_IMAGE=open-ai-canvas-web:server \
+  bash scripts/build-images.sh
+docker compose --env-file .env -f docker-compose.deploy.yml -f docker-compose.build.yml up -d --wait --wait-timeout 600
+```
 
 这套发布流程依赖仓库可使用 GitHub 原生 ARM64 Runner、GHCR 写权限以及构建/下载 artifact 能力。首次上线应核对实际 Runner 排队情况、双架构 manifest、main/tag 同 SHA 复用和质量失败阻断；本地测试不能代替这些云端验收。工作流变更不迁移业务数据库，也不修改服务器 Compose 或数据卷。需要回退 CI 时只回退工作流和 Dockerfile 改动；已发布镜像不会自动撤回，线上版本回退仍按本文的备份与迁移约束执行。
 

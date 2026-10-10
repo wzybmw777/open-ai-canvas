@@ -19,8 +19,17 @@ backend/cmd/server/server
 .local
 web/.next
 web/dist
-web/node_modules
+**/node_modules
 web/out
+**/dist
+**/out
+**/coverage
+**/*.tsbuildinfo
+**/tmp
+backend/server
+backend/tmp*
+# Keep official .yingce-plugin archives: the backend installs them on startup.
+plugin-packages/*/backend
 *.log
 *.db
 *.sqlite

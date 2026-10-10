@@ -1,0 +1,8 @@
+# syntax=docker/dockerfile:1.7
+
+FROM node:22.19-alpine
+
+WORKDIR /app/backend/agent-runtime/pi
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,id=open-ai-canvas-pi-npm,target=/root/.npm,sharing=locked \
+    npm ci --omit=dev --ignore-scripts

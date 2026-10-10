@@ -37,6 +37,8 @@ func Models() []any {
 		&model.SMSChannel{},
 		&model.SMSRecord{},
 		&model.ModelChannel{},
+		&model.ChannelSyncJob{},
+		&model.ChannelSyncRun{},
 		&model.ChannelModel{},
 		&model.ChannelModelPriceTier{},
 		&model.IDSequence{},

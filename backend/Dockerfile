@@ -1,8 +1,10 @@
 # syntax=docker/dockerfile:1.7
 
+ARG PI_RUNTIME_DEPS_IMAGE=pi-runtime-deps-build
+
 FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS payment-package-build
 
-ARG GOPROXY=https://proxy.golang.org,direct
+ARG GOPROXY=https://goproxy.cn|https://proxy.golang.org|direct
 ENV GOPROXY=$GOPROXY
 
 RUN apk add --no-cache nodejs unzip zip
@@ -13,7 +15,8 @@ COPY backend ./backend
 COPY plugin-packages ./plugin-packages
 ARG TARGETOS
 ARG TARGETARCH
-RUN --mount=type=cache,target=/root/.cache/go-build set -eu; \
+RUN --mount=type=cache,id=open-ai-canvas-go-build,target=/root/.cache/go-build,sharing=locked \
+    --mount=type=cache,id=open-ai-canvas-go-mod,target=/go/pkg/mod,sharing=locked set -eu; \
     test -n "$TARGETOS"; \
     test -n "$TARGETARCH"; \
     PAYMENT_PLUGIN_GOOS="$TARGETOS" \
@@ -33,7 +36,7 @@ RUN PAYMENT_PLUGIN_SMOKE_TEST=1 \
 
 FROM golang:1.25-alpine AS backend-build
 
-ARG GOPROXY=https://proxy.golang.org,direct
+ARG GOPROXY=https://goproxy.cn|https://proxy.golang.org|direct
 ENV GOPROXY=$GOPROXY
 
 RUN apk add --no-cache build-base
@@ -45,27 +48,37 @@ COPY backend/go.mod backend/go.sum ./
 # 缺了它会报 "reading third_party/go-sms-sender/go.mod: no such file or directory"。
 # 后面 COPY backend ./ 会覆盖为完整源码，这里只为让依赖解析通过。
 COPY backend/third_party ./third_party
-# 模块保留在普通镜像层中，供后续编译及跨 Runner 的 GHA 层缓存复用。
-RUN go mod download
+# 模块通过持久化 cache mount 复用，避免把下载结果固化进业务源码层。
+RUN --mount=type=cache,id=open-ai-canvas-go-mod,target=/go/pkg/mod,sharing=locked \
+    go mod download
 COPY backend ./
 COPY VERSION /src/VERSION
 ARG BUILD_VERSION
 ARG BUILD_COMMIT=unknown
 ARG BUILD_TIME=unknown
-RUN --mount=type=cache,target=/root/.cache/go-build set -eu; \
+RUN --mount=type=cache,id=open-ai-canvas-go-build,target=/root/.cache/go-build,sharing=locked \
+    --mount=type=cache,id=open-ai-canvas-go-mod,target=/go/pkg/mod,sharing=locked set -eu; \
     version="${BUILD_VERSION:-$(tr -d '\r\n' </src/VERSION)}"; \
     ldflags="-s -w -X yingce/backend/internal/buildinfo.Version=${version} -X yingce/backend/internal/buildinfo.Commit=${BUILD_COMMIT} -X yingce/backend/internal/buildinfo.BuildTime=${BUILD_TIME}"; \
     CGO_ENABLED=1 GOOS=linux go build -trimpath -ldflags="$ldflags" -o /out/yingce-backend ./cmd/server; \
     CGO_ENABLED=1 GOOS=linux go build -trimpath -ldflags="$ldflags" -o /out/migrate-schema ./cmd/migrate-schema; \
     CGO_ENABLED=1 GOOS=linux go build -trimpath -ldflags="$ldflags" -o /out/migrate-sqlite-postgres ./cmd/migrate-sqlite-postgres
 
-FROM node:22.19-alpine AS pi-runtime-deps
+FROM node:22.19-alpine AS pi-runtime-deps-build
 
 WORKDIR /app/backend/agent-runtime/pi
 COPY backend/agent-runtime/pi/package.json backend/agent-runtime/pi/package-lock.json ./
-RUN npm ci --omit=dev --ignore-scripts
+RUN --mount=type=cache,id=open-ai-canvas-pi-npm,target=/root/.npm,sharing=locked \
+    npm ci --omit=dev --ignore-scripts
 
-FROM node:22.19-alpine
+# Local source builds use the in-file stage. The persistent build script can
+# point this stage at a separately built dependency image so application code
+# changes do not rebuild the dependency layer.
+FROM ${PI_RUNTIME_DEPS_IMAGE} AS pi-runtime-deps
+
+# Inherit the selected dependency image so node_modules remains an independent
+# reusable layer instead of being copied into every backend image build.
+FROM pi-runtime-deps
 
 RUN apk add --no-cache ca-certificates tzdata wget \
     && addgroup -S app \
@@ -81,7 +94,6 @@ COPY --from=backend-build /out/yingce-backend /usr/local/bin/yingce-backend
 COPY --from=backend-build /out/migrate-schema /usr/local/bin/migrate-schema
 COPY --from=backend-build /out/migrate-sqlite-postgres /usr/local/bin/migrate-sqlite-postgres
 COPY --from=payment-package-smoke /app/plugin-packages /app/plugin-packages
-COPY --from=pi-runtime-deps /app/backend/agent-runtime/pi/node_modules /app/backend/agent-runtime/pi/node_modules
 COPY backend/agent-runtime/pi/package.json backend/agent-runtime/pi/package-lock.json /app/backend/agent-runtime/pi/
 COPY backend/agent-runtime/pi/agent-runtime.mjs /app/backend/agent-runtime/pi/agent-runtime.mjs
 

@@ -1,0 +1,238 @@
+{
+  "apiVersion": "yingce.plugin/v2",
+  "id": "yuxibox-video",
+  "name": "玉玺盒子 YX 视频",
+  "version": "1.0.0",
+  "author": "YuxiBox / 影策",
+  "description": "YX Seedance 2.0 / 2.5 的 OpenAI Video 协议，支持多模态参考和鉴权下载。",
+  "permissions": [
+    "generation.run",
+    "media.read"
+  ],
+  "configuration": {
+    "fields": [
+      {
+        "name": "apiKey",
+        "type": "secret",
+        "label": "API Key",
+        "required": true
+      }
+    ]
+  },
+  "contributes": {
+    "providers": [
+      {
+        "id": "yuxibox-video",
+        "label": "玉玺盒子 YX 视频",
+        "capabilities": [
+          "video"
+        ],
+        "scopes": [
+          "admin.system-channel",
+          "user.custom-channel",
+          "canvas",
+          "creation",
+          "agent"
+        ],
+        "baseUrl": "https://yuxibox.cn",
+        "requiresPublicMediaUrls": false,
+        "auth": {
+          "type": "bearer",
+          "field": "apiKey"
+        },
+        "parameters": [
+          {
+            "name": "model",
+            "type": "string",
+            "required": true,
+            "mapping": "model",
+            "description": "YX Seedance 的完整模型标识，保留中文括号与按次后缀。"
+          },
+          {
+            "name": "prompt",
+            "type": "string",
+            "required": true,
+            "mapping": "prompt",
+            "description": "视频提示词，最多 16000 字符。"
+          },
+          {
+            "name": "duration",
+            "type": "integer",
+            "required": true,
+            "mapping": "seconds",
+            "description": "2.0 支持 5/10/15 秒；2.5 支持 4–30 秒。"
+          },
+          {
+            "name": "aspectRatio",
+            "type": "string",
+            "required": false,
+            "mapping": "ratio",
+            "description": "画幅比例；auto 映射为 adaptive，固定 720p。"
+          },
+          {
+            "name": "images",
+            "type": "media[]",
+            "required": false,
+            "mapping": "reference_images",
+            "description": "按连接顺序发送图片 HTTPS / data URL。"
+          },
+          {
+            "name": "videos",
+            "type": "media[]",
+            "required": false,
+            "mapping": "videos",
+            "description": "参考视频 HTTPS / data URL。"
+          },
+          {
+            "name": "audios",
+            "type": "media[]",
+            "required": false,
+            "mapping": "audios",
+            "description": "参考音频 HTTPS / data URL。"
+          }
+        ],
+        "validations": [
+          {
+            "assert": {
+              "$gt": [
+                {
+                  "$ref": "request.duration"
+                },
+                0
+              ]
+            },
+            "message": "YX 视频必须指定有效时长"
+          }
+        ],
+        "create": {
+          "method": "POST",
+          "path": "/v1/videos",
+          "contentType": "application/json",
+          "body": {
+            "model": {
+              "$ref": "request.model"
+            },
+            "prompt": {
+              "$ref": "request.prompt"
+            },
+            "seconds": {
+              "$toString": {
+                "$ref": "request.duration"
+              }
+            },
+            "ratio": {
+              "$switch": {
+                "cases": [
+                  {
+                    "when": {
+                      "$eq": [
+                        {
+                          "$ref": "request.aspectRatio"
+                        },
+                        "auto"
+                      ]
+                    },
+                    "then": "adaptive"
+                  }
+                ],
+                "default": {
+                  "$coalesce": [
+                    {
+                      "$ref": "request.aspectRatio"
+                    },
+                    "16:9"
+                  ]
+                }
+              }
+            },
+            "reference_images": {
+              "$omitEmpty": {
+                "$map": {
+                  "from": {
+                    "$sortByOrder": {
+                      "$ref": "request.images"
+                    }
+                  },
+                  "as": "media",
+                  "in": {
+                    "$ref": "media.value"
+                  }
+                }
+              }
+            },
+            "videos": {
+              "$omitEmpty": {
+                "$map": {
+                  "from": {
+                    "$sortByOrder": {
+                      "$ref": "request.videos"
+                    }
+                  },
+                  "as": "media",
+                  "in": {
+                    "$ref": "media.value"
+                  }
+                }
+              }
+            },
+            "audios": {
+              "$omitEmpty": {
+                "$map": {
+                  "from": {
+                    "$sortByOrder": {
+                      "$ref": "request.audios"
+                    }
+                  },
+                  "as": "media",
+                  "in": {
+                    "$ref": "media.value"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "poll": {
+          "method": "GET",
+          "path": "/v1/videos/{{taskId}}"
+        },
+        "result": {
+          "method": "GET",
+          "path": "/v1/videos/{{taskId}}/content",
+          "headers": {
+            "Accept": "video/mp4"
+          }
+        },
+        "response": {
+          "taskId": {
+            "$coalesce": [
+              {
+                "$ref": "response.id"
+              },
+              {
+                "$ref": "taskId"
+              }
+            ]
+          },
+          "status": {
+            "$coalesce": [
+              {
+                "$ref": "response.status"
+              },
+              "pending"
+            ]
+          },
+          "message": {
+            "$ref": "response.error.message"
+          },
+          "errorPaths": [
+            "error.code",
+            "error.message"
+          ],
+          "resultEphemeral": true
+        }
+      }
+    ]
+  },
+  "documentation": "# 玉玺盒子 YX 视频\n\n基于 [YX 官方文档](https://yuxibox.cn/docs) 的独立声明式协议。支持 `seedance-2.0（YX）`、`seedance-2.5（YX）` 和 `seedance-2.5（YX）-按次`。\n\n使用系统渠道已保存的 Bearer 凭证和渠道地址。创建后保存任务 ID，只轮询已创建任务，不因超时重新提交。协议可在插件中心安装，不需要重新编译后端。\n\n---\n\n# YX 视频接口\n\n来源：[玉玺盒子视频文档](https://yuxibox.cn/docs/videos/seedance-2.0%EF%BC%88YX%EF%BC%89)。\n\n## 请求\n\n创建为 `POST /v1/videos`，JSON 使用 `model`、`prompt`、字符串 `seconds` 和 `ratio`。统一字段 `duration` 转为 `seconds`，`aspectRatio=auto` 转为 `ratio=adaptive`；使用 ratio 时省略 size，输出固定 720p。\n\n`images` 按顺序映射到 `reference_images`，`videos` 和 `audios` 保留对应数组名称，传 HTTPS 或 data URL。空参考数组省略。2.0 支持 5/10/15 秒，默认 15 秒，最多 9 图、3 视频、3 音频；2.5 支持 4–30 秒，默认 30 秒，最多 30 图、10 视频、10 音频。这些限制由模型能力配置校验。\n\n## 响应与下载\n\n创建响应读取 `id`、`status` 和 `error.message`。查询为 `GET /v1/videos/{taskId}`，queued / in_progress / completed / failed 映射为任务状态。完成后通过携带渠道鉴权的 `GET /v1/videos/{taskId}/content` 下载并持久化视频，无需公开下载地址。\n\n协议不推断价格，按秒和按次价格均由渠道模型的价格档决定；不改变已配置利润比例。密钥不放入 URL、请求示例或日志。\n\n<!-- YINGCE_MANIFEST_CONTRACT_START -->\n## Manifest 完整接口定义\n\n以下 JSON 与插件包内实际 `manifest.json` 逐字段一致，覆盖插件身份、权限、配置、鉴权、参数、校验、创建、Agent、查询、取消、结果下载、响应和 Agent 响应映射。`documentation` 字段的值就是当前完整文档；为避免文档在自身内部无限递归，JSON 中仅用等义占位文本表示正文。\n\n```json\n{\n  \"apiVersion\": \"yingce.plugin/v2\",\n  \"id\": \"yuxibox-video\",\n  \"name\": \"玉玺盒子 YX 视频\",\n  \"version\": \"1.0.0\",\n  \"author\": \"YuxiBox / 影策\",\n  \"description\": \"YX Seedance 2.0 / 2.5 的 OpenAI Video 协议，支持多模态参考和鉴权下载。\",\n  \"permissions\": [\n    \"generation.run\",\n    \"media.read\"\n  ],\n  \"configuration\": {\n    \"fields\": [\n      {\n        \"name\": \"apiKey\",\n        \"type\": \"secret\",\n        \"label\": \"API Key\",\n        \"required\": true\n      }\n    ]\n  },\n  \"contributes\": {\n    \"providers\": [\n      {\n        \"id\": \"yuxibox-video\",\n        \"label\": \"玉玺盒子 YX 视频\",\n        \"capabilities\": [\n          \"video\"\n        ],\n        \"scopes\": [\n          \"admin.system-channel\",\n          \"user.custom-channel\",\n          \"canvas\",\n          \"creation\",\n          \"agent\"\n        ],\n        \"baseUrl\": \"https://yuxibox.cn\",\n        \"requiresPublicMediaUrls\": false,\n        \"auth\": {\n          \"type\": \"bearer\",\n          \"field\": \"apiKey\"\n        },\n        \"parameters\": [\n          {\n            \"name\": \"model\",\n            \"type\": \"string\",\n            \"required\": true,\n            \"mapping\": \"model\",\n            \"description\": \"YX Seedance 的完整模型标识，保留中文括号与按次后缀。\"\n          },\n          {\n            \"name\": \"prompt\",\n            \"type\": \"string\",\n            \"required\": true,\n            \"mapping\": \"prompt\",\n            \"description\": \"视频提示词，最多 16000 字符。\"\n          },\n          {\n            \"name\": \"duration\",\n            \"type\": \"integer\",\n            \"required\": true,\n            \"mapping\": \"seconds\",\n            \"description\": \"2.0 支持 5/10/15 秒；2.5 支持 4–30 秒。\"\n          },\n          {\n            \"name\": \"aspectRatio\",\n            \"type\": \"string\",\n            \"required\": false,\n            \"mapping\": \"ratio\",\n            \"description\": \"画幅比例；auto 映射为 adaptive，固定 720p。\"\n          },\n          {\n            \"name\": \"images\",\n            \"type\": \"media[]\",\n            \"required\": false,\n            \"mapping\": \"reference_images\",\n            \"description\": \"按连接顺序发送图片 HTTPS / data URL。\"\n          },\n          {\n            \"name\": \"videos\",\n            \"type\": \"media[]\",\n            \"required\": false,\n            \"mapping\": \"videos\",\n            \"description\": \"参考视频 HTTPS / data URL。\"\n          },\n          {\n            \"name\": \"audios\",\n            \"type\": \"media[]\",\n            \"required\": false,\n            \"mapping\": \"audios\",\n            \"description\": \"参考音频 HTTPS / data URL。\"\n          }\n        ],\n        \"validations\": [\n          {\n            \"assert\": {\n              \"$gt\": [\n                {\n                  \"$ref\": \"request.duration\"\n                },\n                0\n              ]\n            },\n            \"message\": \"YX 视频必须指定有效时长\"\n          }\n        ],\n        \"create\": {\n          \"method\": \"POST\",\n          \"path\": \"/v1/videos\",\n          \"contentType\": \"application/json\",\n          \"body\": {\n            \"model\": {\n              \"$ref\": \"request.model\"\n            },\n            \"prompt\": {\n              \"$ref\": \"request.prompt\"\n            },\n            \"seconds\": {\n              \"$toString\": {\n                \"$ref\": \"request.duration\"\n              }\n            },\n            \"ratio\": {\n              \"$switch\": {\n                \"cases\": [\n                  {\n                    \"when\": {\n                      \"$eq\": [\n                        {\n                          \"$ref\": \"request.aspectRatio\"\n                        },\n                        \"auto\"\n                      ]\n                    },\n                    \"then\": \"adaptive\"\n                  }\n                ],\n                \"default\": {\n                  \"$coalesce\": [\n                    {\n                      \"$ref\": \"request.aspectRatio\"\n                    },\n                    \"16:9\"\n                  ]\n                }\n              }\n            },\n            \"reference_images\": {\n              \"$omitEmpty\": {\n                \"$map\": {\n                  \"from\": {\n                    \"$sortByOrder\": {\n                      \"$ref\": \"request.images\"\n                    }\n                  },\n                  \"as\": \"media\",\n                  \"in\": {\n                    \"$ref\": \"media.value\"\n                  }\n                }\n              }\n            },\n            \"videos\": {\n              \"$omitEmpty\": {\n                \"$map\": {\n                  \"from\": {\n                    \"$sortByOrder\": {\n                      \"$ref\": \"request.videos\"\n                    }\n                  },\n                  \"as\": \"media\",\n                  \"in\": {\n                    \"$ref\": \"media.value\"\n                  }\n                }\n              }\n            },\n            \"audios\": {\n              \"$omitEmpty\": {\n                \"$map\": {\n                  \"from\": {\n                    \"$sortByOrder\": {\n                      \"$ref\": \"request.audios\"\n                    }\n                  },\n                  \"as\": \"media\",\n                  \"in\": {\n                    \"$ref\": \"media.value\"\n                  }\n                }\n              }\n            }\n          }\n        },\n        \"poll\": {\n          \"method\": \"GET\",\n          \"path\": \"/v1/videos/{{taskId}}\"\n        },\n        \"result\": {\n          \"method\": \"GET\",\n          \"path\": \"/v1/videos/{{taskId}}/content\",\n          \"headers\": {\n            \"Accept\": \"video/mp4\"\n          }\n        },\n        \"response\": {\n          \"taskId\": {\n            \"$coalesce\": [\n              {\n                \"$ref\": \"response.id\"\n              },\n              {\n                \"$ref\": \"taskId\"\n              }\n            ]\n          },\n          \"status\": {\n            \"$coalesce\": [\n              {\n                \"$ref\": \"response.status\"\n              },\n              \"pending\"\n            ]\n          },\n          \"message\": {\n            \"$ref\": \"response.error.message\"\n          },\n          \"errorPaths\": [\n            \"error.code\",\n            \"error.message\"\n          ],\n          \"resultEphemeral\": true\n        }\n      }\n    ]\n  },\n  \"documentation\": \"<当前插件的完整 documentation，由 README.md 与 docs/interface.md 拼接而成；为避免 JSON 递归，此处不重复展开正文。>\"\n}\n```\n<!-- YINGCE_MANIFEST_CONTRACT_END -->\n"
+}

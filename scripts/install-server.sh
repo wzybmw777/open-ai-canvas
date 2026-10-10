@@ -8,6 +8,7 @@ INSTALL_DIR="${INSTALL_DIR:-/opt/open-ai-canvas}"
 CANVAS_HTTP_PORT="${CANVAS_HTTP_PORT:-3000}"
 COMPOSE_FILE="docker-compose.deploy.yml"
 BUILD_COMPOSE_FILE="docker-compose.build.yml"
+BUILD_SCRIPT="scripts/build-images.sh"
 
 step() {
     printf '\n==> %s\n' "$1"
@@ -114,7 +115,10 @@ EOF
 start_services() {
     step "从源码构建网页与后端镜像"
     # 标准一键部署已下载完整仓库，直接本地构建可避免公开项目被 GHCR 包可见性阻断。
-    docker compose --env-file .env -f "$COMPOSE_FILE" -f "$BUILD_COMPOSE_FILE" build backend web
+    CANVAS_BUILD_BACKEND_IMAGE="open-ai-canvas-backend:server" \
+        CANVAS_BUILD_WEB_IMAGE="open-ai-canvas-web:server" \
+        GOPROXY="${GOPROXY:-https://goproxy.cn|https://proxy.golang.org|direct}" \
+        bash "$BUILD_SCRIPT"
 
     step "启动 PostgreSQL、Redis、后端和网页服务"
     docker compose --env-file .env -f "$COMPOSE_FILE" -f "$BUILD_COMPOSE_FILE" up -d --remove-orphans --wait --wait-timeout 600

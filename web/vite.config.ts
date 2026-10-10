@@ -40,6 +40,8 @@ export default defineConfig({
         },
     },
     build: {
+        // Docker 将 public 放入独立缓存层；宿主机与 Vercel 构建仍输出完整 dist。
+        copyPublicDir: process.env.CANVAS_BUILD_COPY_PUBLIC !== "false",
         rolldownOptions: {
             output: {
                 strictExecutionOrder: true,

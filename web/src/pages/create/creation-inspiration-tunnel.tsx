@@ -167,7 +167,6 @@ export function CreationInspirationTunnel({ mode, onStartPrompt }: { mode: Creat
         if (event.pointerType === "mouse" && event.button !== 0) return;
         suppressClickRef.current = false;
         dragRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, axis: null, moved: false };
-        event.currentTarget.setPointerCapture(event.pointerId);
         setPaused(true);
     }, []);
 
@@ -180,6 +179,8 @@ export function CreationInspirationTunnel({ mode, onStartPrompt }: { mode: Creat
             drag.axis = Math.abs(deltaX) > Math.abs(deltaY) ? "horizontal" : "vertical";
         }
         if (drag.axis === "horizontal") {
+            // 普通点击保留卡片作为目标，确认拖拽后才由舞台接管指针。
+            if (!event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.setPointerCapture(event.pointerId);
             drag.moved = true;
             event.preventDefault();
         }

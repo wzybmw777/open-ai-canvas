@@ -5,6 +5,8 @@ description: 每天北京时间零点核对 QT中转-2 授权目录，同步价�
 
 # QT 渠道每日同步
 
+后台已提供统一的 [上游渠道同步管理](./channel-sync)。切换到后台 Worker 后停用此页的宿主机定时器，避免重复执行；下文保留旧脚本的人工排查说明。
+
 `scripts/sync-qt-channel.sh` 从 [QT 模型广场](https://api.qtrader.cc/model-plaza?embedded=1) 使用的公开接口 `https://api.qtrader.cc/api/v1/model-plaza` 读取“万有引力图片视频组”（ID 83）。目标是系统渠道 `QT中转-2`（ID `CHANNEL_000014`）。脚本另用该渠道已保存的密钥读取 `https://sub2.echoai.best/v1/models`，以当前授权目录作为启用依据，不需要管理员登录 Cookie。
 
 ## 同步范围
