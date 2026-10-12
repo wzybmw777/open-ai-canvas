@@ -1,5 +1,5 @@
 import { Popover } from "antd";
-import { Bell, ChevronDown, ChevronRight, CircleUserRound, History as HistoryIcon, Infinity as InfinityIcon, PanelLeftClose, PanelLeftOpen, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleUserRound, History as HistoryIcon, Infinity as InfinityIcon, PanelLeftClose, PanelLeftOpen, Plus } from "lucide-react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
@@ -8,7 +8,6 @@ import { BrandLogoFrame } from "@/components/brand/brand-logo";
 import { Kbd } from "@/components/ui/base/kbd";
 import { navigationTools, type NavigationToolSlug } from "@/constant/navigation-tools";
 import { useWorkspaceLogout } from "@/hooks/use-workspace-logout";
-import { SystemAnnouncementCenter } from "@/components/layout/system-announcement-center";
 import { aceternityMotion } from "@/lib/aceternity-motion";
 import { cn } from "@/lib/utils";
 import { preloadWorkspaceRoute } from "@/lib/workspace-route-modules";
@@ -64,7 +63,7 @@ function buildNav(features: FeatureAvailability, locale: AppLocale): { groups: W
     return { groups, footer: [] };
 }
 
-function WorkspaceSidebarProfile({ collapsed, user }: { collapsed: boolean; user: NonNullable<ReturnType<typeof useUserStore.getState>["user"]> | null }) {
+function WorkspaceSidebarProfile({ collapsed, user, onExpand, onCollapse }: { collapsed: boolean; user: NonNullable<ReturnType<typeof useUserStore.getState>["user"]> | null; onExpand: () => void; onCollapse: () => void }) {
     const { text } = useLocaleText();
     const [failed, setFailed] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
@@ -74,7 +73,7 @@ function WorkspaceSidebarProfile({ collapsed, user }: { collapsed: boolean; user
     useEffect(() => setFailed(false), [avatarUrl]);
 
     if (!user) {
-        return <div className={cn("app-workspace-sidebar-profile", collapsed && "is-collapsed")} role="img" aria-label={text("游客模式", "Guest mode")} title={text("游客模式", "Guest mode")}><span className="app-workspace-sidebar-profile-avatar"><CircleUserRound aria-hidden /></span>{!collapsed ? <span>{text("游客模式", "Guest mode")}</span> : null}</div>;
+        return <Link to="/login" className={cn("app-workspace-sidebar-profile", collapsed && "is-collapsed")} aria-label={text("登录", "Sign in")} title={text("登录", "Sign in")}><span className="app-workspace-sidebar-profile-avatar"><CircleUserRound aria-hidden /></span>{!collapsed ? <span>{text("游客模式", "Guest mode")}</span> : null}</Link>;
     }
 
     const avatar = avatarUrl && !failed ? <img src={avatarUrl} alt="" referrerPolicy="no-referrer" onError={() => setFailed(true)} /> : <CircleUserRound aria-hidden />;
@@ -91,22 +90,27 @@ function WorkspaceSidebarProfile({ collapsed, user }: { collapsed: boolean; user
                         {!collapsed ? <span className="app-workspace-sidebar-profile-copy"><strong>{profileName}</strong><span>{text("创作工作台", "Creator workspace")}</span></span> : null}
                     </button>
                 </Popover>
-                {!collapsed ? <SystemAnnouncementCenter userId={user.id} className="app-workspace-sidebar-notification" /> : <span className="app-workspace-sidebar-notification-spacer" aria-hidden />}
+                {!collapsed ? <button type="button" className="app-workspace-sidebar-collapse-toggle" aria-label={text("收起侧栏", "Collapse sidebar")} title={text("收起侧栏", "Collapse sidebar")} onClick={onCollapse}>
+                    <PanelLeftClose className="size-4" strokeWidth={1.7} />
+                </button> : null}
             </div>
+            {collapsed ? <button type="button" className="app-workspace-sidebar-collapse-toggle is-collapsed" aria-label={text("展开侧栏菜单", "Expand sidebar")} title={text("展开侧栏菜单", "Expand sidebar")} onClick={onExpand}>
+                <PanelLeftOpen className="size-4" strokeWidth={1.7} />
+            </button> : null}
         </div>
     );
 }
 
-function WorkspaceSwitcher({ collapsed, onNavigate, onExpand, onCollapse }: { collapsed: boolean; onNavigate: () => void; onExpand: () => void; onCollapse: () => void }) {
+function WorkspaceSwitcher({ collapsed, onNavigate }: { collapsed: boolean; onNavigate: () => void; onExpand: () => void; onCollapse: () => void }) {
     const { text } = useLocaleText();
     const appearance = useAppearanceStore((state) => state.appearance);
 
     if (collapsed) {
         return (
-            <div className="app-workspace-sidebar-rail-header shrink-0">
-                <button type="button" className="app-workspace-sidebar-rail-button" aria-label={text("展开侧栏菜单", "Expand sidebar")} title={text("展开侧栏菜单", "Expand sidebar")} onClick={onExpand}>
-                    <PanelLeftOpen className="size-4" strokeWidth={1.7} />
-                </button>
+            <div className="app-workspace-sidebar-brand-row relative shrink-0 flex items-center justify-center px-3 pt-3">
+                <Link to="/" onClick={onNavigate} className="app-workspace-sidebar-brand-button group" aria-label={`${appearance.brandName} ${text("首页", "home")}`}>
+                    <BrandLogoFrame className="app-workspace-brand-mark grid size-8 shrink-0 place-items-center rounded-[var(--r-sm)] shadow-sm" logoClassName="size-5 object-contain" alt="" fallback={<InfinityIcon className="size-4" strokeWidth={2.2} />} />
+                </Link>
             </div>
         );
     }
@@ -122,9 +126,6 @@ function WorkspaceSwitcher({ collapsed, onNavigate, onExpand, onCollapse }: { co
                     </span>
                 </span>
             </Link>
-            <button type="button" className="app-workspace-sidebar-collapse-button" aria-label={text("收起侧栏", "Collapse sidebar")} title={text("收起侧栏", "Collapse sidebar")} onClick={onCollapse}>
-                <PanelLeftClose className="size-4" strokeWidth={1.7} />
-            </button>
         </div>
     );
 }
@@ -335,7 +336,7 @@ export function WorkspaceSidebarNav({ collapsed, onNavigate, onOpenSearch, onExp
             </LayoutGroup>
 
             <div className="app-workspace-sidebar-footer shrink-0 px-3 py-3">
-                <WorkspaceSidebarProfile collapsed={collapsed} user={user} />
+                <WorkspaceSidebarProfile collapsed={collapsed} user={user} onExpand={onExpand} onCollapse={onCollapse} />
                 {footer.length ? <div className="mt-2 flex flex-col gap-0.5">
                     {footer.map((item) => (
                         <NavItem key={item.id} item={item} activeId={activeId} onSelect={onNavigate} onOpenSearch={onOpenSearch} onLogout={() => void handleLogout()} collapsed={collapsed} />

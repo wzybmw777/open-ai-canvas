@@ -72,8 +72,8 @@ export function ModelDefaultGrid({ config, onChange }: { config: AiConfig; onCha
                                                 </span>
                                                 <span className="min-w-0 flex-1">
                                                     <span className="block truncate text-xs font-semibold">{modelDisplayName(config, model)}</span>
-                                                    <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[var(--fs-tiny)] text-foreground/45">
-                                                        <span className="max-w-full truncate">{channel.name || text("未命名渠道", "Unnamed channel")}</span>
+                                                    <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[var(--fs-tiny)] text-foreground/45">
+                                                        <span className="max-w-full truncate">{channel.scope === "system" ? text("系统模型", "System model") : channel.name || text("未命名渠道", "Unnamed channel")}</span>
                                                         <span className="model-default-option-scope">{channel.scope === "system" ? text("系统", "System") : text("自定义", "Custom")}</span>
                                                         {creditsEnabled && cost ? <span className="model-default-price">{formatPrice(cost.billingMode === "token" ? (cost.outputTokenPriceMicrocredits || 0) : cost.unitPriceMicrocredits, locale)} /{cost.billingMode === "token" ? text("百万 Token", "1M tokens") : cost.billingMode === "per_second" ? text("秒", "second") : text("次", "run")}</span> : null}
                                                     </span>

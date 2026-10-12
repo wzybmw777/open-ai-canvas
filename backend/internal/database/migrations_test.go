@@ -21,6 +21,51 @@ func TestCurrentSchemaVersionMatchesMigrationPlan(t *testing.T) {
 	}
 }
 
+func TestCanvasMutationReceiptsUpgradePreservesLocalMigrationHistory(t *testing.T) {
+	db, err := Open(Config{Driver: "sqlite", DSN: "file:canvas-receipts-local-upgrade?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := MigrateSchema(db); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Migrator().DropTable(&model.CanvasMutationReceipt{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Where("version = ?", 54).Delete(&schemaMigration{}).Error; err != nil {
+		t.Fatal(err)
+	}
+	var before []schemaMigration
+	if err := db.Order("version").Find(&before).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := MigrateSchema(db); err != nil {
+		t.Fatal(err)
+	}
+	var after []schemaMigration
+	if err := db.Where("version <= ?", 53).Order("version").Find(&after).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(before) != len(after) {
+		t.Fatal("existing migration records changed")
+	}
+	for i := range before {
+		if before[i] != after[i] {
+			t.Fatalf("migration %d was rewritten", before[i].Version)
+		}
+	}
+	if !db.Migrator().HasTable(&model.CanvasMutationReceipt{}) || !db.Migrator().HasIndex(&model.CanvasMutationReceipt{}, "idx_canvas_mutation_receipt_identity") {
+		t.Fatal("canvas mutation receipts table or unique identity index missing")
+	}
+	if !db.Migrator().HasTable(&model.TheatreEpisode{}) || !db.Migrator().HasTable(&model.ChannelSyncJob{}) {
+		t.Fatal("existing local tables missing after upgrade")
+	}
+	status, err := ReadSchemaStatus(db)
+	if err != nil || !status.Ready || status.Current != 54 {
+		t.Fatalf("unexpected upgraded schema status: %+v, %v", status, err)
+	}
+}
+
 func TestMigrateSchemaRecordsAndValidatesVersion(t *testing.T) {
 	db, err := Open(Config{Driver: "sqlite", DSN: "file:migration-version?mode=memory&cache=shared"})
 	if err != nil {
