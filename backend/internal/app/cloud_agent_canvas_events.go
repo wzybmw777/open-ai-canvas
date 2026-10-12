@@ -199,6 +199,7 @@ func emitCloudAgentCanvasChange(repo *repository.Repository, runID string, state
 	if !cloudAgentPatchCoversDocument(before, after) {
 		// A partial delta must never acknowledge omitted edits; keep the saved result.
 		delete(payload, "canvasPatch")
+		delete(payload, "preview")
 		payload["requiresRefresh"] = true
 	}
 	raw, err := json.Marshal(payload)
