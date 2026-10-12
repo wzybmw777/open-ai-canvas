@@ -140,7 +140,7 @@ func TestAgentOversizedCanvasPreviewRequestsRefresh(t *testing.T) {
 		t.Fatal(err)
 	}
 	state := cloudAgentRuntime{}
-	input := cloudAgentMutationInput{UserID: "user", CanvasID: canvas.ID, BeforeJSON: canvas.PayloadJSON, Operation: "canvas_apply_ops", Preview: &cloudAgentApprovalPreview{Description: strings.Repeat("摘要", cloudAgentEventPayloadLimit)}}
+	input := cloudAgentMutationInput{UserID: "user", CanvasID: canvas.ID, BeforeJSON: canvas.PayloadJSON, Operation: "canvas_apply_ops", Preview: &cloudAgentApprovalPreview{Items: []cloudAgentApprovalPreviewItem{{Summary: strings.Repeat("摘要", cloudAgentEventPayloadLimit)}}}}
 	if err := emitCloudAgentCanvasChange(repo, "run", &state, input); err != nil {
 		t.Fatal(err)
 	}
