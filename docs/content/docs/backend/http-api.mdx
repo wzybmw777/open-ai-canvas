@@ -85,7 +85,9 @@ Agent 按当前登录账号校验画布归属；超过单事件 128 KiB 的画�
 
 资源展示、播放、下载、复制地址和模型输入统一消费资源访问合同，不在客户端通过 `direct=1`、`proxy=1` 或存储厂商规则选择出口。
 
-- `POST /api/resources/access` 要求登录，请求体为 1–100 项 `{ resourceId, purpose?, variant? }`。`purpose` 支持 `display`、`copy`、`download`、`browser-process`、`provider-input`；`variant` 支持 `original`、`playback`、`thumbnail`（缩略图未生成前回落原件，`fallbackReason` 为 `thumbnail_not_ready`）。每项独立返回 `access` 或结构化 `error`。
+- `POST /api/resources/access` 要求登录，请求体为 1–100 项 `{ resourceId, purpose?, variant? }`。`purpose` 支持 `display`、`copy`、`download`、`browser-process`、`provider-input`；`variant` 支持 `original`、`playback`、`thumbnail`。图片缩略图就绪时返回独立对象的授权地址，最长边不超过 960px；未就绪时回落原件，`fallbackReason` 为 `thumbnail_not_ready`。`originalWidth/originalHeight` 提供已知原图尺寸，避免画布将缩略图尺寸当成原图尺寸。复制、下载和模型输入始终使用原件。每项独立返回 `access` 或结构化 `error`。
+
+图片上传完成后后台准备缩略图，历史图片首次请求缩略图时按需补齐。单进程最多同时处理 2 张，限制原文件为 32 MiB、解码像素为 4000 万；JPEG、PNG、WebP 和 GIF 首帧可生成预览，透明图保留透明度，JPEG 手机照片保留 EXIF 朝向。超限、未支持或生成失败时继续展示原图。缩略图与原件存放于同一存储位置，复用原件授权规则，删除时由原资源清理流程一并删除。首次回落原图的展示地址短期缓存，前端至多重查 3 次以更新已生成的缩略图。
 - `access.delivery` 为 `cdn`、`origin`、`platform-local` 或 `platform-proxy`。媒体配置了可用 CDN 时返回 CDN 地址；OSS 源站签名是源站直连，不等于 CDN。媒体的 `requireCDN` 开启且 CDN 鉴权不完整时失败，不静默回源。浏览器媒体的展示、复制、下载和本地处理不使用 `platform-proxy`，正文由 OSS/CDN 直接发送；`allowPrivateProxy` 允许服务端在 `provider-input` 场景读取私有媒体源站。非媒体附件始终通过平台控制响应头，不受上述媒体直连规则影响。
 - `expiresAt` / `refreshAt` 只描述当前授权有效期。有效期来自后台「资源与请求策略」（`provider-input` 与其余签名访问分别配置，默认均为 4 小时）；公开 CDN 可没有 `expiresAt`。签名地址不写入画布或服务端持久化内容。
 - `display`、`copy`、`browser-process` 的源站签名把签名起始时间对齐到有效期 1/4 的时间窗（按 Unix 纪元对齐），过期时间为窗口起点加有效期：同一窗口内重复签发得到逐字节相同的 URL，刷新画布或多实例签发都能命中浏览器 HTTP 缓存；签名同时携带 `response-cache-control=private, max-age=<有效期>, immutable`，由对象存储回写缓存头。`download` 与 `provider-input` 仍按当前时间签发，不带缓存覆盖。

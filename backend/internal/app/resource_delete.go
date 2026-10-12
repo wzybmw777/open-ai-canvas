@@ -300,6 +300,15 @@ func (s *Service) deleteStoredResourceObject(userID string, resource *model.Reso
 	if protected {
 		return errors.New("资源仍被画布历史版本引用")
 	}
+	derived := *resource
+	derived.ObjectKey = assets.ThumbnailObjectKey(resource.ObjectKey)
+	if err := s.deleteSingleStoredResourceObject(userID, &derived); err != nil {
+		return err
+	}
+	return s.deleteSingleStoredResourceObject(userID, resource)
+}
+
+func (s *Service) deleteSingleStoredResourceObject(userID string, resource *model.Resource) error {
 	switch strings.ToLower(strings.TrimSpace(resource.Provider)) {
 	case "", "local":
 		return s.deleteLocalResourceObject(resource.ObjectKey)

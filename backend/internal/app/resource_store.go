@@ -369,6 +369,7 @@ func (s *Service) storeResourceWithWriter(userID string, kind string, fileName s
 	}
 	s.recordActivity(userID, "resource", 1)
 	s.maybeStartPlaybackTranscode(&resource)
+	s.maybeStartResourceThumbnail(&resource)
 	return &resource, true, nil
 }
 
@@ -474,6 +475,7 @@ func (s *Service) retryStoredResource(userID string, resource *model.Resource, k
 		return nil, fmt.Errorf("保存资源重试就绪状态失败：%w", err)
 	}
 	s.recordActivity(userID, "resource", 1)
+	s.maybeStartResourceThumbnail(resource)
 	return resource, nil
 }
 

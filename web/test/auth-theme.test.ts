@@ -12,8 +12,8 @@ describe("authentication follows the application theme", () => {
         const css = source("styles/globals.css").replace(/\r\n/g, "\n");
         const dark = css.slice(css.indexOf(".dark {\n    --background:"));
         for (const [mode, background, panel, card] of [
-            ["light", "#ffffff", "#f7f7f7", "#ffffff"],
-            ["dark", "#08090c", "#0b0c10", "#121318"],
+            ["light", "#faf9f6", "#f4f5f2", "#ffffff"],
+            ["dark", "#0b0e11", "#181a20", "#1e2329"],
         ] as const) {
             const variables = skinCSSVariables(DEFAULT_CLASSIC_SKIN, mode);
             const modeCSS = mode === "dark" ? dark : css.slice(0, css.indexOf(".auth-scene {"));

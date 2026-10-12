@@ -86,6 +86,12 @@ Schema 45 新增 `upload_reservations`：`id`、`user_id`、`size`、`day`、`ex
 
 版本 3 会将 `wardrobe`、`weapon`、`accessory` 迁移为 `prop`，将 `style` 迁移为 `material`，并把原先归入 `other` 的图片、视频、音频和 3D 模型迁移为 `material`。迁移只合并重复的待确认候选：保留最早记录，其余标记为 `ignored`；已经确认的资产不会被自动删除或归并。
 
+## 图片缩略图状态
+
+复用 `resources` 的 `thumbnail_status`、`thumbnail_mime_type`、`thumbnail_size`、`thumbnail_width` 和 `thumbnail_height`，不新增迁移。状态为空时待生成，`processing` 为处理占用，`ready` 为可分发，`failed` 为暂时失败。处理失败或进程中断的记录在 10 分钟后可重新领取；领取及完成只更新仍就绪且归属匹配的原资源，完成时还核对原件对象键和 ETag，不能重建已删除记录。
+
+缩略图对象键由原件键追加 `.thumbnail-v1` 派生，存放于同一存储位置。最长边 960px，透明预览采用 PNG；不透明图优先 JPEG，平面图在 PNG 更小时保留 PNG。未知原图尺寸在成功解码后补齐 `width/height`。复制、下载和模型输入保持原件，派生图跟随原资源清理。
+
 ## 画布 operations 与幂等回执
 
 | 表 | 用途 | 关键边界 |

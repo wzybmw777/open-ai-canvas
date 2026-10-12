@@ -6,10 +6,10 @@ import { getIsolatedAdminAntTheme } from "../src/pages/admin/theme/admin-ant-the
 
 describe("shared action colors and focus feedback", () => {
     for (const dark of [false, true]) {
-        test(`classic solid tokens remain monochrome beneath the button fill adapter in ${dark ? "dark" : "light"} mode`, () => {
+        test(`classic action colors agree across product and admin in ${dark ? "dark" : "light"} mode`, () => {
             const product = getAntThemeConfig(dark, DEFAULT_CLASSIC_SKIN);
             const admin = getIsolatedAdminAntTheme(dark, DEFAULT_CLASSIC_SKIN);
-            expect(product.components?.Button?.colorPrimary).toBe(dark ? "#f5f5f5" : "#171717");
+            expect(product.components?.Button?.colorPrimary).toBe("#f0b90b");
             expect(admin.components?.Button?.colorPrimary).toBe(product.components?.Button?.colorPrimary);
             expect(admin.components?.Button?.primaryColor).toBe(product.components?.Button?.primaryColor);
         });
@@ -37,6 +37,24 @@ describe("shared action colors and focus feedback", () => {
             }
         });
     }
+
+    test("nighttime actions, ordinary selection and switches keep separate roles", () => {
+        const theme = getAntThemeConfig(true, DEFAULT_CLASSIC_SKIN);
+        expect(theme.components?.Button?.primaryColor).toBe("#181a20");
+        expect(theme.token?.colorBgElevated).toBe("#1e2329");
+        expect(theme.token?.colorText).toBe("#eaecef");
+        expect(theme.components?.Checkbox?.colorPrimary).toBe("#f5f5f5");
+        expect(theme.components?.Switch?.colorPrimary).toBe("#22c55e");
+    });
+
+    test("daytime gold actions use readable link colors and neutral selection", () => {
+        const theme = getAntThemeConfig(false, DEFAULT_CLASSIC_SKIN);
+        expect(theme.components?.Button?.primaryColor).toBe("#181a20");
+        expect(theme.token?.colorLink).toBe("#826000");
+        expect(theme.token?.colorText).toBe("#202630");
+        expect(theme.token?.colorPrimaryBg).toBe("#e9ecef");
+        expect(theme.components?.Checkbox?.colorPrimary).toBe("#171717");
+    });
 
     test("workspace density overrides inherit action colors and shadow-free focus", () => {
         const theme = getWorkspaceAntThemeConfig();

@@ -100,13 +100,10 @@
     /* 只有最前面那张能点，后面的点击会穿到页面上，不去抢焦点。 */
     pointer-events: none;
     will-change: transform, opacity;
-    /* 封面就绪前整张卡不可见。先露面板再填图，会出现"右边有图、左边还是空白面板"的观感；
-       --card-mount 由 .is-ready 翻开，opacity 走 transition 平滑淡入。 */
-    opacity: calc(var(--card-mount, 0) * var(--card-depth-opacity, 1));
-    /* 先把卡片按自身尺寸对中，再叠加纵深位移与缩放——位移不会被 scale 影响。
-       --card-enter-y / --card-enter-scale 是入场位移，封面就绪后归零，
-       所以卡片是"从略下方、略小的位置浮上来"，而不是硬闪出来。 */
-    transform: translate(-50%, -50%) translate(var(--card-x, 0px), var(--card-enter-y, 44px)) scale(calc(var(--card-scale, 1) * var(--card-enter-scale, 0.95)));
+    /* 卡片先占位，图片就绪后单独淡入，避免慢图让队列缺一块。 */
+    opacity: var(--card-depth-opacity, 1);
+    /* 对中后叠加纵深位移与缩放，切换过程中位置和图片比例保持稳定。 */
+    transform: translate(-50%, -50%) translate(var(--card-x, 0px), var(--card-enter-y, 0px)) scale(calc(var(--card-scale, 1) * var(--card-enter-scale, 1)));
     /* 只动 transform 和 opacity，两者都能交给合成层，不触发重排重绘。
        缓动先缓后快再长尾软着陆，观感是镜头平稳推拉而不是"弹"过去。 */
     transition:
@@ -120,6 +117,25 @@
     --card-enter-y: 0px;
     --card-enter-scale: 1;
 }
+
+.creation-gallery-placeholder {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--user-surface-muted), var(--user-surface-hover));
+}
+
+.creation-inspiration-tunnel.is-loading .creation-gallery-placeholder {
+    inset: 50% auto auto 50%;
+    width: var(--gallery-card-width);
+    aspect-ratio: 16 / 9;
+    border-radius: var(--user-radius-card);
+    transform: translate(-50%, -50%);
+}
+
+.creation-tunnel-card img { opacity: 0; transition: opacity var(--user-motion, 180ms); }
+.creation-tunnel-card.is-ready img { opacity: 1; }
+.creation-tunnel-card.is-loading .creation-tunnel-card-info { opacity: 0; }
+.creation-gallery-image-error { position: absolute; inset: 20% 12% auto; color: var(--user-ink-muted); font-size: var(--fs-caption); text-align: center; }
 
 .creation-tunnel-card.is-active {
     pointer-events: auto;
@@ -325,6 +341,7 @@
 /* 减少动效：不做入场位移、悬停也不放大，切换改为瞬时。
    （卡片仍然等封面就绪，只是不再有过渡过程。） */
 @media (prefers-reduced-motion: reduce) {
+    .creation-tunnel-card img { transition: none; }
     .creation-tunnel-card {
         --card-enter-y: 0px;
         --card-enter-scale: 1;
@@ -353,6 +370,7 @@
 }
 
 @media (max-width: 640px) {
+    .creation-inspiration-tunnel { --gallery-card-width: min(340px, 58cqw, 32dvh); }
     .creation-tunnel-card-desc {
         -webkit-line-clamp: 1;
     }

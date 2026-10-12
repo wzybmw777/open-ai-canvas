@@ -532,9 +532,9 @@ html:not(.dark) .creation-chat-composer .creation-model-picker.canvas-composer-m
 .creation-model-picker-menu .canvas-model-picker-option > span:first-child > span:first-child { width: 26px; height: 26px; border: 0; border-radius: 5px; background: rgba(255, 255, 255, .07) !important; }
 .creation-model-picker-menu .canvas-model-picker-option > span:first-child > span:nth-child(2) > span:first-child { font-size: 11px; }
 
-html:not(.dark) .creation-model-picker-surface { background: rgba(255, 255, 255, .94) !important; box-shadow: 0 16px 38px rgba(28, 32, 37, .12) !important; }
-html:not(.dark) .creation-model-picker-menu { color: #727980 !important; }
-html:not(.dark) .creation-model-picker-heading strong { color: #20242a; }
+html:not(.dark) .creation-model-picker-surface { background: var(--popover) !important; box-shadow: var(--elevation-overlay) !important; }
+html:not(.dark) .creation-model-picker-menu { color: var(--muted-foreground) !important; }
+html:not(.dark) .creation-model-picker-heading strong { color: var(--foreground); }
 html:not(.dark) .creation-model-picker-menu .canvas-model-picker-option > span:first-child > span:first-child { background: rgba(28, 32, 37, .06) !important; }
 @media (max-width: 680px) {
 .creation-chat-composer .creation-model-picker.canvas-composer-model-picker { height: 29px; padding: 0 6px; font-size: 10px; }

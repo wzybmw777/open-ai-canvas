@@ -288,6 +288,7 @@ func (s *Service) storeTaskMediaFile(task *model.Task, index int, path, mimeType
 	if existing != nil {
 		s.recordActivity(task.UserID, "resource", 1)
 		s.maybeStartPlaybackTranscode(resource)
+		s.maybeStartResourceThumbnail(resource)
 	}
 	return resource, nil
 }

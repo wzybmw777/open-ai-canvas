@@ -54,6 +54,8 @@ type ResourceAccess struct {
 	RefreshAt        time.Time       `json:"refreshAt"`
 	Revision         string          `json:"revision"`
 	FallbackReason   string          `json:"fallbackReason,omitempty"`
+	OriginalWidth    int             `json:"originalWidth,omitempty"`
+	OriginalHeight   int             `json:"originalHeight,omitempty"`
 }
 
 func AccessError(status int, reason, message string) *kernel.AppError {
@@ -128,6 +130,7 @@ func ResolveAccess(resource *model.Resource, setting storage.Settings, options A
 	}
 	access := &ResourceAccess{ResourceID: resource.ID, RequestedVariant: options.Variant, ActualVariant: VariantOriginal,
 		IssuedAt: now, ExpiresAt: &expires, RefreshAt: now.Add(expires.Sub(now) * 4 / 5), Revision: resource.ETag + ":" + resource.PlaybackStatus + ":" + storage.DeliveryRevision(setting)}
+	access.OriginalWidth, access.OriginalHeight = resource.Width, resource.Height
 	if options.Variant == VariantPlayback {
 		if resource.Provider == "local" && resource.PlaybackStatus == model.PlaybackStatusReady && resource.PlaybackObjectKey != "" {
 			access.ActualVariant = VariantPlayback
@@ -136,7 +139,16 @@ func ResolveAccess(resource *model.Resource, setting storage.Settings, options A
 		}
 	}
 	if options.Variant == VariantThumbnail {
-		access.FallbackReason = "thumbnail_not_ready"
+		if resource.ThumbnailStatus == "ready" && resource.ThumbnailSize > 0 && resource.ThumbnailMimeType != "" {
+			access.ActualVariant = VariantThumbnail
+			copy := *resource
+			copy.ObjectKey = ThumbnailObjectKey(resource.ObjectKey)
+			copy.MimeType = resource.ThumbnailMimeType
+			resource = &copy
+			access.Revision += ":thumbnail-v1"
+		} else {
+			access.FallbackReason = "thumbnail_not_ready"
+		}
 	}
 	if resource.Provider == "local" {
 		access.Delivery = DeliveryLocal

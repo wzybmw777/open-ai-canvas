@@ -1,4 +1,6 @@
 /* Creation-specific geometry. Shared controls still use the workspace tokens. */
+.creation-home-eyebrow { display: block; margin-bottom: var(--space-3); color: var(--user-ink-muted); font-size: var(--fs-caption); font-weight: 600; letter-spacing: .14em; }
+.creation-home-heading-accent { color: var(--user-accent); }
 .creation-mode-tabs { position: relative; isolation: isolate; display: grid; width: min(456px, 100%); margin: 0 auto 20px; padding: 4px; border-radius: 18px; background: var(--user-surface-muted); }
 .creation-mode-indicator { position: absolute; z-index: -1; inset: 0; border-radius: 14px; background: var(--user-surface); box-shadow: 0 2px 8px color-mix(in srgb, var(--user-ink) 5%, transparent); }
 .creation-mode-button { position: relative; isolation: isolate; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; height: 44px; padding: 0 12px; border: 0; border-radius: 14px; background: transparent; color: var(--user-ink-muted); font-size: 14px; font-weight: 600; cursor: pointer; transition: color var(--user-motion), transform var(--user-motion); }
@@ -10,26 +12,18 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #6366f1;
-    box-shadow: 0 0 8px rgba(99, 102, 241, 0.65);
+    background: var(--user-accent);
     animation: creation-mode-spark-pulse 2s ease-in-out infinite;
-}
-
-.dark .creation-mode-spark {
-    background: #818cf8;
-    box-shadow: 0 0 10px rgba(129, 140, 248, 0.85);
 }
 
 @keyframes creation-mode-spark-pulse {
     0%, 100% {
         transform: scale(0.85);
         opacity: 0.45;
-        box-shadow: 0 0 4px rgba(99, 102, 241, 0.4);
     }
     50% {
         transform: scale(1.3);
         opacity: 1;
-        box-shadow: 0 0 10px rgba(99, 102, 241, 0.9), 0 0 16px rgba(99, 102, 241, 0.45);
     }
 }
 .creation-agent-entry { display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: center; gap: 16px 24px; padding: 28px; margin-bottom: 20px; border-radius: var(--user-radius-card); background: var(--user-surface); animation: product-card-enter var(--product-enter) var(--product-ease) backwards; }
@@ -60,7 +54,7 @@
 .creation-inspiration-filters button { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; min-height: 36px; border: 0; border-radius: 999px; color: var(--user-ink-muted); background: transparent; font-size: 13px; transition: background var(--user-motion), color var(--user-motion); }
 .creation-inspiration-filters button span { font-size: 11px; opacity: .65; font-variant-numeric: tabular-nums; }
 .creation-inspiration-filters button:hover { background: var(--user-surface-hover); }
-.creation-inspiration-filters button[aria-pressed="true"] { background: var(--user-ink); color: var(--user-surface); }
+.creation-inspiration-filters button[aria-pressed="true"] { background: var(--user-control-pressed); color: var(--user-ink); font-weight: 600; }
 .creation-inspiration-filters button:focus-visible { outline: 2px solid var(--user-accent); outline-offset: 2px; }
 .creation-inspiration-overlay { position: absolute; inset: auto 12px 12px; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 12px; border-radius: var(--user-radius-control); background: var(--user-surface); color: var(--user-ink); font-size: 12px; transform: translateY(6px); opacity: 0; transition: opacity var(--user-motion), transform var(--user-motion); }
 .creation-inspiration-overlay svg { width: 14px; height: 14px; transform: rotate(45deg); }
@@ -291,4 +285,8 @@ html:not(.dark) .app-product-overlays .creation-control-popover-surface {
 
 .creation-home .creation-chat-mention-container {
     min-height: 0 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .creation-mode-spark { animation: none; }
 }

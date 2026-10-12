@@ -163,9 +163,9 @@
 
     /* === 新卡片系统 Token（对应 docs/ui-design-system.md）=== */
     /* 卡片表面通过明度分层，普通卡片不依赖描边和投影。 */
-    --card-surface: #f7f7f7;
-    --card-surface-hover: #f0f0f0;
-    --card-surface-raised: #ececec;
+    --card-surface: #ffffff;
+    --card-surface-hover: #eef0ed;
+    --card-surface-raised: #e9ecef;
 
     --card-border: transparent;
     --card-border-hover: transparent;
@@ -201,10 +201,10 @@
 
     /* 交互状态必须成对定义背景和前景。主操作、普通选择、勾选和 Switch
        是四种不同角色，禁止再把反相主按钮颜色直接复用到普通选中态。 */
-    --btn-solid-bg: #171717;
-    --btn-solid-hover-bg: #303030;
-    --btn-solid-active-bg: #404040;
-    --btn-solid-fg: #ffffff;
+    --btn-solid-bg: var(--primary);
+    --btn-solid-hover-bg: #f8d33a;
+    --btn-solid-active-bg: #d9a60a;
+    --btn-solid-fg: var(--primary-foreground);
     --btn-outline-border: color-mix(in srgb, var(--foreground) 16%, transparent);
     --btn-outline-hover-border: color-mix(in srgb, var(--foreground) 28%, transparent);
     --btn-outline-hover-bg: color-mix(in srgb, var(--foreground) 6%, transparent);
@@ -298,11 +298,11 @@
     --glass-border-alpha: 0.78;
 
     /* 登录表单跟随全局明暗主题；品牌影片保留独立深色舞台。 */
-    --auth-page-bg: #ffffff;
-    --auth-panel-bg: #f7f7f7;
+    --auth-page-bg: #faf9f6;
+    --auth-panel-bg: #f4f5f2;
     --auth-card-bg: #ffffff;
-    --auth-accent: #2563eb;
-    --auth-muted: #737373;
+    --auth-accent: #826000;
+    --auth-muted: #646d78;
     /* 协议勾选框的填充色与对勾色。必须成对维护：两者相近会在某一主题下
        退化成看不见的勾选态。深色主题下这里与 --foreground 的白色相反。 */
     --auth-check-bg: #171717;
@@ -310,9 +310,9 @@
 
     /* 可配置皮肤的组件入口。经典主题保持这些项目原始值；自定义主题在
        React 启动前由公开外观配置覆盖，页面和组件只消费这些语义变量。 */
-    --icon-foreground: #3f3f46;
-    --icon-muted: #a1a1aa;
-    --icon-active: #171717;
+    --icon-foreground: #4b5563;
+    --icon-muted: #858c96;
+    --icon-active: #826000;
     --control-radius: 6px;
     --button-radius: 6px;
     --input-radius: 6px;
@@ -817,15 +817,15 @@
     --workspace-page: var(--workspace-canvas);
     --workspace-navigation: var(--workspace-page);
     --workspace-content: var(--workspace-page);
-    --workspace-surface: #ffffff;
+    --workspace-surface: var(--card);
     --workspace-surface-strong: #ffffff;
-    --workspace-border: rgba(17, 17, 17, 0.14);
-    --workspace-border-strong: rgba(17, 17, 17, 0.22);
+    --workspace-border: var(--border);
+    --workspace-border-strong: var(--input);
     --workspace-grid-line: rgba(17, 17, 17, 0.045);
     --workspace-nav: var(--workspace-navigation);
     --workspace-sidebar: var(--workspace-navigation);
-    --workspace-accent: #171717;
-    --workspace-accent-soft: rgba(17, 17, 17, 0.07);
+    --workspace-accent: var(--icon-active);
+    --workspace-accent-soft: color-mix(in srgb, var(--primary) 12%, transparent);
     --workspace-nav-active-bg: color-mix(in srgb, var(--workspace-accent) 12%, transparent);
     --workspace-nav-active-hover-bg: color-mix(in srgb, var(--workspace-accent) 16%, transparent);
     --workspace-sidebar-width: 250px;        /* 侧栏展开宽度：较 208px 加宽 20% */
@@ -927,24 +927,24 @@
     --status-loading: var(--palette-status-loading);
     --status-warning: var(--palette-status-warning);
 
-    --border: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
+    --border: #e4e6e8;
+    --ring: #826000;
+    --background: #faf9f6;
+    --foreground: #202630;
+    --card: #ffffff;
+    --card-foreground: var(--foreground);
+    --popover: #ffffff;
+    --popover-foreground: var(--foreground);
+    --primary: #f0b90b;
+    --primary-foreground: #181a20;
+    --secondary: #f4f5f2;
+    --secondary-foreground: var(--foreground);
+    --muted: #f4f5f2;
+    --muted-foreground: #646d78;
+    --accent: #e9ecef;
+    --accent-foreground: var(--foreground);
     --destructive: #dc2626;
-    --input: oklch(0.922 0 0);
+    --input: #cbd0d6;
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
@@ -961,30 +961,31 @@
 }
 
 .dark {
-    --background: #0f0f0f;
-    --auth-page-bg: #08090c;
-    --auth-panel-bg: #0b0c10;
-    --auth-card-bg: #121318;
-    --auth-accent: #93c5fd;
-    --auth-muted: #8a8b91;
+    --background: #0b0e11;
+    --auth-page-bg: #0b0e11;
+    --auth-panel-bg: #181a20;
+    --auth-card-bg: #1e2329;
+    --auth-accent: #f0b90b;
+    --auth-muted: #929aa5;
     /* 深色主题下勾选框用浅底 + 深勾，与浅色主题的深底 + 白勾形成互补；
        直接复用 --foreground 会得到白底白勾。 */
     --auth-check-bg: #e5e5e5;
     --auth-check-fg: #171717;
-    --foreground: #ffffff;
-    --border: #222222;
-    --ring: oklch(0.556 0 0);
-    --card: #181818;
-    --card-foreground: #ffffff;
-    --popover: #222222;
-    --popover-foreground: #ffffff;
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
+    --foreground: #eaecef;
+    --border: #2b3139;
+    --ring: #f0b90b;
+    --card: #181a20;
+    --card-foreground: var(--foreground);
+    --popover: #1e2329;
+    --popover-foreground: var(--foreground);
+    --primary: #f0b90b;
+    --primary-foreground: #181a20;
+    --icon-active: var(--primary);
+    --secondary: #1e2329;
     --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: #a8a8a8;
-    --accent: oklch(0.269 0 0);
+    --muted: #1e2329;
+    --muted-foreground: #929aa5;
+    --accent: #2b3139;
     --accent-foreground: oklch(0.985 0 0);
     --destructive: #ff4d4d;
     --destructive-hover: #ff6b6b;
@@ -999,15 +1000,15 @@
     --workspace-page: var(--workspace-canvas);
     --workspace-navigation: var(--workspace-page);
     --workspace-content: var(--workspace-page);
-    --workspace-surface: #181818;
-    --workspace-surface-strong: #2a2a2a; /* composio surface-strong（原 #222222 并入 elevated 语义）*/
-    --workspace-border: #222222;
-    --workspace-border-strong: #333333;
+    --workspace-surface: var(--card);
+    --workspace-surface-strong: #2b3139;
+    --workspace-border: var(--border);
+    --workspace-border-strong: #474d57;
     --workspace-grid-line: rgba(255, 255, 255, 0.038);
     --workspace-nav: var(--workspace-navigation);
     --workspace-sidebar: var(--workspace-navigation);
-    --workspace-accent: #f5f5f5;
-    --workspace-accent-soft: rgba(255, 255, 255, 0.09);
+    --workspace-accent: var(--primary);
+    --workspace-accent-soft: color-mix(in srgb, var(--primary) 10%, transparent);
     --workspace-nav-active-bg: color-mix(in srgb, var(--workspace-accent) 13%, transparent);
     --workspace-nav-active-hover-bg: color-mix(in srgb, var(--workspace-accent) 18%, transparent);
     --chart-1: oklch(0.87 0 0);
@@ -1156,9 +1157,9 @@
     --project-library-shadow: none;
 
     /* === 新卡片系统 Token - Dark（对应 docs/ui-design-system.md）=== */
-    --card-surface: #171717;
-    --card-surface-hover: #1e1e1e;
-    --card-surface-raised: #252525;
+    --card-surface: var(--card);
+    --card-surface-hover: #1e2329;
+    --card-surface-raised: #2b3139;
 
     --card-border: transparent;
     --card-border-hover: transparent;
@@ -1187,10 +1188,10 @@
         rgba(255, 255, 255, 0.05) 100%
     );
 
-    --btn-solid-bg: #f5f5f5;
-    --btn-solid-hover-bg: #ffffff;
-    --btn-solid-active-bg: #e5e5e5;
-    --btn-solid-fg: #131313;
+    --btn-solid-bg: var(--primary);
+    --btn-solid-hover-bg: #f8d33a;
+    --btn-solid-active-bg: #d9a60a;
+    --btn-solid-fg: var(--primary-foreground);
     --control-selected-bg: rgba(255, 255, 255, 0.12);
     --control-selected-hover-bg: rgba(255, 255, 255, 0.16);
     --control-selected-fg: #f5f5f5;
@@ -13062,6 +13063,10 @@ html:not(.dark) .creation-history-drawer-root {
 .asset-picker-card.is-disabled { opacity: .46; }
 .asset-picker-card-media { position: relative; aspect-ratio: 4 / 3; overflow: hidden; background: var(--library-cover-surface); }
 .cached-resource-image-shell { display: grid; width: 100%; height: 100%; place-items: center; }
+.cached-resource-image-placeholder { display: block; width: 100%; height: 100%; background: var(--user-surface-muted, var(--muted)); }
+.cached-resource-image-error { display: grid; width: 100%; height: 100%; place-content: center; justify-items: center; gap: var(--space-2); color: var(--muted-foreground); font-size: var(--fs-caption); }
+.cached-resource-image-error button { padding: var(--space-1) var(--space-3); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--background); color: var(--foreground); cursor: pointer; }
+.cached-resource-image-error button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .asset-picker-card-media > img, .asset-picker-card-media > video, .asset-picker-card-media > .cached-resource-image-shell > img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .asset-picker-card-media > img.is-contain, .asset-picker-card-media > .cached-resource-image-shell > img.is-contain { object-fit: contain; padding: 4px; }
 .asset-picker-card-check { position: absolute; right: 8px; bottom: 8px; z-index: 3; display: grid; width: 22px; height: 22px; place-items: center; border: 1.5px solid rgba(255, 255, 255, .72); border-radius: 7px; background: rgba(10, 10, 10, .42); color: transparent; opacity: 0; backdrop-filter: blur(6px); transition: opacity 180ms ease-out, background-color 180ms ease-out, border-color 180ms ease-out; }
@@ -16646,7 +16651,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 }
 
 .dark .app-user-workspace .app-workspace-sidebar,
-.dark .app-user-workspace .app-workspace-sidebar-nav { background: #1b1b1d; }
+.dark .app-user-workspace .app-workspace-sidebar-nav { background: var(--user-page-bg); }
 .dark .app-user-workspace .app-workspace-topbar,
 .dark .app-user-workspace .creation-home,
 .dark .app-user-workspace .creation-composer,
@@ -16662,11 +16667,11 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 .dark .app-user-workspace .app-workspace-sidebar-profile-menu a,
 .dark .app-user-workspace .app-workspace-sidebar-profile-menu button { color: rgba(255,255,255,.72); }
 .dark .app-user-workspace .app-workspace-sidebar-profile-menu a:hover,
-.dark .app-user-workspace .app-workspace-sidebar-profile-menu button:hover { background: rgba(108,94,236,.15); color: #dcd8ff; }
+.dark .app-user-workspace .app-workspace-sidebar-profile-menu button:hover { background: var(--user-accent-soft); color: var(--user-accent); }
 .dark .app-user-workspace .creation-home-heading h1 { color: #f5f5f5; }
 .dark .app-user-workspace .creation-home-heading p,
 .dark .app-user-workspace .app-workspace-topbar-breadcrumb > span:not(.truncate) {
-    color: rgba(255, 255, 255, 0.28) !important;
+    color: var(--user-ink-muted) !important;
 }
 
 .dark .app-user-workspace .app-workspace-sidebar-collapse-button {
@@ -17544,7 +17549,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 
 .app-user-workspace .app-workspace-sidebar,
 .app-user-workspace .app-workspace-sidebar-nav {
-    background: #f6f6f7;
+    background: var(--user-page-bg);
 }
 
 .app-user-workspace .app-workspace-sidebar {
@@ -18245,23 +18250,25 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
    ======================================================================== */
 .app-user-workspace,
 .app-user-overlays {
-    --user-page-bg: #f8f8fa;
-    --user-surface: #ffffff;
-    --user-surface-raised: #ffffff;
-    --user-surface-muted: #f1f1f3;
-    --user-surface-hover: #eaeaec;
-    --user-border: rgba(25, 25, 30, .10);
-    --user-border-strong: rgba(25, 25, 30, .17);
-    --user-ink: #1d1d21;
-    --user-ink-muted: #686872;
-    --user-ink-soft: #85858e;
-    --user-accent: var(--workspace-accent);
-    --user-accent-soft: var(--control-selected-bg);
-    --user-shadow-card: none;
-    --user-shadow-hover: none;
-    --user-radius-card: 16px;
-    --user-radius-control: 12px;
-    --user-control-pressed: #e1e1e5;
+    --user-page-bg: var(--background);
+    --user-surface: var(--card);
+    --user-surface-raised: var(--card-surface-raised);
+    --user-surface-muted: var(--muted);
+    --user-surface-hover: var(--card-surface-hover);
+    --user-border: var(--border);
+    --user-border-strong: var(--input);
+    --user-ink: var(--foreground);
+    --user-ink-muted: var(--muted-foreground);
+    --user-ink-soft: var(--muted-foreground);
+    --user-accent: var(--icon-active);
+    --user-accent-soft: color-mix(in srgb, var(--primary) 12%, var(--user-surface));
+    --user-nav-active-bg: var(--user-accent-soft);
+    --user-nav-active-ink: var(--user-accent);
+    --user-shadow-card: inset 0 0 0 1px var(--user-border);
+    --user-shadow-hover: inset 0 0 0 1px var(--user-border-strong);
+    --user-radius-card: var(--card-radius, var(--r-lg));
+    --user-radius-control: var(--button-radius, var(--r-md));
+    --user-control-pressed: var(--accent);
     --user-control-height: 38px;
     --user-icon-size: 16px;
     --user-motion: 180ms cubic-bezier(.16, 1, .3, 1);
@@ -18272,19 +18279,23 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 
 .dark .app-user-workspace,
 .dark .app-user-overlays {
-    --user-page-bg: #151517;
-    --user-surface: #1c1c1f;
-    --user-surface-raised: #222226;
-    --user-surface-muted: #26262a;
-    --user-surface-hover: #303036;
-    --user-control-pressed: #3a3a40;
-    --user-border: rgba(255, 255, 255, .09);
-    --user-border-strong: rgba(255, 255, 255, .16);
-    --user-ink: #f3f3f5;
-    --user-ink-muted: #b4b4bc;
-    --user-ink-soft: #9797a1;
-    --user-shadow-card: none;
-    --user-shadow-hover: none;
+    --user-page-bg: var(--background);
+    --user-surface: var(--card);
+    --user-surface-raised: var(--card-surface-raised);
+    --user-surface-muted: var(--muted);
+    --user-surface-hover: var(--card-surface-hover);
+    --user-control-pressed: var(--accent);
+    --user-border: var(--border);
+    --user-border-strong: color-mix(in srgb, var(--foreground) 24%, var(--border));
+    --user-ink: var(--foreground);
+    --user-ink-muted: var(--muted-foreground);
+    --user-ink-soft: var(--muted-foreground);
+    --user-accent: var(--primary);
+    --user-accent-soft: color-mix(in srgb, var(--user-accent) 10%, var(--user-surface));
+    --user-nav-active-bg: var(--user-accent-soft);
+    --user-nav-active-ink: var(--user-accent);
+    --user-shadow-card: inset 0 0 0 1px var(--user-border);
+    --user-shadow-hover: inset 0 0 0 1px var(--user-border-strong);
 }
 
 .app-user-workspace .app-workspace-stage,
@@ -18298,7 +18309,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     width: var(--workspace-reference-sidebar) !important;
     flex-basis: var(--workspace-reference-sidebar) !important;
     background: var(--user-page-bg) !important;
-    border-right: 0 !important;
+    border-right: 1px solid var(--user-border) !important;
     transition: width var(--user-motion);
 }
 .app-user-workspace .app-workspace-sidebar.is-collapsed {
@@ -18310,7 +18321,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 .app-user-workspace .app-workspace-nav-link {
     min-height: var(--workspace-reference-row) !important;
     padding: 3px 10px !important;
-    border-radius: 13px !important;
+    border-radius: var(--user-radius-control) !important;
     color: var(--user-ink-muted) !important;
     font-size: 13px !important;
     font-weight: 560 !important;
@@ -18319,7 +18330,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 .app-user-workspace .app-workspace-nav-link .app-workspace-nav-main { gap: 10px !important; }
 .app-user-workspace .app-workspace-nav-link .app-workspace-nav-icon svg,
 .app-user-workspace .app-workspace-nav-link .app-workspace-nav-main > svg { width: 16px !important; height: 16px !important; }
-.app-user-workspace .app-workspace-nav-link.is-active { background: transparent !important; color: var(--user-ink) !important; font-weight: 680 !important; }
+.app-user-workspace .app-workspace-nav-link.is-active { background: var(--user-nav-active-bg) !important; color: var(--user-nav-active-ink) !important; font-weight: 680 !important; }
 .app-user-workspace .app-workspace-nav-link:hover:not(.is-active),
 .app-user-workspace .app-workspace-nav-link:focus-visible:not(.is-active) { background: var(--user-surface-hover) !important; color: var(--user-ink) !important; }
 .app-user-workspace .app-workspace-nav-group-toggle { color: var(--user-ink-soft) !important; }
@@ -18331,7 +18342,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     height: var(--workspace-reference-topbar) !important;
     overflow: visible;
     padding-inline: 20px !important;
-    border-bottom: 0 !important;
+    border-bottom: 1px solid var(--user-border) !important;
     background: color-mix(in srgb, var(--user-page-bg) 92%, transparent) !important;
     color: var(--user-ink) !important;
 }
@@ -18339,8 +18350,8 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 .app-user-workspace .app-workspace-topbar-credit-pill { border-color: var(--user-border) !important; background: var(--user-surface) !important; color: var(--user-ink-muted) !important; }
 .app-user-workspace .app-workspace-topbar-credit-pill:hover,
 .app-user-workspace .app-workspace-topbar-credit-pill:focus-visible {
-    border-color: color-mix(in srgb, #ff8a28 36%, var(--user-border)) !important;
-    background: color-mix(in srgb, #ff8a28 10%, var(--user-surface)) !important;
+    border-color: color-mix(in srgb, var(--user-accent) 36%, var(--user-border)) !important;
+    background: var(--user-accent-soft) !important;
 }
 .app-user-workspace .app-workspace-topbar-credit-pill strong { color: var(--user-ink) !important; }
 
@@ -18390,10 +18401,10 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 .app-user-workspace .creation-home-heading h1 {
     margin: 0 !important;
     color: var(--user-ink) !important;
-    font-size: clamp(26px, 2vw, 32px) !important;
-    font-weight: 600 !important;
+    font-size: clamp(28px, 3vw, 44px) !important;
+    font-weight: 700 !important;
     letter-spacing: -.04em !important;
-    line-height: 1.12 !important;
+    line-height: 1.3 !important;
 }
 .app-user-workspace .creation-home-heading p {
     margin: 12px 0 0 !important;
@@ -18442,21 +18453,21 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 .app-user-workspace .creation-composer-shell {
     width: 100%;
     overflow: hidden;
-    border-radius: 22px;
+    border-radius: var(--user-radius-card);
     background: transparent;
-    box-shadow: 0 6px 16px color-mix(in srgb, var(--user-ink) 8%, transparent);
+    box-shadow: var(--elevation-card);
 }
 .dark .app-user-workspace .creation-composer-shell {
-    box-shadow: 0 6px 16px rgba(0, 0, 0, .28);
+    box-shadow: var(--elevation-card);
 }
 .app-user-workspace .creation-chat-composer {
     position: relative;
     isolation: isolate;
     overflow: hidden;
     border: 0 !important;
-    border-radius: 21px !important;
+    border-radius: var(--user-radius-card) !important;
     background: var(--user-surface) !important;
-    box-shadow: none !important;
+    box-shadow: var(--user-shadow-card) !important;
     transition: box-shadow var(--user-motion), transform var(--user-motion) !important;
 }
 .app-user-workspace .creation-chat-composer .creation-chat-writing-surface,
@@ -18465,14 +18476,14 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     z-index: 1;
 }
 .app-user-workspace .creation-chat-composer:focus-within {
-    box-shadow: none !important;
+    box-shadow: inset 0 0 0 var(--control-border-width, 1px) var(--user-accent) !important;
     transform: none;
 }
 .dark .app-user-workspace .creation-chat-composer {
-    box-shadow: none !important;
+    box-shadow: var(--user-shadow-card) !important;
 }
 .dark .app-user-workspace .creation-chat-composer:focus-within {
-    box-shadow: none !important;
+    box-shadow: inset 0 0 0 var(--control-border-width, 1px) var(--user-accent) !important;
 }
 .app-user-workspace .creation-chat-composer.is-empty .creation-chat-writing-surface {
     min-height: 216px !important;
@@ -18509,7 +18520,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 .app-user-workspace .creation-home .canvas-node-composer-submit-action { width: 44px; height: 44px; flex: 0 0 44px; border-radius: 50%; }
 
 .app-user-workspace .creation-launchpad .creation-chat-composer {
-    border-radius: 22px !important;
+    border-radius: var(--user-radius-card) !important;
 }
 .app-user-workspace .creation-launchpad .creation-chat-composer.is-empty .creation-chat-writing-surface {
     min-height: 152px !important;
@@ -18715,9 +18726,13 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     .app-user-workspace .creation-home-heading p { font-size: 14px !important; }
     .app-user-workspace .creation-launchpad > .creation-mode-capsule .creation-chat-control { min-width: 0 !important; padding-inline: 16px !important; }
     .app-user-workspace .creation-chat-writing-surface,
-    .app-user-workspace .creation-chat-composer.is-empty .creation-chat-writing-surface { min-height: 250px !important; padding: 22px 18px 12px !important; }
+    .app-user-workspace .creation-chat-composer.is-empty .creation-chat-writing-surface { min-height: 0 !important; padding: 16px 16px 8px !important; }
     .app-user-workspace .creation-chat-editor textarea,
-    .app-user-workspace .creation-chat-mention-editor { min-height: 120px !important; font-size: 17px !important; }
+    .app-user-workspace .creation-chat-mention-editor { min-height: 64px !important; font-size: 16px !important; }
+    .app-user-workspace .creation-launchpad .creation-chat-composer.is-empty .creation-chat-writing-surface { min-height: 0 !important; padding: 16px 16px 8px !important; }
+    .app-user-workspace .creation-launchpad .creation-chat-dock { flex-wrap: wrap; gap: 8px; padding: 8px 12px 12px !important; }
+    .app-user-workspace .creation-launchpad .creation-chat-controls { display: contents; }
+    .app-user-workspace .creation-launchpad .creation-model-picker { flex: 1 1 calc(100% - 52px); min-width: 0; max-width: calc(100% - 44px); }
     .app-user-workspace .creation-empty-suggest { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
     .app-user-workspace .creation-empty-suggest .creation-hero-prompt,
     .app-user-workspace .creation-empty-suggest .suggest-card { min-height: 80px !important; }

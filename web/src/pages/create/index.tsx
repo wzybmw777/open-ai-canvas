@@ -1064,11 +1064,13 @@ export default function CreatePage() {
                 </AnimatePresence>
                 <main ref={threadScrollRef} onScroll={handleThreadScroll} className="creation-empty-workspace creation-scrollbar">
                 <div className="creation-home-heading">
-                    <h1>{text(`和${brandName}聊聊创作想法`, `Create with ${brandName}`)}</h1>
-                    <p>{text("从一个画面、一个角色或一句话开始，继续你的创作。", "Start with a scene, a character, or a single line.")}</p>
+                    <span className="creation-home-eyebrow">{text("AI 创作工作台", "AI CREATIVE WORKSPACE")}</span>
+                    <h1>{text("让灵感，", "Turn ideas ")}<span className="creation-home-heading-accent">{text("成为作品", "into stories")}</span></h1>
+                    <p>{text(`和${brandName}一起，从一个画面、一个角色或一句话开始。`, `Create with ${brandName}. Start with a scene, a character, or a single line.`)}</p>
                 </div>
                 <CreationInspirationTunnel
                     mode={mode}
+                    composing={Boolean(prompt.trim())}
                     onStartPrompt={(nextMode, prompt) => { setAgentMode(false); selectMode(nextMode); setPrompt(prompt); window.requestAnimationFrame(() => composerFocusRef.current?.focus()); }}
                 />
                 <section ref={launchpadRef} className="creation-launchpad" aria-label={text("开始创作", "Start creating")}>

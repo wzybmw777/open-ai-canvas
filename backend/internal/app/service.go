@@ -33,6 +33,8 @@ type Service struct {
 	redeemBatchMu            sync.Mutex
 	storageMu                sync.Mutex
 	storageTestMu            sync.Mutex
+	thumbnailMu              sync.Mutex
+	thumbnailSlots           chan struct{}
 	workerRuntimeMu          sync.Mutex
 	agentSchedulerMu         sync.Mutex
 	agentSchedulerWake       chan struct{}

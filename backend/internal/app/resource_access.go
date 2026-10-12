@@ -64,6 +64,9 @@ func (s *Service) resolveResourceAccess(resource *model.Resource, options Resour
 		return nil, NotFound("资源不存在")
 	}
 	var setting ossSettingValue
+	if options.Variant == assets.VariantThumbnail {
+		s.maybeStartResourceThumbnail(resource)
+	}
 	if resource.Provider != "local" {
 		var err error
 		setting, err = s.ossSettingForResource(resource.UserID, resource)
@@ -109,6 +112,8 @@ func (s *Service) prepareResourceDelivery(userID string, resource *model.Resourc
 	}
 	if access.ActualVariant == assets.VariantPlayback {
 		delivery.Stream, err = s.OpenResourcePlaybackRange(userID, resource.ID)
+	} else if access.ActualVariant == assets.VariantThumbnail {
+		delivery.Stream, err = s.openResourceThumbnailRange(userID, resource, rangeHeader)
 	} else {
 		delivery.Stream, err = s.openResourceRange(userID, resource, rangeHeader)
 	}

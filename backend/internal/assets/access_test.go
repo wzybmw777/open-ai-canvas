@@ -261,6 +261,21 @@ func TestResolveAccessAcceptsThumbnailVariantWithOriginalFallback(t *testing.T) 
 	}
 }
 
+func TestResolveAccessReadyThumbnailUsesOwnCDNObject(t *testing.T) {
+	resource := testReadyResource("aliyun")
+	resource.ThumbnailStatus = "ready"
+	resource.ThumbnailSize = 42000
+	resource.ThumbnailMimeType = "image/jpeg"
+	setting := storage.Settings{Provider: "aliyun", CDNBaseURL: "https://media.example.com", Delivery: storage.DeliverySettings{CDNAuthMode: "public"}}
+	access, err := ResolveAccess(resource, setting, AccessOptions{Purpose: PurposeDisplay, Variant: VariantThumbnail}, time.Now(), nil)
+	if err != nil || access.ActualVariant != VariantThumbnail || access.URL != "https://media.example.com/users/user-1/image/test.png.thumbnail-v1" {
+		t.Fatal("wrong thumbnail delivery", access, err)
+	}
+	if resource.ObjectKey != "users/user-1/image/test.png" || resource.MimeType != "image/png" {
+		t.Fatal("mutated original")
+	}
+}
+
 func mustQuery(t *testing.T, raw string) url.Values {
 	t.Helper()
 	parsed, err := url.Parse(raw)

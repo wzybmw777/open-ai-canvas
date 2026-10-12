@@ -12,6 +12,7 @@ type CachedResourceImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, "src">
     loadingFallback?: ReactNode;
     eager?: boolean;
     variant?: ResourceAccessVariant;
+    retryable?: boolean;
 };
 
 /**
@@ -19,7 +20,7 @@ type CachedResourceImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, "src">
  * Blob 缓存仍可用于导出、抽帧等字节处理，但不作为媒体展示 src，避免把
  * `blob:http(s)://...` 泄露到节点、素材库和浏览器媒体链路中。
  */
-export function CachedResourceImage({ storageKey, src = "", fallback = null, loadingFallback = fallback, eager = false, variant = "original", onError, ...props }: CachedResourceImageProps) {
+export function CachedResourceImage({ storageKey, src = "", fallback, loadingFallback, eager = false, variant = "original", retryable = false, onError, ...props }: CachedResourceImageProps) {
     const resourceId = resourceIdFromStorageKey(storageKey);
     const remoteResource = Boolean(resourceId);
     const localImageResource = Boolean(storageKey && storageKey.startsWith("image:"));
@@ -31,6 +32,7 @@ export function CachedResourceImage({ storageKey, src = "", fallback = null, loa
     const displayedRef = useRef(displayed);
     displayedRef.current = displayed;
     const [failedIdentity, setFailedIdentity] = useState("");
+    const [retry, setRetry] = useState(0);
     const cachedSrc = displayed?.identity === identity ? displayed.src : "";
 
     useEffect(() => {
@@ -60,13 +62,21 @@ export function CachedResourceImage({ storageKey, src = "", fallback = null, loa
         if (remoteResource && !nearViewport) return;
         const controller = new AbortController();
         let cancelled = false;
+        let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+        let refreshAttempts = 0;
+        let loadSequence = 0;
         const isCurrent = () => !cancelled && !controller.signal.aborted && getActiveUserScope() === scope;
         const load = async () => {
+            const sequence = ++loadSequence;
             let candidate = src;
             if (remoteResource && resourceId) {
                 try {
-                    const access = await getResourceAccess(storageKey, "display", variant);
+                    const access = await getResourceAccess(storageKey, "display", variant, "", { forceRefresh: retry > 0 });
                     candidate = resolveResourceAccessURL(access.url);
+                    if (variant === "thumbnail" && access.actualVariant !== "thumbnail" && refreshAttempts < 3) {
+                        refreshAttempts += 1;
+                        refreshTimer = setTimeout(() => { if (isCurrent()) void load().catch(() => {}); }, 2_000);
+                    }
                 } catch (error) {
                     if (variant !== "thumbnail") throw error;
                     const access = await getResourceAccess(storageKey, "display", "original");
@@ -80,7 +90,7 @@ export function CachedResourceImage({ storageKey, src = "", fallback = null, loa
                 await prepareCanvasImage(candidate, controller.signal);
             } catch (error) {
                 if (!remoteResource || variant !== "thumbnail") {
-                    if (candidate !== src && src) await prepareCanvasImage(src, controller.signal);
+                    if (candidate !== src && src) { await prepareCanvasImage(src, controller.signal); candidate = src; }
                     else throw error;
                 } else {
                     const access = await getResourceAccess(storageKey, "display", "original");
@@ -90,7 +100,7 @@ export function CachedResourceImage({ storageKey, src = "", fallback = null, loa
                     candidate = originalURL;
                 }
             }
-            if (isCurrent()) {
+            if (isCurrent() && sequence === loadSequence) {
                 setDisplayed({ identity, src: candidate });
                 setFailedIdentity("");
             }
@@ -101,8 +111,9 @@ export function CachedResourceImage({ storageKey, src = "", fallback = null, loa
         return () => {
             cancelled = true;
             controller.abort();
+            if (refreshTimer) clearTimeout(refreshTimer);
         };
-    }, [identity, localImageResource, nearViewport, remoteResource, resourceId, scope, src, storageKey, variant]);
+    }, [identity, localImageResource, nearViewport, remoteResource, resourceId, scope, src, storageKey, variant, retry]);
 
     const handleImgError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
         if (localImageResource && storageKey && cachedSrc.startsWith("blob:")) {
@@ -131,11 +142,13 @@ export function CachedResourceImage({ storageKey, src = "", fallback = null, loa
         onError?.(e);
     };
 
-    if (failedIdentity === identity && fallback) return <>{fallback}</>;
-    if (!remoteResource) return <img {...props} src={cachedSrc || undefined} onError={handleImgError} />;
+    const loadingState = loadingFallback ?? <span className={`cached-resource-image-placeholder ${props.className || ""}`} style={props.style} role="status" aria-label="图片加载中" />;
+    const errorState = <span className="cached-resource-image-error">{fallback ?? <span role="status">图片暂不可用</span>}{retryable ? <button type="button" data-canvas-no-zoom onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); setFailedIdentity(""); setRetry((value) => value + 1); }} aria-label="重新加载图片">重试</button> : null}</span>;
+    if (failedIdentity === identity) return errorState;
+    if (!remoteResource && cachedSrc) return <img {...props} src={cachedSrc} onError={handleImgError} />;
     return (
         <span ref={targetRef} className="cached-resource-image-shell">
-            {cachedSrc ? <img {...props} src={cachedSrc} onError={handleImgError} /> : failedIdentity === identity ? fallback : loadingFallback}
+            {cachedSrc ? <img {...props} src={cachedSrc} onError={handleImgError} /> : loadingState}
         </span>
     );
 }

@@ -2,19 +2,20 @@ import { describe, expect, test } from "bun:test";
 import { applySkinTheme, DEFAULT_CLASSIC_SKIN, duplicateSkinDefinition, getSkinButtonAppearance, isSkinButtonFill, normalizeSkinDefinition } from "../src/lib/skin-themes";
 
 describe("theme primary button fills", () => {
-    test("classic uses the reference gradient in both modes without changing selection colors", () => {
-        for (const mode of ["light", "dark"] as const) {
-            expect(getSkinButtonAppearance(DEFAULT_CLASSIC_SKIN, mode)).toEqual({
-                background: "linear-gradient(115deg, #6554df, #386fbc)",
-                hover: "linear-gradient(115deg, #5744cf, #356bbb)",
-                active: "linear-gradient(115deg, #4938b8, #2c5da5)", foreground: "#ffffff",
-            });
-        }
-        expect(DEFAULT_CLASSIC_SKIN.tokens.light.selected).toBe("#e8e8e8");
+    test("classic uses solid gold actions in both modes", () => {
+        expect(getSkinButtonAppearance(DEFAULT_CLASSIC_SKIN, "light")).toEqual({
+            background: "#f0b90b", hover: "#f8d33a", active: "#d9a60a", foreground: "#181a20",
+        });
+        expect(getSkinButtonAppearance(DEFAULT_CLASSIC_SKIN, "dark")).toEqual({
+            background: "#f0b90b", hover: "#f8d33a", active: "#d9a60a", foreground: "#181a20",
+        });
+        expect(DEFAULT_CLASSIC_SKIN.tokens.light.selected).toBe("#e9ecef");
+        expect(DEFAULT_CLASSIC_SKIN.tokens.dark.selected).toBe("#2b3139");
     });
 
     test("copies have independent fills and switching to solid clears every gradient state", () => {
         const skin = duplicateSkinDefinition(DEFAULT_CLASSIC_SKIN, ["classic"]);
+        skin.tokens.buttons.light.mode = "gradient";
         skin.tokens.buttons.light.angle = 45;
         skin.tokens.buttons.light.start = "#123456";
         expect(DEFAULT_CLASSIC_SKIN.tokens.buttons.light.angle).toBe(115);
@@ -33,15 +34,24 @@ describe("theme primary button fills", () => {
         expect(values.get("--button-primary-active-bg")).toBe("#345678");
         applySkinTheme(DEFAULT_CLASSIC_SKIN, "dark", doc);
         expect(values.has("--background")).toBe(false);
-        expect(values.get("--button-primary-fg")).toBe("#ffffff");
+        expect(values.get("--button-primary-fg")).toBe("#181a20");
+        expect(values.get("--button-primary-bg")).toBe("#f0b90b");
     });
 
-    test("legacy custom themes retain solid actions; legacy classic gains its default gradient", () => {
+    test("legacy themes use solid defaults in both modes", () => {
         for (const original of [DEFAULT_CLASSIC_SKIN, duplicateSkinDefinition(DEFAULT_CLASSIC_SKIN, ["classic"])]) {
             const legacy = JSON.parse(JSON.stringify(original));
             delete legacy.tokens.buttons;
-            expect(normalizeSkinDefinition(legacy).tokens.buttons.light.mode).toBe(original.id === "classic" ? "gradient" : "solid");
+            expect(normalizeSkinDefinition(legacy).tokens.buttons.light.mode).toBe("solid");
+            expect(normalizeSkinDefinition(legacy).tokens.buttons.dark.mode).toBe("solid");
         }
+    });
+
+    test("a cached classic cannot restore the previous night palette", () => {
+        const cached = JSON.parse(JSON.stringify(DEFAULT_CLASSIC_SKIN));
+        cached.tokens.dark.primary = "#ffffff";
+        cached.tokens.buttons.dark.mode = "gradient";
+        expect(normalizeSkinDefinition(cached)).toEqual(DEFAULT_CLASSIC_SKIN);
     });
 
     test("invalid modes, angles and CSS injection cannot become runtime gradients", () => {

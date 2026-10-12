@@ -157,6 +157,7 @@ function shouldPersistDisplayAccess(value: ResourceAccess) {
 }
 
 function resourceAccessCacheExpiry(value: ResourceAccess, now = Date.now()) {
+	if (value.requestedVariant === "thumbnail" && value.actualVariant !== "thumbnail") return now + 1_500;
     const expiresAt = value.expiresAt ? new Date(value.expiresAt).getTime() : Number.NaN;
     if (Number.isFinite(expiresAt) && expiresAt <= now + 1_000) return now;
     const refreshAt = value.refreshAt ? new Date(value.refreshAt).getTime() : Number.NaN;

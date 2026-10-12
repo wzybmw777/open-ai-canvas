@@ -10,8 +10,7 @@
 // 池子不打包，走 public/inspirations/gallery-pool.json：几百条连提示词正文一起
 // 就是几百 KB，压进首屏 JS 是白背的，而这份数据只服务这一处。
 //
-// 每张卡片等自己的封面加载完再露面。不这么做的话，先到的图先显示、
-// 慢的那几张只剩一块空面板，观感就是"右边出来了左边还空着"。
+// 先保留画廊和卡片位置，再让封面淡入；主图与两张邻图优先，侧翼随后补齐。
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { ArrowUp, ChevronLeft, ChevronRight } from "lucide-react";
@@ -97,10 +96,10 @@ function pickBatch(pool: CreationInspiration[], size: number, mode: CreationMode
  * 所以卡片整体对辅助技术隐藏、也不进 Tab 顺序；左右切换按钮仍可聚焦，
  * 当前展示的是哪一张由下面那条 aria-live 文本播报。
  */
-export function CreationInspirationTunnel({ mode, onStartPrompt }: { mode: CreationMode; onStartPrompt: (mode: CreationMode, prompt: string) => void }) {
+export function CreationInspirationTunnel({ mode, onStartPrompt, composing = false }: { mode: CreationMode; onStartPrompt: (mode: CreationMode, prompt: string) => void; composing?: boolean }) {
     /**
      * 池子来自 gallery-pool.json，是单独一份静态 JSON，不打包。
-     * 它没到之前整条画廊不渲染——先摆一小批再换成大池子，用户会看到画面整排重排一次。
+     * 它没到之前保留相同尺寸的占位，不先摆一批再重排，也不推移输入区。
      */
     const [pool, setPool] = useState<CreationInspiration[]>([]);
     const [poolReady, setPoolReady] = useState(false);
@@ -108,6 +107,8 @@ export function CreationInspirationTunnel({ mode, onStartPrompt }: { mode: Creat
     const [active, setActive] = useState(0);
     const [paused, setPaused] = useState(false);
     const [readyIds, setReadyIds] = useState<ReadonlySet<string>>(() => new Set());
+    const [failedIds, setFailedIds] = useState<ReadonlySet<string>>(() => new Set());
+    const [loadDepth, setLoadDepth] = useState(1);
     const reducedMotion = useReducedMotion();
     const stageRef = useRef<HTMLDivElement>(null);
     const activeRef = useRef(0);
@@ -138,7 +139,14 @@ export function CreationInspirationTunnel({ mode, onStartPrompt }: { mode: Creat
         if (!poolReady) return;
         setShots(pickBatch(modePool, GALLERY_SIZE, mode));
         setActive(0);
+        setLoadDepth(1);
     }, [mode, modePool, poolReady]);
+
+    useEffect(() => {
+        if (!shots.length) return;
+        const timer = window.setTimeout(() => setLoadDepth(MAX_DEPTH), 1600);
+        return () => window.clearTimeout(timer);
+    }, [shots]);
 
     /** 封面就绪（含加载失败）后放行这张卡。失败的也要放行，否则卡片永远不出现。 */
     const markReady = useCallback((id: string) => {
@@ -203,7 +211,7 @@ export function CreationInspirationTunnel({ mode, onStartPrompt }: { mode: Creat
 
     // 自动轮播：走完一轮就换一批新的，用户不会反复看到同样那几张。
     useEffect(() => {
-        if (paused || reducedMotion || shots.length < 2) return;
+        if (paused || composing || reducedMotion || shots.length < 2) return;
         const timer = window.setInterval(() => {
             const next = activeRef.current + 1;
             if (next < shots.length) {
@@ -214,7 +222,7 @@ export function CreationInspirationTunnel({ mode, onStartPrompt }: { mode: Creat
             setActive(0);
         }, AUTO_ADVANCE_MS);
         return () => window.clearInterval(timer);
-    }, [paused, reducedMotion, shots.length, mode]);
+    }, [paused, composing, reducedMotion, shots.length, mode]);
 
     // 标签页切到后台时停掉，回来再继续，免得空转。
     useEffect(() => {
@@ -243,7 +251,7 @@ export function CreationInspirationTunnel({ mode, onStartPrompt }: { mode: Creat
 
     const current = shots[active];
 
-    if (!shots.length) return null;
+    if (!shots.length) return <div className="creation-inspiration-tunnel is-loading" aria-busy="true"><div className="creation-gallery-stage"><span className="creation-gallery-placeholder" aria-hidden /></div></div>;
 
     return (
         <div className="creation-inspiration-tunnel" onPointerEnter={() => setPaused(true)} onPointerLeave={() => setPaused(false)} onFocusCapture={() => setPaused(true)} onBlurCapture={() => setPaused(false)}>
@@ -277,7 +285,7 @@ export function CreationInspirationTunnel({ mode, onStartPrompt }: { mode: Creat
                             key={id}
                             type="button"
                             tabIndex={-1}
-                            className={`creation-tunnel-card ${depth === 0 ? "is-active" : ""} ${readyIds.has(id) ? "is-ready" : ""}`}
+                            className={`creation-tunnel-card ${depth === 0 ? "is-active" : ""} ${readyIds.has(id) ? "is-ready" : "is-loading"}`}
                             style={style}
                             onClick={() => {
                                 if (suppressClickRef.current) {
@@ -287,18 +295,20 @@ export function CreationInspirationTunnel({ mode, onStartPrompt }: { mode: Creat
                                 onStartPrompt(inspiration.mode, inspiration.prompt);
                             }}
                         >
-                            <img
+                            {depth <= loadDepth && !failedIds.has(id) ? <img
                                 src={inspiration.image}
                                 alt=""
                                 draggable={false}
                                 decoding="async"
+                                fetchPriority={depth === 0 ? "high" : "low"}
                                 onLoad={() => markReady(id)}
-                                onError={() => markReady(id)}
+                                onError={() => { setFailedIds((current) => new Set(current).add(id)); markReady(id); }}
                                 // 命中浏览器缓存的图可能在挂监听之前就 complete 了，onLoad 不会再触发，这里补一次。
                                 ref={(node) => {
-                                    if (node?.complete) markReady(id);
+                                    if (node?.complete && node.naturalWidth > 0) markReady(id);
                                 }}
-                            />
+                            /> : <span className="creation-gallery-placeholder" aria-hidden />}
+                            {failedIds.has(id) ? <span className="creation-gallery-image-error">封面暂不可用，仍可使用这个创意</span> : null}
                             {/* 三段式提示词信息：行动点、标题、描述，只有最前那张露出来。 */}
                             <span className="creation-tunnel-card-info">
                                 <span className="creation-tunnel-card-cta">

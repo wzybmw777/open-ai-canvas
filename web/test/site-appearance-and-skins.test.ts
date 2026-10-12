@@ -24,7 +24,7 @@ describe("site appearance and editable skin library", () => {
         applySkinTheme(DEFAULT_CLASSIC_SKIN, "light", target);
         expect(removed.length).toBeGreaterThan(60);
         expect(assigned.size).toBe(4);
-        expect(assigned.get("--button-primary-bg")).toBe("linear-gradient(115deg, #6554df, #386fbc)");
+        expect(assigned.get("--button-primary-bg")).toBe("#f0b90b");
         expect(assigned.has("--background")).toBe(false);
         expect(target.documentElement.dataset.skin).toBe("classic");
     });

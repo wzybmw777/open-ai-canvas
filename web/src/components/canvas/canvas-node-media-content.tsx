@@ -687,16 +687,24 @@ export function useNodeResourceUrl(node: CanvasNodeData, eager: boolean, variant
             return;
         }
         let cancelled = false;
+        let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+        let refreshAttempts = 0;
         setResolved({ identity, url: "", loading: true });
-        void getResourceAccess(storageKey, "display", variant)
+        const resolve = (): Promise<void> => getResourceAccess(storageKey, "display", variant)
             .then((access) => {
                 if (!cancelled) setResolved({ identity, url: resolveResourceAccessURL(access.url), loading: false, originalWidth: access.originalWidth, originalHeight: access.originalHeight });
+                if (!cancelled && variant === "thumbnail" && access.actualVariant !== "thumbnail" && refreshAttempts < 3) {
+                    refreshAttempts += 1;
+                    refreshTimer = setTimeout(() => { if (!cancelled) void resolve(); }, 2_000);
+                }
             })
             .catch(() => {
                 if (!cancelled) setResolved({ identity, url: fallback, loading: false });
             });
+        void resolve();
         return () => {
             cancelled = true;
+            if (refreshTimer) clearTimeout(refreshTimer);
         };
     }, [eager, fallback, identity, isLazyVisual, isRemoteResource, storageKey, variant]);
 

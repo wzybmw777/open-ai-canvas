@@ -1,6 +1,6 @@
 import type { ThemeConfig } from "antd";
 import { theme as antdTheme } from "antd";
-import { getSkinAntOverrides } from "@/lib/skin-themes";
+import { DEFAULT_CLASSIC_SKIN, getSkinAntOverrides } from "@/lib/skin-themes";
 
 /** 后台保留独立密度与表面，主操作颜色继承站点皮肤。 */
 export function getIsolatedAdminAntTheme(dark: boolean, skinID: unknown = "classic"): ThemeConfig {
@@ -11,10 +11,11 @@ export function getIsolatedAdminAntTheme(dark: boolean, skinID: unknown = "class
     const surface = dark ? "#191c21" : "#ffffff";
     const surfaceMuted = dark ? "#23272e" : "#f2f4f7";
     const border = dark ? "rgba(245, 245, 245, 0.12)" : "rgba(17, 17, 17, 0.12)";
-    const primary = skin.primary || (dark ? "#f5f5f5" : "#171717");
-    const primaryFg = skin.primaryForeground || (dark ? "#171717" : "#ffffff");
-    const hover = skin.primaryHover || (dark ? "#ffffff" : "#303030");
-    const active = skin.primaryActive || (dark ? "#e5e5e5" : "#404040");
+    const base = DEFAULT_CLASSIC_SKIN.tokens[dark ? "dark" : "light"];
+    const primary = skin.primary || base.primary;
+    const primaryFg = skin.primaryForeground || base.primaryForeground;
+    const hover = skin.primaryHover || base.primaryHover;
+    const active = skin.primaryActive || base.primaryActive;
     const danger = dark ? "#f87171" : "#dc2626";
     const success = dark ? "#4ade80" : "#15803d";
     const warning = dark ? "#fbbf24" : "#b45309";

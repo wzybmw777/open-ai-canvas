@@ -11,6 +11,7 @@ func TestAppearanceButtonFillRoundTripAndValidation(t *testing.T) {
 	svc, _, _, admin := newAppearanceTestService(t)
 	themes := defaultAppearanceSkinThemes()
 	custom := cloneAppearanceSkin(themes[0], "custom-gradient", "渐变主题", "主按钮渐变")
+	custom.Tokens.Buttons.Light.Mode = "gradient"
 	custom.Tokens.Buttons.Light.Angle = 45
 	custom.Tokens.Buttons.Light.Start = "#123456"
 	custom.Tokens.Buttons.Dark.Mode = "solid"
@@ -66,11 +67,7 @@ func TestAppearanceLegacyButtonFills(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, skin := range migrated {
-		expected := "solid"
-		if skin.ID == "classic" {
-			expected = "gradient"
-		}
-		if skin.Tokens.Buttons.Light.Mode != expected || skin.Tokens.Buttons.Dark.Mode != expected {
+		if skin.Tokens.Buttons.Light.Mode != "solid" || skin.Tokens.Buttons.Dark.Mode != "solid" {
 			t.Fatalf("wrong fill for %s", skin.ID)
 		}
 	}
@@ -106,7 +103,7 @@ func TestAppearanceReadsLegacyButtonFillsByStoredIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Public.ActiveSkin.Tokens.Buttons.Light.Mode != "solid" || loaded.SkinThemes[1].Tokens.Buttons.Light.Mode != "gradient" {
+	if loaded.Public.ActiveSkin.Tokens.Buttons.Light.Mode != "solid" || loaded.SkinThemes[1].Tokens.Buttons.Light.Mode != "solid" {
 		t.Fatal("legacy fields inherited another theme's fill")
 	}
 	if err := validateAppearanceSkinThemes(loaded.SkinThemes, custom.ID); err != nil {

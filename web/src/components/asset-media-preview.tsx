@@ -36,5 +36,5 @@ export function AssetMediaPreview({ asset, alt, className = "", fallback = null 
     const storageKey = asset.kind === "image" ? asset.data.storageKey : undefined;
     const imageUrl = asset.coverUrl || (asset.kind === "image" ? asset.data.dataUrl : "");
     if (!imageUrl && !storageKey) return fallback;
-    return <CachedResourceImage storageKey={storageKey} src={imageUrl} alt={alt} loading="lazy" decoding="async" className={className} fallback={fallback} />;
+    return <CachedResourceImage storageKey={storageKey} src={imageUrl} variant="thumbnail" alt={alt} loading="lazy" decoding="async" className={className} fallback={fallback} />;
 }

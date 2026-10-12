@@ -10,7 +10,6 @@ COPY CHANGELOG.md /app/CHANGELOG.md
 COPY README.md /app/README.md
 COPY assets /app/assets
 COPY web/index.html web/vite.config.ts web/tsconfig.json web/postcss.config.mjs ./
-COPY web/src ./src
 ARG VITE_TLDRAW_LICENSE_KEY
 ARG BUILD_VERSION
 ARG BUILD_COMMIT=unknown
@@ -21,7 +20,8 @@ ENV CANVAS_BUILD_COMMIT=${BUILD_COMMIT}
 ENV CANVAS_BUILD_TIME=${BUILD_TIME}
 ENV CANVAS_BUILD_COPY_PUBLIC=false
 # 生产镜像只构建云端工作台前端；Agent Runtime 在后端 Worker 中运行。
-RUN bun --bun ./node_modules/vite/bin/vite.js build
+RUN --mount=type=bind,source=web/src,target=/app/web/src \
+    --mount=type=tmpfs,target=/tmp bun --bun ./node_modules/vite/bin/vite.js build
 
 # 运行镜像：nginx 托管静态前端，并在 Compose 中把 /api 转发到后端服务。
 FROM nginx:1.27-alpine AS web-runtime

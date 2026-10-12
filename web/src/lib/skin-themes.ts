@@ -290,43 +290,43 @@ export const SKIN_COMPONENT_NUMBER_FIELDS: readonly SkinComponentNumberField[] =
 
 export const DEFAULT_CLASSIC_SKIN: SkinDefinition = {
     id: "classic",
-    name: "经典黑白",
-    description: "项目原始样式 · 不可修改",
+    name: "经典黑金",
+    description: "暖白金日间与黑金夜间 · 不可修改",
     locked: true,
     tokens: {
         light: {
-            canvas: "#ffffff",
+            canvas: "#faf9f6",
             surface: "#ffffff",
-            surfaceSubtle: "#f7f7f7",
-            surfaceRaised: "#ececec",
+            surfaceSubtle: "#f4f5f2",
+            surfaceRaised: "#e9ecef",
             overlay: "#ffffff",
-            text: "#171717",
-            textMuted: "#737373",
-            border: "#e5e5e5",
+            text: "#202630",
+            textMuted: "#646d78",
+            border: "#e4e6e8",
             control: "#ffffff",
-            controlHover: "#f5f5f5",
-            controlActive: "#ececec",
-            controlBorder: "#d1d1d1",
-            controlFocus: "#171717",
-            controlDisabledBackground: "#f2f2f2",
-            controlDisabledForeground: "#a3a3a3",
+            controlHover: "#eef0ed",
+            controlActive: "#e4e7ea",
+            controlBorder: "#cbd0d6",
+            controlFocus: "#826000",
+            controlDisabledBackground: "#eef0ed",
+            controlDisabledForeground: "#858c96",
             switchChecked: "#16a34a",
             switchCheckedHover: "#15803d",
             switchCheckedHandle: "#ffffff",
             switchUnchecked: "#b8b8b8",
             switchUncheckedHover: "#9f9f9f",
             switchUncheckedHandle: "#ffffff",
-            primary: "#171717",
-            primaryHover: "#303030",
-            primaryActive: "#404040",
-            primaryForeground: "#ffffff",
-            selected: "#e8e8e8",
-            selectedHover: "#dedede",
-            selectedActive: "#d5d5d5",
-            selectedForeground: "#171717",
-            icon: "#3f3f46",
-            iconMuted: "#a1a1aa",
-            iconActive: "#171717",
+            primary: "#f0b90b",
+            primaryHover: "#f8d33a",
+            primaryActive: "#d9a60a",
+            primaryForeground: "#181a20",
+            selected: "#e9ecef",
+            selectedHover: "#e0e4e8",
+            selectedActive: "#d6dce2",
+            selectedForeground: "#202630",
+            icon: "#4b5563",
+            iconMuted: "#858c96",
+            iconActive: "#826000",
             success: "#16a34a",
             warning: "#d97706",
             danger: "#dc2626",
@@ -334,51 +334,51 @@ export const DEFAULT_CLASSIC_SKIN: SkinDefinition = {
             dangerActive: "#991b1b",
             dangerForeground: "#ffffff",
             info: "#2563eb",
-            workspace: "#ffffff",
-            workspaceGrid: "#f3f3f3",
-            adminBackground: "#f3f4f6",
+            workspace: "#faf9f6",
+            workspaceGrid: "#e9ecef",
+            adminBackground: "#faf9f6",
             adminSurface: "#ffffff",
-            adminSubtle: "#f7f8fa",
-            adminStrong: "#eceff3",
-            authBackground: "#ffffff",
-            authPanel: "#f7f7f7",
+            adminSubtle: "#f4f5f2",
+            adminStrong: "#e9ecef",
+            authBackground: "#faf9f6",
+            authPanel: "#f4f5f2",
             authCard: "#ffffff",
-            authAccent: "#2563eb",
-            authMuted: "#737373",
+            authAccent: "#826000",
+            authMuted: "#646d78",
         },
         dark: {
-            canvas: "#0a0a0a",
-            surface: "#181818",
-            surfaceSubtle: "#202020",
-            surfaceRaised: "#2a2a2a",
-            overlay: "#1f1f20",
-            text: "#f5f5f5",
-            textMuted: "#a3a3a3",
-            border: "#2d2d2d",
-            control: "#202020",
-            controlHover: "#292929",
-            controlActive: "#333333",
-            controlBorder: "#4a4a4a",
-            controlFocus: "#f5f5f5",
-            controlDisabledBackground: "#252525",
-            controlDisabledForeground: "#737373",
+            canvas: "#0b0e11",
+            surface: "#181a20",
+            surfaceSubtle: "#1e2329",
+            surfaceRaised: "#2b3139",
+            overlay: "#1e2329",
+            text: "#eaecef",
+            textMuted: "#929aa5",
+            border: "#2b3139",
+            control: "#1e2329",
+            controlHover: "#2b3139",
+            controlActive: "#363c45",
+            controlBorder: "#474d57",
+            controlFocus: "#f0b90b",
+            controlDisabledBackground: "#2b3139",
+            controlDisabledForeground: "#848e9c",
             switchChecked: "#22c55e",
             switchCheckedHover: "#4ade80",
             switchCheckedHandle: "#071a0f",
             switchUnchecked: "#525252",
             switchUncheckedHover: "#686868",
             switchUncheckedHandle: "#f5f5f5",
-            primary: "#f5f5f5",
-            primaryHover: "#ffffff",
-            primaryActive: "#e5e5e5",
-            primaryForeground: "#171717",
-            selected: "#2b2b2b",
-            selectedHover: "#343434",
-            selectedActive: "#3d3d3d",
-            selectedForeground: "#f5f5f5",
-            icon: "#d4d4d8",
-            iconMuted: "#71717a",
-            iconActive: "#ffffff",
+            primary: "#f0b90b",
+            primaryHover: "#f8d33a",
+            primaryActive: "#d9a60a",
+            primaryForeground: "#181a20",
+            selected: "#2b3139",
+            selectedHover: "#363c45",
+            selectedActive: "#474d57",
+            selectedForeground: "#eaecef",
+            icon: "#b7bdc6",
+            iconMuted: "#848e9c",
+            iconActive: "#f0b90b",
             success: "#4ade80",
             warning: "#fbbf24",
             danger: "#f87171",
@@ -386,19 +386,19 @@ export const DEFAULT_CLASSIC_SKIN: SkinDefinition = {
             dangerActive: "#ef4444",
             dangerForeground: "#2b0808",
             info: "#60a5fa",
-            workspace: "#181818",
-            workspaceGrid: "#222222",
-            adminBackground: "#101010",
-            adminSurface: "#181818",
-            adminSubtle: "#202020",
-            adminStrong: "#2a2a2a",
-            authBackground: "#08090c",
-            authPanel: "#0b0c10",
-            authCard: "#121318",
-            authAccent: "#93c5fd",
-            authMuted: "#8a8b91",
+            workspace: "#181a20",
+            workspaceGrid: "#2b3139",
+            adminBackground: "#0b0e11",
+            adminSurface: "#181a20",
+            adminSubtle: "#1e2329",
+            adminStrong: "#2b3139",
+            authBackground: "#0b0e11",
+            authPanel: "#181a20",
+            authCard: "#1e2329",
+            authAccent: "#f0b90b",
+            authMuted: "#929aa5",
         },
-        buttons: { light: { ...DEFAULT_BUTTON_GRADIENT }, dark: { ...DEFAULT_BUTTON_GRADIENT } },
+        buttons: { light: { ...DEFAULT_BUTTON_GRADIENT, mode: "solid" }, dark: { ...DEFAULT_BUTTON_GRADIENT, mode: "solid" } },
         components: {
             buttonRadius: 6,
             inputRadius: 6,
@@ -524,6 +524,8 @@ export function normalizeSkinDefinition(value: unknown, fallback: SkinDefinition
     if (!value || typeof value !== "object") return cloneSkinDefinition(fallback);
     const candidate = value as Partial<SkinDefinition>;
     const id = typeof candidate.id === "string" && /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/.test(candidate.id) ? candidate.id : fallback.id;
+    // 与服务端一致：只读系统皮肤始终使用当前基线，避免缓存覆盖新版配色。
+    if (id === "classic") return cloneSkinDefinition(DEFAULT_CLASSIC_SKIN);
     const modes = candidate.tokens;
     const light = normalizeSkinMode(modes?.light, fallback.tokens.light);
     const dark = normalizeSkinMode(modes?.dark, fallback.tokens.dark);
@@ -534,8 +536,8 @@ export function normalizeSkinDefinition(value: unknown, fallback: SkinDefinition
         description: typeof candidate.description === "string" ? candidate.description.trim().slice(0, 100) : fallback.description,
         locked: id === "classic",
         tokens: { light, dark, components: { ...modes.components }, buttons: {
-            light: normalizeButtonFill(modes.buttons?.light, id),
-            dark: normalizeButtonFill(modes.buttons?.dark, id),
+            light: normalizeButtonFill(modes.buttons?.light),
+            dark: normalizeButtonFill(modes.buttons?.dark),
         } },
     };
 }
@@ -557,7 +559,7 @@ export function duplicateSkinDefinition(source: SkinDefinition, existingIDs: Ite
     const copy = cloneSkinDefinition(source);
     copy.id = createSkinThemeID(existingIDs);
     copy.name = (name || `${source.name} 副本`).slice(0, 40);
-    copy.description = source.id === "classic" ? "从经典黑白参数复制，可自由调整" : `复制自 ${source.name}`;
+    copy.description = source.id === "classic" ? "从经典黑金参数复制，可自由调整" : `复制自 ${source.name}`;
     copy.locked = false;
     return copy;
 }
@@ -705,12 +707,12 @@ export function isSkinButtonFill(value: unknown): value is SkinButtonFill {
         && SKIN_BUTTON_COLOR_FIELDS.every(({ key }) => typeof fill[key] === "string" && HEX_COLOR.test(fill[key]));
 }
 
-function normalizeButtonFill(value: unknown, skinID: string): SkinButtonFill {
-    return isSkinButtonFill(value) ? { ...value } : { ...DEFAULT_BUTTON_GRADIENT, mode: skinID === "classic" ? "gradient" : "solid" };
+function normalizeButtonFill(value: unknown): SkinButtonFill {
+    return isSkinButtonFill(value) ? { ...value } : { ...DEFAULT_BUTTON_GRADIENT, mode: "solid" };
 }
 
 export function getSkinButtonAppearance(skin: SkinDefinition, mode: SkinThemeMode) {
-    const fill = normalizeButtonFill(skin.tokens.buttons?.[mode], skin.id);
+    const fill = normalizeButtonFill(skin.tokens.buttons?.[mode]);
     const color = skin.tokens[mode];
     const gradient = (start: string, end: string) => `linear-gradient(${fill.angle}deg, ${start}, ${end})`;
     return fill.mode === "gradient" ? {
