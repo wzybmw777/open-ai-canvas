@@ -199,7 +199,6 @@ func emitCloudAgentCanvasChange(repo *repository.Repository, runID string, state
 	if !cloudAgentPatchCoversDocument(before, after) {
 		// A partial delta must never acknowledge omitted edits; keep the saved result.
 		delete(payload, "canvasPatch")
-		delete(payload, "preview")
 		payload["requiresRefresh"] = true
 	}
 	raw, err := json.Marshal(payload)
@@ -210,7 +209,6 @@ func emitCloudAgentCanvasChange(repo *repository.Repository, runID string, state
 		// 修改标题或关联素材也可能携带整份分镜正文的 before/after，导致审批事务回滚。
 		// 大增量沿用已有的快照刷新路径；画布、撤销记录和工具回执仍由原事务完整保存。
 		delete(payload, "canvasPatch")
-		delete(payload, "preview")
 		payload["requiresRefresh"] = true
 		raw, err = json.Marshal(payload)
 		if err != nil {
