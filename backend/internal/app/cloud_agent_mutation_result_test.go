@@ -80,6 +80,9 @@ func TestCloudAgentMutationResultReportsSavedChanges(t *testing.T) {
 				if patch["status"] != "applied" || patch["text"] != "画布修改已保存" {
 					t.Fatalf("saved canvas event still describes pending approval: %+v", patch)
 				}
+				if patch["callId"] != call.ID || (patch["requiresRefresh"] == true && patch["canvasPatch"] != nil) {
+					t.Fatalf("saved event lost its call identity or includes an incomplete delta: %+v", patch)
+				}
 				message := state.Canonical.Messages[len(state.Canonical.Messages)-1]
 				var result map[string]any
 				if err := json.Unmarshal([]byte(stringValue(message["content"])), &result); err != nil {

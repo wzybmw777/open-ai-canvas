@@ -103,11 +103,6 @@ func emitCloudAgentCanvasChange(repo *repository.Repository, runID string, state
 	}
 	nodes := cloudAgentObjectChanges(before["nodes"], after["nodes"])
 	edges := cloudAgentObjectChanges(before["connections"], after["connections"])
-	if !cloudAgentPatchCoversDocument(before, after) {
-		// A partial delta must never acknowledge a revision containing omitted edits.
-		state.event(runID, "canvas_updated", map[string]any{"canvasId": input.CanvasID, "operation": input.Operation, "requiresRefresh": true})
-		return nil
-	}
 	actions := []map[string]any{}
 	previewByOperationAndNode := map[string]cloudAgentApprovalPreviewItem{}
 	previewByUniqueNode := map[string]cloudAgentApprovalPreviewItem{}
@@ -200,6 +195,11 @@ func emitCloudAgentCanvasChange(repo *repository.Repository, runID string, state
 		payload["callId"] = input.StepID
 	} else if state.CallIndex >= 0 && state.CallIndex < len(state.Calls) {
 		payload["callId"] = state.Calls[state.CallIndex].ID
+	}
+	if !cloudAgentPatchCoversDocument(before, after) {
+		// A partial delta must never acknowledge omitted edits; keep the saved result.
+		delete(payload, "canvasPatch")
+		payload["requiresRefresh"] = true
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil {
