@@ -36,7 +36,7 @@ func TestCanvasMutationReceiptsUpgradePreservesLocalMigrationHistory(t *testing.
 		t.Fatal(err)
 	}
 	var before []schemaMigration
-	if err := db.Order("version").Find(&before).Error; err != nil {
+	if err := db.Where("version <= ?", 53).Order("version").Find(&before).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := MigrateSchema(db); err != nil {
@@ -61,7 +61,7 @@ func TestCanvasMutationReceiptsUpgradePreservesLocalMigrationHistory(t *testing.
 		t.Fatal("existing local tables missing after upgrade")
 	}
 	status, err := ReadSchemaStatus(db)
-	if err != nil || !status.Ready || status.Current != 54 {
+	if err != nil || !status.Ready || status.Current != CurrentSchemaVersion {
 		t.Fatalf("unexpected upgraded schema status: %+v, %v", status, err)
 	}
 }

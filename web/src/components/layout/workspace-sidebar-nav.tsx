@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSPrope
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 
 import { BrandLogoFrame } from "@/components/brand/brand-logo";
+import { UserAvatar } from "@/components/layout/user-avatar";
 import { Kbd } from "@/components/ui/base/kbd";
 import { navigationTools, type NavigationToolSlug } from "@/constant/navigation-tools";
 import { useWorkspaceLogout } from "@/hooks/use-workspace-logout";
@@ -65,18 +66,13 @@ function buildNav(features: FeatureAvailability, locale: AppLocale): { groups: W
 
 function WorkspaceSidebarProfile({ collapsed, user, onExpand, onCollapse }: { collapsed: boolean; user: NonNullable<ReturnType<typeof useUserStore.getState>["user"]> | null; onExpand: () => void; onCollapse: () => void }) {
     const { text } = useLocaleText();
-    const [failed, setFailed] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
-    const avatarUrl = /^https?:\/\//i.test(user?.avatarUrl || "") ? user?.avatarUrl : "";
     const profileName = user?.displayName || user?.username || text("未登录", "Signed out");
-
-    useEffect(() => setFailed(false), [avatarUrl]);
 
     if (!user) {
         return <Link to="/login" className={cn("app-workspace-sidebar-profile", collapsed && "is-collapsed")} aria-label={text("登录", "Sign in")} title={text("登录", "Sign in")}><span className="app-workspace-sidebar-profile-avatar"><CircleUserRound aria-hidden /></span>{!collapsed ? <span>{text("游客模式", "Guest mode")}</span> : null}</Link>;
     }
 
-    const avatar = avatarUrl && !failed ? <img src={avatarUrl} alt="" referrerPolicy="no-referrer" onError={() => setFailed(true)} /> : <CircleUserRound aria-hidden />;
     const content = <WorkspaceAccountCard onNavigate={() => setMenuOpen(false)} onWallet={() => { setMenuOpen(false); openWorkspaceWallet(); }} />;
 
     return (
@@ -86,7 +82,7 @@ function WorkspaceSidebarProfile({ collapsed, user, onExpand, onCollapse }: { co
             <div className={cn("app-workspace-sidebar-profile-row", collapsed && "is-collapsed")}>
                 <Popover open={menuOpen} onOpenChange={setMenuOpen} trigger="click" placement="topLeft" arrow={false} rootClassName="workspace-account-popover" content={content}>
                     <button type="button" className={cn("app-workspace-sidebar-profile", collapsed && "is-collapsed")} aria-label={text("打开账户菜单", "Open account menu")} title={profileName}>
-                        <span className="app-workspace-sidebar-profile-avatar">{avatar}</span>
+                        <UserAvatar user={user} className="app-workspace-sidebar-profile-avatar" />
                         {!collapsed ? <span className="app-workspace-sidebar-profile-copy"><strong>{profileName}</strong><span>{text("创作工作台", "Creator workspace")}</span></span> : null}
                     </button>
                 </Popover>

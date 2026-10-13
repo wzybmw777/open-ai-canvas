@@ -58,7 +58,7 @@ func TestTheatreDramaUpgradeFrom49KeepsVideosAndCovers(t *testing.T) {
 		}
 	}
 	status, err := ReadSchemaStatus(db)
-	if err != nil || !status.Ready || status.Current != 50 {
+	if err != nil || !status.Ready || status.Current != CurrentSchemaVersion {
 		t.Fatalf("status=%#v, %v", status, err)
 	}
 }

@@ -28,7 +28,7 @@ export function WorkspaceAccountCard({ onWallet, onNavigate }: { onWallet: () =>
             {availableMicrocredits === null ? <Button size="small" loading={refreshing} icon={<RefreshCw />} onClick={() => void refresh()}>{text("刷新余额", "Refresh")}</Button> : <button type="button" onClick={onWallet}>{text("充值 / 兑换", "Top up / redeem")}<ArrowUpRight /></button>}
         </div> : null}
         <nav className="workspace-account-card-actions" aria-label={text("账户操作", "Account actions")}>
-            <Link to="/settings" onClick={onNavigate}><Settings /><span>{text("账户与设置", "Account & settings")}</span><ArrowUpRight /></Link>
+            <Link to="/settings?section=profile" onClick={onNavigate}><Settings /><span>{text("账户与设置", "Account & settings")}</span><ArrowUpRight /></Link>
             {user.role === "admin" ? <Link to="/admin" onClick={onNavigate}><ShieldCheck /><span>{text("管理员后台", "Admin console")}</span><ArrowUpRight /></Link> : null}
             <LanguageSwitcher className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm text-foreground/70 hover:text-foreground" />
             <Button danger type="text" icon={<LogOut />} loading={loggingOut} onClick={() => void handleLogout()}>{text("退出登录", "Sign out")}</Button>

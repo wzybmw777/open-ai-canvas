@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const CurrentSchemaVersion int64 = 54
+const CurrentSchemaVersion int64 = 57
 
 const baselineSchemaChecksum = "sha256:open-ai-canvas-schema-v1-20260830"
 const schemaMigrationAppliedAtIndexChecksum = "sha256:schema-migrations-applied-at-index-v2-20260830"
@@ -181,6 +181,18 @@ var schemaMigrations = []migration{
 	}},
 	{version: 54, name: "canvas_mutation_receipts", checksum: "sha256:canvas-mutation-receipts-v54-20261011", apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.CanvasMutationReceipt{})
+	}},
+	{version: 55, name: "personal_profile_security", checksum: "sha256:personal-profile-security-v55-20261012", apply: func(tx *gorm.DB) error {
+		return tx.AutoMigrate(&model.User{}, &model.AuthSession{}, &model.OAuthState{}, &model.AuthVerification{}, &model.UserAvatar{})
+	}},
+	{version: 56, name: "user_avatar_presets", checksum: "sha256:user-avatar-presets-v56-20261012", apply: func(tx *gorm.DB) error {
+		if tx.Migrator().HasColumn(&model.User{}, "AvatarPreset") {
+			return nil
+		}
+		return tx.Migrator().AddColumn(&model.User{}, "AvatarPreset")
+	}},
+	{version: 57, name: "user_login_logs", checksum: "sha256:user-login-logs-v57", apply: func(tx *gorm.DB) error {
+		return tx.AutoMigrate(&model.LoginLog{})
 	}},
 }
 
