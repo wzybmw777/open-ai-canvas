@@ -2,14 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { applySkinTheme, DEFAULT_CLASSIC_SKIN, duplicateSkinDefinition, getSkinButtonAppearance, isSkinButtonFill, normalizeSkinDefinition } from "../src/lib/skin-themes";
 
 describe("theme primary button fills", () => {
-    test("classic uses solid gold actions in both modes", () => {
+    test("classic uses solid graphite-blue daytime and gold nighttime actions", () => {
         expect(getSkinButtonAppearance(DEFAULT_CLASSIC_SKIN, "light")).toEqual({
-            background: "#f0b90b", hover: "#f8d33a", active: "#d9a60a", foreground: "#181a20",
+            background: "#2f5ea8", hover: "#264f91", active: "#1f427a", foreground: "#ffffff",
         });
         expect(getSkinButtonAppearance(DEFAULT_CLASSIC_SKIN, "dark")).toEqual({
             background: "#f0b90b", hover: "#f8d33a", active: "#d9a60a", foreground: "#181a20",
         });
-        expect(DEFAULT_CLASSIC_SKIN.tokens.light.selected).toBe("#e9ecef");
+        expect(DEFAULT_CLASSIC_SKIN.tokens.light.selected).toBe("#e6eef9");
         expect(DEFAULT_CLASSIC_SKIN.tokens.dark.selected).toBe("#2b3139");
     });
 

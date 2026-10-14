@@ -9,7 +9,7 @@ describe("shared action colors and focus feedback", () => {
         test(`classic action colors agree across product and admin in ${dark ? "dark" : "light"} mode`, () => {
             const product = getAntThemeConfig(dark, DEFAULT_CLASSIC_SKIN);
             const admin = getIsolatedAdminAntTheme(dark, DEFAULT_CLASSIC_SKIN);
-            expect(product.components?.Button?.colorPrimary).toBe("#f0b90b");
+            expect(product.components?.Button?.colorPrimary).toBe(dark ? "#f0b90b" : "#2f5ea8");
             expect(admin.components?.Button?.colorPrimary).toBe(product.components?.Button?.colorPrimary);
             expect(admin.components?.Button?.primaryColor).toBe(product.components?.Button?.primaryColor);
         });
@@ -47,12 +47,12 @@ describe("shared action colors and focus feedback", () => {
         expect(theme.components?.Switch?.colorPrimary).toBe("#22c55e");
     });
 
-    test("daytime gold actions use readable link colors and neutral selection", () => {
+    test("daytime graphite-blue actions use readable link colors and cool selection", () => {
         const theme = getAntThemeConfig(false, DEFAULT_CLASSIC_SKIN);
-        expect(theme.components?.Button?.primaryColor).toBe("#181a20");
-        expect(theme.token?.colorLink).toBe("#826000");
-        expect(theme.token?.colorText).toBe("#202630");
-        expect(theme.token?.colorPrimaryBg).toBe("#e9ecef");
+        expect(theme.components?.Button?.primaryColor).toBe("#ffffff");
+        expect(theme.token?.colorLink).toBe("#2f5ea8");
+        expect(theme.token?.colorText).toBe("#172033");
+        expect(theme.token?.colorPrimaryBg).toBe("#e6eef9");
         expect(theme.components?.Checkbox?.colorPrimary).toBe("#171717");
     });
 

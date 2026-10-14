@@ -164,8 +164,8 @@
     /* === 新卡片系统 Token（对应 docs/ui-design-system.md）=== */
     /* 卡片表面通过明度分层，普通卡片不依赖描边和投影。 */
     --card-surface: #ffffff;
-    --card-surface-hover: #eef0ed;
-    --card-surface-raised: #e9ecef;
+    --card-surface-hover: #eef3f8;
+    --card-surface-raised: #e7ecf3;
 
     --card-border: transparent;
     --card-border-hover: transparent;
@@ -202,17 +202,17 @@
     /* 交互状态必须成对定义背景和前景。主操作、普通选择、勾选和 Switch
        是四种不同角色，禁止再把反相主按钮颜色直接复用到普通选中态。 */
     --btn-solid-bg: var(--primary);
-    --btn-solid-hover-bg: #f8d33a;
-    --btn-solid-active-bg: #d9a60a;
+    --btn-solid-hover-bg: #264f91;
+    --btn-solid-active-bg: #1f427a;
     --btn-solid-fg: var(--primary-foreground);
     --btn-outline-border: color-mix(in srgb, var(--foreground) 16%, transparent);
     --btn-outline-hover-border: color-mix(in srgb, var(--foreground) 28%, transparent);
     --btn-outline-hover-bg: color-mix(in srgb, var(--foreground) 6%, transparent);
     --btn-outline-active-bg: color-mix(in srgb, var(--foreground) 9%, transparent);
-    --control-selected-bg: rgba(17, 17, 17, 0.09);
-    --control-selected-hover-bg: rgba(17, 17, 17, 0.13);
-    --control-selected-fg: #171717;
-    --control-selected-border: rgba(17, 17, 17, 0.18);
+    --control-selected-bg: #e6eef9;
+    --control-selected-hover-bg: #d4e1f2;
+    --control-selected-fg: #183b6b;
+    --control-selected-border: #c5d7ee;
     --control-check-bg: #171717;
     --control-check-fg: #ffffff;
     --control-switch-checked-bg: #16a34a;
@@ -298,11 +298,11 @@
     --glass-border-alpha: 0.78;
 
     /* 登录表单跟随全局明暗主题；品牌影片保留独立深色舞台。 */
-    --auth-page-bg: #faf9f6;
-    --auth-panel-bg: #f4f5f2;
+    --auth-page-bg: #f4f7fb;
+    --auth-panel-bg: #e9eff7;
     --auth-card-bg: #ffffff;
-    --auth-accent: #826000;
-    --auth-muted: #646d78;
+    --auth-accent: #2f5ea8;
+    --auth-muted: #667085;
     /* 协议勾选框的填充色与对勾色。必须成对维护：两者相近会在某一主题下
        退化成看不见的勾选态。深色主题下这里与 --foreground 的白色相反。 */
     --auth-check-bg: #171717;
@@ -310,9 +310,9 @@
 
     /* 可配置皮肤的组件入口。经典主题保持这些项目原始值；自定义主题在
        React 启动前由公开外观配置覆盖，页面和组件只消费这些语义变量。 */
-    --icon-foreground: #4b5563;
-    --icon-muted: #858c96;
-    --icon-active: #826000;
+    --icon-foreground: #536273;
+    --icon-muted: #8a96a5;
+    --icon-active: #2f5ea8;
     --control-radius: 6px;
     --button-radius: 6px;
     --input-radius: 6px;
@@ -821,7 +821,7 @@
     --workspace-surface-strong: #ffffff;
     --workspace-border: var(--border);
     --workspace-border-strong: var(--input);
-    --workspace-grid-line: rgba(17, 17, 17, 0.045);
+    --workspace-grid-line: #dfe6ef;
     --workspace-nav: var(--workspace-navigation);
     --workspace-sidebar: var(--workspace-navigation);
     --workspace-accent: var(--icon-active);
@@ -844,8 +844,8 @@
     --bg-secondary: var(--color-neutral-50);
     --bg-tertiary: var(--color-neutral-100);
     --surface: var(--color-neutral-0);
-    --surface-hover: rgba(17, 17, 17, 0.05);
-    --surface-active: rgba(17, 17, 17, 0.09);
+    --surface-hover: #eef3f8;
+    --surface-active: #e3eaf3;
 
     /* composio 文字层级（light 自推导；dark 值见 .dark 同区）*/
     --workspace-text-body: var(--color-neutral-600);  /* body 角色 */
@@ -927,24 +927,24 @@
     --status-loading: var(--palette-status-loading);
     --status-warning: var(--palette-status-warning);
 
-    --border: #e4e6e8;
-    --ring: #826000;
-    --background: #faf9f6;
-    --foreground: #202630;
+    --border: #d7dee8;
+    --ring: #315c9b;
+    --background: #f6f8fb;
+    --foreground: #172033;
     --card: #ffffff;
     --card-foreground: var(--foreground);
     --popover: #ffffff;
     --popover-foreground: var(--foreground);
-    --primary: #f0b90b;
-    --primary-foreground: #181a20;
-    --secondary: #f4f5f2;
+    --primary: #2f5ea8;
+    --primary-foreground: #ffffff;
+    --secondary: #f1f4f8;
     --secondary-foreground: var(--foreground);
-    --muted: #f4f5f2;
-    --muted-foreground: #646d78;
-    --accent: #e9ecef;
-    --accent-foreground: var(--foreground);
+    --muted: #f1f4f8;
+    --muted-foreground: #667085;
+    --accent: #e6eef9;
+    --accent-foreground: #183b6b;
     --destructive: #dc2626;
-    --input: #cbd0d6;
+    --input: #c8d2e0;
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);

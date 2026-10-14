@@ -198,14 +198,14 @@ func defaultAppearanceSkinThemes() []AppearanceSkinTheme {
 
 func defaultClassicAppearanceSkin() AppearanceSkinTheme {
 	return AppearanceSkinTheme{
-		ID: "classic", Name: "经典黑金", Description: "暖白金日间与黑金夜间 · 不可修改", Locked: true,
+		ID: "classic", Name: "经典石墨蓝", Description: "专业石墨蓝日间与黑金夜间 · 不可修改", Locked: true,
 		Tokens: AppearanceSkinTokens{
 			Light: AppearanceSkinModeTokens{
-				Canvas: "#faf9f6", Surface: "#ffffff", SurfaceSubtle: "#f4f5f2", SurfaceRaised: "#e9ecef", Overlay: "#ffffff", Text: "#202630", TextMuted: "#646d78", Border: "#e4e6e8",
-				Control: "#ffffff", ControlHover: "#eef0ed", ControlActive: "#e4e7ea", ControlBorder: "#cbd0d6", ControlFocus: "#826000", ControlDisabledBackground: "#eef0ed", ControlDisabledForeground: "#858c96", SwitchChecked: "#16a34a", SwitchCheckedHover: "#15803d", SwitchCheckedHandle: "#ffffff", SwitchUnchecked: "#b8b8b8", SwitchUncheckedHover: "#9f9f9f", SwitchUncheckedHandle: "#ffffff",
-				Primary: "#f0b90b", PrimaryHover: "#f8d33a", PrimaryActive: "#d9a60a", PrimaryForeground: "#181a20", Selected: "#e9ecef", SelectedHover: "#e0e4e8", SelectedActive: "#d6dce2", SelectedForeground: "#202630",
-				Icon: "#4b5563", IconMuted: "#858c96", IconActive: "#826000", Success: "#16a34a", Warning: "#d97706", Danger: "#dc2626", DangerHover: "#b91c1c", DangerActive: "#991b1b", DangerForeground: "#ffffff", Info: "#2563eb", Workspace: "#faf9f6", WorkspaceGrid: "#e9ecef",
-				AdminBackground: "#faf9f6", AdminSurface: "#ffffff", AdminSubtle: "#f4f5f2", AdminStrong: "#e9ecef", AuthBackground: "#faf9f6", AuthPanel: "#f4f5f2", AuthCard: "#ffffff", AuthAccent: "#826000", AuthMuted: "#646d78",
+				Canvas: "#f6f8fb", Surface: "#ffffff", SurfaceSubtle: "#f1f4f8", SurfaceRaised: "#e7ecf3", Overlay: "#ffffff", Text: "#172033", TextMuted: "#667085", Border: "#d7dee8",
+				Control: "#ffffff", ControlHover: "#eef3f8", ControlActive: "#e3eaf3", ControlBorder: "#c8d2e0", ControlFocus: "#315c9b", ControlDisabledBackground: "#eef1f5", ControlDisabledForeground: "#98a2b3", SwitchChecked: "#16a34a", SwitchCheckedHover: "#15803d", SwitchCheckedHandle: "#ffffff", SwitchUnchecked: "#b8b8b8", SwitchUncheckedHover: "#9f9f9f", SwitchUncheckedHandle: "#ffffff",
+				Primary: "#2f5ea8", PrimaryHover: "#264f91", PrimaryActive: "#1f427a", PrimaryForeground: "#ffffff", Selected: "#e6eef9", SelectedHover: "#d4e1f2", SelectedActive: "#c5d7ee", SelectedForeground: "#183b6b",
+				Icon: "#536273", IconMuted: "#8a96a5", IconActive: "#2f5ea8", Success: "#16805d", Warning: "#b86b16", Danger: "#dc2626", DangerHover: "#b91c1c", DangerActive: "#991b1b", DangerForeground: "#ffffff", Info: "#2f6feb", Workspace: "#f6f8fb", WorkspaceGrid: "#dfe6ef",
+				AdminBackground: "#f6f8fb", AdminSurface: "#ffffff", AdminSubtle: "#f1f4f8", AdminStrong: "#e7ecf3", AuthBackground: "#f4f7fb", AuthPanel: "#e9eff7", AuthCard: "#ffffff", AuthAccent: "#2f5ea8", AuthMuted: "#667085",
 			},
 			Dark: AppearanceSkinModeTokens{
 				Canvas: "#0b0e11", Surface: "#181a20", SurfaceSubtle: "#1e2329", SurfaceRaised: "#2b3139", Overlay: "#1e2329", Text: "#eaecef", TextMuted: "#929aa5", Border: "#2b3139",

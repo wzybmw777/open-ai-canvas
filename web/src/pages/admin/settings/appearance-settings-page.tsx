@@ -437,7 +437,7 @@ export default function AppearanceSettingsPage() {
         if (!target || target.locked) return;
         modal.confirm({
             title: `删除主题“${target.name}”？`,
-            content: "删除会随本页其他调整一起保存；保存前仍可点击“撤销调整”恢复。若它当前启用，将自动切回经典黑金。",
+            content: "删除会随本页其他调整一起保存；保存前仍可点击“撤销调整”恢复。若它当前启用，将自动切回经典石墨蓝。",
             okText: "删除主题",
             cancelText: "取消",
             okButtonProps: { danger: true },
@@ -774,7 +774,7 @@ export default function AppearanceSettingsPage() {
                                         className="admin-appearance-section"
                                         icon={<Type className="size-4" aria-hidden="true" />}
                                         title="皮肤主题"
-                                        description="经典黑金采用暖白金日间与石墨黑夜间配色，两种模式均使用金色主按钮；复制后可调整主题及控件参数，所有修改统一保存。"
+                                        description="经典石墨蓝采用专业冷白日间与石墨黑夜间配色，日间主操作使用深靛蓝；复制后可调整主题及控件参数，所有修改统一保存。"
                                         status={<AdminStatusBadge label={selectedSkin.name} tone="info" />}
                                     >
                                         <SkinThemeEditor

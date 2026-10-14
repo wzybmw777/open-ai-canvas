@@ -119,7 +119,7 @@ export function SkinThemeEditor({
                 {selected.locked ? (
                     <div className="admin-skin-locked-note">
                         <LockKeyhole className="size-4" aria-hidden="true" />
-                        <span>经典黑金采用暖白金日间与石墨黑夜间配色，两种模式均使用金色主按钮，不能改名、修改或删除。点击“从默认新建”即可复制全部参数后自由调整。</span>
+                        <span>经典石墨蓝采用专业冷白日间与石墨黑夜间配色，日间主操作使用深靛蓝，不能改名、修改或删除。点击“从默认新建”即可复制全部参数后自由调整。</span>
                     </div>
                 ) : null}
 
