@@ -8,7 +8,7 @@ import { refreshFeatureAvailability } from "@/lib/user-session";
 import { useUserStore } from "@/stores/use-user-store";
 import { localizedErrorMessage, useLocaleText } from "@/lib/i18n";
 
-type FeatureKey = "shortDramaEnabled" | "taskCenterEnabled" | "creditsEnabled" | "frontendModelsEnabled" | "pluginCenterEnabled";
+type FeatureKey = "shortDramaEnabled" | "taskCenterEnabled" | "creditsEnabled" | "frontendModelsEnabled" | "pluginCenterEnabled" | "imageWorkbenchEnabled" | "videoWorkbenchEnabled";
 
 const featureNames: Record<FeatureKey, string> = {
     shortDramaEnabled: "短剧创作",
@@ -16,6 +16,8 @@ const featureNames: Record<FeatureKey, string> = {
     creditsEnabled: "积分中心",
     frontendModelsEnabled: "前台模型",
     pluginCenterEnabled: "插件中心",
+    imageWorkbenchEnabled: "生图",
+    videoWorkbenchEnabled: "视频",
 };
 const englishFeatureNames: Record<FeatureKey, string> = {
     shortDramaEnabled: "Short drama creation",
@@ -23,6 +25,8 @@ const englishFeatureNames: Record<FeatureKey, string> = {
     creditsEnabled: "Credits",
     frontendModelsEnabled: "Models",
     pluginCenterEnabled: "Plugin center",
+    imageWorkbenchEnabled: "Image generation",
+    videoWorkbenchEnabled: "Video generation",
 };
 
 export function RequireFeature({ feature, children }: { feature: FeatureKey; children: ReactNode }) {

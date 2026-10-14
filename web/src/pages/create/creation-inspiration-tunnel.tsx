@@ -17,6 +17,7 @@ import { ArrowUp, ChevronLeft, ChevronRight } from "lucide-react";
 import { useReducedMotion } from "motion/react";
 
 import { catalogIdOf, type CreationInspiration } from "@/lib/inspirations/catalog";
+import { fillablePrompt } from "@/lib/inspirations/resolve";
 import { loadGalleryPool } from "@/services/inspiration-catalog";
 import type { CreationMode } from "./creation-types";
 import { createGalleryWheelGesture } from "./creation-gallery-gesture";
@@ -292,7 +293,7 @@ export function CreationInspirationTunnel({ mode, onStartPrompt, composing = fal
                                     suppressClickRef.current = false;
                                     return;
                                 }
-                                onStartPrompt(inspiration.mode, inspiration.prompt);
+                                onStartPrompt(inspiration.mode, fillablePrompt(inspiration));
                             }}
                         >
                             {depth <= loadDepth && !failedIds.has(id) ? <img

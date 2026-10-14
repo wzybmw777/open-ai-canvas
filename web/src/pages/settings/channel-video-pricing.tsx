@@ -184,6 +184,7 @@ export function ChannelModelSettings({ channel, onChange }: { channel: ModelChan
                                     value={activeModelCost?.capabilityConfig || defaultModelCapabilityConfig(activeProtocol, activeModel)}
                                     protocol={activeProtocol}
                                     workflows={modelProtocolDefinition(activeProtocol, availableProtocols)?.workflows}
+                                    imageParameters={modelProtocolDefinition(activeProtocol, availableProtocols)?.imageParameters}
                                     onChange={(capabilityConfig) => updateCost(activeModel, { capabilityConfig })}
                                 />
                             ) : <p className="text-xs text-foreground/50">{text("当前模型类型无需额外配置引用与参数。", "This model type needs no additional parameters.")}</p>}
