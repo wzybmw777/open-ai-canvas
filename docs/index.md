@@ -12,6 +12,9 @@
 
 ## 设计沉淀
 
+- [图片去水印 MVP](content/docs/backend/image-watermark-removal.mdx)：复用平台图片模型、蒙版/参考图编辑、计费与任务资源合同；产品验收见待测试清单。
+- [视频去水印 MVP](content/docs/backend/video-watermark-removal.mdx)：复用平台视频编辑模型、真实媒体校验、HappyHorse 协议与既有任务计费。
+
 - [GitHub 每日代码同步](content/docs/backend/github-sync.mdx)：北京时间零点自动提交与推送、systemd 安装、敏感文件排除和失败处理。
 
 - [资源访问与 OSS/CDN 分发架构重构](design/resource-delivery-architecture.md)：资源身份、场景授权与分发策略分离，统一访问合同、全入口迁移、旧实现退场及流量/安全验收门槛（核心代码已实施，待真实 OSS/CDN 链路验收）。

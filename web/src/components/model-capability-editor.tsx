@@ -15,6 +15,7 @@ import { Select } from "@/components/ui/base/select";
 
 const ratioOptions = ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"];
 const operationOptions = [
+	{ label: "视频编辑", value: "video_edit" },
     { label: "文生视频", value: "text_to_video" },
     { label: "图生视频", value: "image_to_video" },
     { label: "全模态参考", value: "reference_to_video" },

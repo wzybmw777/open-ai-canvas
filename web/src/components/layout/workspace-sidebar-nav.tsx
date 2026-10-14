@@ -1,5 +1,5 @@
 import { Popover } from "antd";
-import { ChevronDown, ChevronRight, CircleUserRound, History as HistoryIcon, Image as ImageIcon, Infinity as InfinityIcon, PanelLeftClose, PanelLeftOpen, Plus, Video } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleUserRound, Eraser, History as HistoryIcon, Image as ImageIcon, Infinity as InfinityIcon, PanelLeftClose, PanelLeftOpen, Plus, Video } from "lucide-react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
@@ -54,7 +54,14 @@ function buildNav(features: FeatureAvailability, locale: AppLocale): { groups: W
         },
         {
             heading: text("资源与工具", "Resources & tools"),
-            items: [...(features.imageWorkbenchEnabled ? [{ id: "toolbox-image", title: text("图片生成", "Image generation"), icon: ImageIcon, to: "/toolbox/image" }] : []), ...(features.videoWorkbenchEnabled ? [{ id: "toolbox-video", title: text("视频生成", "Video generation"), icon: Video, to: "/toolbox/video" }] : []), { ...toolItem("assets", "/assets"), title: text("资产", "Assets") }, { ...toolItem("skills", "/skills"), title: text("技能", "Skills") }, ...(features.pluginCenterEnabled ? [{ ...toolItem("plugins", "/plugins"), title: text("插件", "Plugins") }] : [])],
+            items: [
+                ...(features.imageWorkbenchEnabled ? [{ id: "toolbox-image", title: text("图片生成", "Image generation"), icon: ImageIcon, to: "/toolbox/image" }] : []),
+                ...(features.videoWorkbenchEnabled ? [{ id: "toolbox-video", title: text("视频生成", "Video generation"), icon: Video, to: "/toolbox/video" }] : []),
+                ...(features.imageWorkbenchEnabled || features.videoWorkbenchEnabled ? [{ id: "toolbox-watermark", title: text("AI 去水印", "AI watermark removal"), icon: Eraser, to: "/toolbox/watermark" }] : []),
+                { ...toolItem("assets", "/assets"), title: text("资产", "Assets") },
+                { ...toolItem("skills", "/skills"), title: text("技能", "Skills") },
+                ...(features.pluginCenterEnabled ? [{ ...toolItem("plugins", "/plugins"), title: text("插件", "Plugins") }] : []),
+            ],
         },
         ...(features.taskCenterEnabled ? [{ items: [{ ...toolItem("tasks", "/tasks"), title: text("创作历史", "History"), icon: HistoryIcon }] }] : []),
     ];

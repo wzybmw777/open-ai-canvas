@@ -45,6 +45,8 @@ type TaskSummary struct {
 }
 
 type TaskClientContext struct {
+	ImageCleanup     bool   `json:"imageCleanup,omitempty"`
+	VideoCleanup     bool   `json:"videoCleanup,omitempty"`
 	NodeID           string `json:"nodeId,omitempty"`
 	ConversationID   string `json:"conversationId,omitempty"`
 	MessageID        string `json:"messageId,omitempty"`
@@ -141,6 +143,8 @@ func taskClientContext(raw string) *TaskClientContext {
 	var input struct {
 		Metadata struct {
 			Source          string `json:"source"`
+			Edit            string `json:"edit"`
+			Kind            string `json:"workbenchKind"`
 			NodeID          string `json:"nodeId"`
 			ConversationID  string `json:"conversationId"`
 			MessageID       string `json:"messageId"`
@@ -159,6 +163,11 @@ func taskClientContext(raw string) *TaskClientContext {
 	}
 	metadata := input.Metadata
 	context := &TaskClientContext{NodeID: metadata.NodeID}
+	if metadata.Source == "workbench" && metadata.Edit == "remove_watermark" {
+		context.ImageCleanup = metadata.Kind == "image"
+		context.VideoCleanup = metadata.Kind == "video"
+		return context
+	}
 	if metadata.Source == "create-page" && metadata.ConversationID != "" && metadata.MessageID != "" {
 		context.ConversationID = metadata.ConversationID
 		context.MessageID = metadata.MessageID
@@ -310,7 +319,7 @@ func publicTaskInputJSON(raw string) string {
 	}
 	public := map[string]any{}
 	// 任务完成后仍需依靠这些非敏感 ID 恢复项目产物归属；密钥等配置继续被过滤。
-	for _, key := range []string{"mode", "metadata", "workflowStepId", "domainProjectId", "assetVersionId", "resourceId", "mediaType", "role"} {
+	for _, key := range []string{"mode", "metadata", "workflowStepId", "domainProjectId", "assetVersionId", "resourceId", "maskResourceId", "mediaType", "role"} {
 		if value, ok := input[key]; ok {
 			public[key] = value
 		}

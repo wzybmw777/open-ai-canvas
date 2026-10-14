@@ -1,0 +1,46 @@
+---
+title: 图片去水印
+description: 使用平台已有图片编辑模型的去水印 MVP
+---
+
+# 图片去水印
+
+入口在工作台侧栏的“AI 去水印”，统一路径 `/toolbox/watermark`，选择“图片去水印”页签。需要登录、开启图片工作台，且平台目录中有支持参考图的图片模型。与视频共用页面外壳，切换保留当前上传、选区和任务；图片历史任务使用 `imageTask` 查询参数恢复。沿用已有模型协议、任务队列、积分预占、计费和资源存储，不需要独立推理服务或新增模型权重。
+
+支持 PNG、JPEG、WebP 上传、平台模型选择、修复前后对比、下载、服务端素材保存、历史查询和失败重试。支持蒙版的模型提供涂抹、擦除、撤销；其他支持参考图的模型使用固定提示词自动识别可见水印。模型可能调整周围细节、构图或输出尺寸，页面明确提示人工对比检查，不承诺选区外像素完全不变。
+
+交互参考 [IOPaint](https://github.com/Sanster/IOPaint) 的区域选择与修复方式，使用本项目原生组件实现。
+
+## 模型与图片合同
+
+模型选择器只展示平台直连或逻辑目录中支持至少一张参考图的图片模型。服务器重解析模型与渠道，校验图片输入能力和蒙版能力；仅支持文生图的模型不能用于本功能。模型未配置、已停用、能力不匹配或积分不足时明确失败，不切换至其他模型。
+
+浏览器按显示方向解码原图为 PNG，保证手机 EXIF 旋转照片的涂抹坐标与后端一致。上传原文件与解码后的 PNG 均不得超过 10 MiB，最长边 4096，总像素 1200 万。原图和结果分别保存，原图不被覆盖。
+
+蒙版使用现有图片编辑合同：透明区域表示修复，不透明区域表示保留。后端校验 PNG 真实格式、与原图同尺寸、透明度仅为 0 或 255，且至少有一个选中像素。无蒙版时只提交原图参考和固定去水印提示词，不把普通参考图当作蒙版。
+
+## HTTP 与任务
+
+- `GET /api/workbench/image-cleanup`：返回 `{ available, maxBytes, maxPixels, maxDimension }`。表示入口已开启，实际模型是否可用由平台目录及创建时校验决定。
+- `POST /api/workbench/image-cleanup/tasks`：接受 `{ resourceId, maskResourceId?, model, channelId?, logicalModelId?, parameters?: { size?, quality?, imageResolution? } }`。只提交模型选择意图，不接受上游地址、API Key 或完整 provider 配置。服务端固定输出数量为一张。
+- 成功返回标准 `canvas_image` 任务，`operation=image`、`workbenchKind=image`，`metadata.edit=remove_watermark`。任务列表通过 `clientContext.imageCleanup=true` 标记去水印历史；完整任务保留公开输入中的元数据、原图和可选遮罩引用。
+- 查询、取消与重试复用已有 `/api/tasks/:id` 路径。进入第三方提交阶段后按既有规则限制取消；重试按模型正常计费。已生成但保存失败时使用已有重试保存流程，避免重复模型调用。
+
+后端校验原图及遮罩归属、状态、大小和格式。活动任务、上传/文件容量、任务数据配额与服务端积分规则由统一任务服务执行。资源引用保护同时涵盖原图、遮罩和结果，不新增数据库字段或表。
+
+素材保存是显式服务端写入，稳定素材 ID 为 `watermark_<taskId>`，重复保存保留已存在素材的用户编辑。
+
+## 验证
+
+```bash
+cd backend
+go test ./internal/imagecleanup ./internal/app ./internal/assets -run 'TestImageCleanup'
+```
+
+```bash
+cd web
+bun test test/image-cleanup.test.ts test/image-operation-plan.test.ts test/generation-task-display.test.ts
+bun run typecheck
+```
+
+统一入口已部署，复用现有平台图片模型。真实上游效果、积分扣费及多人任务仍需验收，线上检查范围见 [待测试与验收](/docs/progress/pending-test)。

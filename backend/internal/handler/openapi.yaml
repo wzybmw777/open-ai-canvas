@@ -1699,6 +1699,137 @@ paths:
           $ref: "#/components/responses/Error"
         "404":
           $ref: "#/components/responses/Error"
+  /workbench/image-cleanup:
+    get:
+      tags: [workbench]
+      summary: 查询图片去水印入口与限制
+      description: 需要登录及图片工作台开关；可用模型沿用平台目录，在创建时校验。
+      responses:
+        "200":
+          description: 图片去水印可用配置
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [available, maxBytes, maxPixels, maxDimension]
+                        properties:
+                          available: { type: boolean }
+                          maxBytes: { type: integer, example: 10485760 }
+                          maxPixels: { type: integer, example: 12000000 }
+                          maxDimension: { type: integer, example: 4096 }
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /workbench/image-cleanup/tasks:
+    post:
+      tags: [workbench]
+      summary: 创建图片去水印任务
+      description: 使用平台已有的图片编辑模型，按所选模型正常计费；可选透明 PNG 蒙版。校验资源归属、选区、尺寸、模型能力与配额。返回 canvas_image 任务，摘要 clientContext.imageCleanup=true，查询、取消、重试复用任务接口。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [resourceId, model]
+              properties:
+                resourceId: { type: string, minLength: 1 }
+                maskResourceId: { type: string, minLength: 1 }
+                model: { type: string, minLength: 1 }
+                channelId: { type: string }
+                logicalModelId: { type: string }
+                parameters:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    size: { type: string }
+                    quality: { type: string }
+                    imageResolution: { type: string }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+  /workbench/video-cleanup:
+    get:
+      tags: [workbench]
+      summary: 查询视频去水印入口与限制
+      description: 需要登录和视频工作台开关；后端缺少 ffprobe 时 available=false。
+      responses:
+        "200":
+          description: 视频去水印状态
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [available, maxBytes, minSeconds, maxSeconds]
+                        properties:
+                          available: { type: boolean }
+                          maxBytes: { type: integer, example: 104857600 }
+                          minSeconds: { type: integer, example: 3 }
+                          maxSeconds: { type: integer, example: 15 }
+                          message: { type: string }
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /workbench/video-cleanup/tasks:
+    post:
+      tags: [workbench]
+      summary: 创建平台模型视频去水印任务
+      description: 仅接受支持 video_edit 的平台模型。channelId 和 logicalModelId 二选一。后端探测源 MP4/MOV 的实际时长、尺寸和帧率，限制 3–15 秒和 100 MiB，沿用现有任务及积分规则。返回 canvas_video 任务，摘要 clientContext.videoCleanup=true。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [resourceId, model]
+              properties:
+                resourceId: { type: string, minLength: 1 }
+                model: { type: string, minLength: 1 }
+                channelId: { type: string }
+                logicalModelId: { type: string }
+                prompt: { type: string, maxLength: 2500 }
+                resolution: { type: string, description: 所选模型支持的分辨率档位 }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
   /workbench/tools:
     get:
       tags: [workbench]

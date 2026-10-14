@@ -1,0 +1,53 @@
+---
+title: 视频去水印
+description: 复用平台视频编辑模型、任务与计费的去水印 MVP
+---
+
+# 视频去水印
+
+工作台侧栏提供统一“AI 去水印”入口 `/toolbox/watermark`，选择“视频去水印”页签，也可用 `?type=video` 直接选中视频。需要登录、启用视频工作台，并配置支持 `video_edit` 且至少接受一个视频输入的平台模型。与图片共用页面外壳，切换保留各自上传内容和任务状态；视频历史任务使用 `videoTask` 查询参数恢复。复用现有模型渠道、任务队列、积分预占、结果存储和素材库，不新增独立推理服务。
+
+支持上传、编辑文字要求、选择模型、原视频与结果播放、下载、显式保存到服务端素材库、历史、失败重试和结果保存恢复。模型按文字指令修复，当前没有逐帧蒙版或水印跟踪；去水印效果及主体、纹理、音频是否保持需要实际模型验收。普通视频生成或参考视频生成模型不会仅因支持视频输入而进入模型列表。
+
+## 输入与部署
+
+第一版接受 3–15 秒、100 MiB 内的 MP4/MOV，短边至少 360 像素，长边不超过 4096，宽高比在 1:2.5 至 2.5:1 之间，帧率 8–60。浏览器预检后上传资源；后端通过 `ffprobe` 检查实际文件，而非信任上传者填写的尺寸和时长。超过 15 秒明确拒绝，防止上游只返回前 15 秒。
+
+后端生产镜像包含 `ffmpeg` / `ffprobe`。宿主机运行需自行提供 `ffprobe`，缺失时状态接口返回不可用，创建任务返回 503。探测进程有超时限制，只允许本地文件与管道协议；临时文件受大小限制并在结束后删除。原视频独立保留，结果按现有资源服务存储。
+
+## 平台模型配置
+
+支持通过视频输入和提示词编辑原视频的现有 Seedance 2.0 渠道，可以在模型能力配置中保留原有操作，并添加 `video_edit`，无需另建模型或部署推理服务。现有 `lxmone-seedance-videos` 和 `yuxibox-video` 协议分别将源视频传入 `reference_videos` 和 `videos`，编辑任务仍沿用已配置的 SKU、分辨率和价格档。参考 [Seedance 2.0 官方提示词指南](https://docs.volcengine.com/docs/ark/seedance-2-0-prompt-guide?lang=zh)，建议使用“严格编辑视频1，去掉水印，保持其余内容不变”的要求。只有视频输入并不足以证明任意模型能编辑，新增能力前需核对模型及中转协议。
+
+线上已为现有 `seedance2.0-933`、`seedance2.0-720p` 和 `seedance-2.0（YX）` 开放视频编辑能力，保留其他能力参数和售价、成本价。前两者支持 5–15 秒，YX 支持 5/10/15 秒；上传限制与模型时长要求均须满足。视频编辑报价通过平台实际 SKU 选择与计费校验；中转服务实际修复效果、音频及细节保持仍待生成验收。
+
+新增内置声明式插件 `plugin-packages/dashscope-happyhorse-video-edit.yingce-plugin`，协议 ID 为 `dashscope-happyhorse-video-edit`，模型 ID 为 `happyhorse-1.0-video-edit`。管理员按现有平台插件与渠道流程启用协议，配置对应地区的 DashScope 地址、服务器端密钥、模型与积分价格，并开启视频工作台；不在用户页面传递密钥。
+
+协议按 [HappyHorse 官方视频编辑合同](https://www.alibabacloud.com/help/en/model-studio/happyhorse-video-edit-api-reference) 提交异步任务：一个 `input.media` 的 `type=video` 源视频，可选参考图片使用 `reference_image`；本页面仅提交源视频。输出分辨率沿用当前视频配置，不受所选模型支持时使用模型默认档位（HappyHorse 为 720P），保留原音频，设置 `watermark=false` 避免新增供应商水印。该参数只控制新水印，现有水印由编辑提示词处理。源视频需要供应商可访问的资源 URL，沿用平台公开资源地址或签名 URL；地址未配置时在积分预占前拒绝。
+
+计费采用平台既有视频计费规则，以服务器探测的源视频时长向上取整作为时长参数。管理员配置的每秒积分价格需覆盖供应商成本；HappyHorse 的供应商 usage 可能同时统计输入和输出时长，平台价格不等于供应商账单单价。
+
+## HTTP 与任务
+
+- `GET /api/workbench/video-cleanup`：返回 `{ available, maxBytes, minSeconds, maxSeconds, message? }`。功能开关或权限不满足时按现有合同返回错误。
+- `POST /api/workbench/video-cleanup/tasks`：接受 `{ resourceId, model, channelId?, logicalModelId?, prompt?, resolution? }`，渠道和逻辑模型选择二选一。拒绝未知字段，不接受上游地址、密钥或客户端指定的视频时长。服务端检查资源归属、就绪状态、真实视频合同、模型编辑能力和既有任务/积分/配额限制。
+- 创建 `type=canvas_video`、`operation=video_edit`、`workbenchKind=video` 的标准任务。完整任务公开输入保留源资源及 `metadata.edit=remove_watermark`，摘要通过 `clientContext.videoCleanup=true` 标记历史。
+- 查询、取消、重试与重试保存沿用 `/api/tasks/:id` 接口。第三方提交后的取消限制沿用现有任务状态规则，重试生成按模型正常计费；已有作品保存失败时使用恢复保存，避免重复模型调用。
+
+素材 ID 固定为 `video-watermark_<taskId>`，重复保存返回已存在素材并保留用户编辑。结果以稳定资源 ID 引用，资源删除仍受现有任务及素材引用保护。无数据库结构变更。
+
+## 验证
+
+```bash
+cd backend
+go test ./internal/videocleanup ./internal/app ./internal/protocol -run 'TestVideoCleanup|TestHappyHorse'
+```
+
+```bash
+cd web
+bun test test/video-cleanup.test.ts test/image-cleanup.test.ts test/generation-task-display.test.ts
+bun run typecheck
+bun run build
+```
+
+后端真实媒体探测测试需安装 `ffmpeg`。统一入口与包含探测组件的后端镜像已部署，现有 Seedance 2.0 渠道通过后台模型配置开放。未调用收费上游，线上检查范围和真实模型效果见 [待测试与验收](/docs/progress/pending-test)。

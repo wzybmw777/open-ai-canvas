@@ -167,6 +167,13 @@ func DefaultModelCapabilityConfigForModel(protocol string, modelName string) *Mo
 		DefaultOperation:  "text_to_video",
 	}
 	switch model.ChannelInterfaceType(protocol) {
+	case "dashscope-happyhorse-video-edit":
+		video.References = VideoReferenceConfig{PromptMaxChars: 2500, MaxImages: 5, MaxImageBytes: 20 * 1024 * 1024, MaxVideos: 1, MaxVideoBytes: 100 * 1024 * 1024, MaxVideoDuration: 15}
+		video.Duration = VideoDurationConfig{Selection: "range", Min: 3, Max: 15, Step: 1, Default: 5, MaxWithReferenceVideo: 15}
+		video.Ratios, video.DefaultRatio = []string{}, ""
+		video.Resolutions, video.DefaultResolution = []string{"720P", "1080P"}, "720P"
+		video.Watermark = VideoBooleanConfig{Supported: true, Default: false}
+		video.Operations, video.DefaultOperation = []string{"video_edit"}, "video_edit"
 	case model.ChannelInterfaceVolcengineJiMengVideo:
 		video.Duration = VideoDurationConfig{Selection: "enum", Values: []int{5, 10}, Default: 5}
 		video.Resolutions = []string{"720p"}

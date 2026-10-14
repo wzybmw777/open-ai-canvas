@@ -2,6 +2,20 @@ package assets
 
 import "testing"
 
+func TestImageCleanupReferencesProtectSourceAndMask(t *testing.T) {
+	refs, err := CollectDocumentResourceReferences(`{"resourceId":"source","maskResourceId":"mask","mode":"image"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, ref := range refs {
+		got[ref.ResourceID] = true
+	}
+	if len(got) != 2 || !got["source"] || !got["mask"] {
+		t.Fatalf("references = %#v", refs)
+	}
+}
+
 func TestCollectDocumentResourceReferencesIncludesNestedVideoPreview(t *testing.T) {
 	raw := `{"nodes":[{"id":"node-video","metadata":{"videoPreview":{"storageKey":"resource:poster-1","source":{"id":"nested-not-node","url":"/api/resources/poster-2/file"}}}}]}`
 	refs, err := CollectDocumentResourceReferences(raw)

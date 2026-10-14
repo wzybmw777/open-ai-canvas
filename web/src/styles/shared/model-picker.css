@@ -303,6 +303,8 @@ html:not(.dark) .creation-model-picker.canvas-composer-model-picker[aria-expande
     .canvas-model-picker-popover {
         filter: none !important;
         max-width: calc(100vw - 24px);
+        /* Position measurements must be immediate, including reduced motion. */
+        transition: none !important;
     }
 
     .canvas-model-picker-menu {

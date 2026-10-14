@@ -430,6 +430,14 @@ export function defaultModelCapabilityConfig(protocol?: ModelProtocol, model = "
         video.duration = { selection: "enum", values: [5, 10], default: 5 };
         video.resolutions = ["720p"];
     }
+    if (protocol === "dashscope-happyhorse-video-edit") {
+        video.references = { ...video.references, promptMaxChars:2500, minImages:0, maxImages:5, maxImageBytes:20*1024*1024, maxVideos:1, maxVideoBytes:100*1024*1024, maxVideoDurationSeconds:15, maxAudios:0, maxAudioBytes:0, maxAudioDurationSeconds:0 };
+        video.duration = { selection:"range", min:3, max:15, step:1, default:5, maxWithReferenceVideo:15 };
+        video.ratios = []; video.defaultRatio = "";
+        video.resolutions = ["720P", "1080P"]; video.defaultResolution = "720P";
+        video.watermark = { supported:true, default:false };
+        video.operations = ["video_edit"]; video.defaultOperation = "video_edit";
+    }
     if (protocol === "gemini-veo") {
         video.duration = { selection: "enum", values: [4, 6, 8], default: 6 };
         video.resolutions = ["720p", "1080p"];

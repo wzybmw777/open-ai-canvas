@@ -61,6 +61,8 @@ export type GenerationTask = {
         status: TaskBillingStatus;
     };
     clientContext?: {
+        imageCleanup?: boolean;
+        videoCleanup?: boolean;
         conversationId?: string;
         messageId?: string;
         nodeId?: string;

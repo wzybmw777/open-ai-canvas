@@ -1008,6 +1008,32 @@ add({
 });
 
 add({
+  id: "dashscope-happyhorse-video-edit", providerId: "dashscope-happyhorse-video-edit", name: "DashScope HappyHorse Video Edit", vendor: "Alibaba Cloud", capability: "video",
+  baseUrl: "https://dashscope.aliyuncs.com", auth: bearer, params: videoParams, requiresPublicMediaUrls: true,
+  notes: "仅支持 happyhorse-1.0-video-edit。输入恰好一个待编辑视频，可选最多五张参考图；无蒙版参数。输出保留输入时长但最长 15 秒，业务去水印入口限制 3–15 秒，避免截断。参数 resolution 为 720P/1080P，watermark=false 不添加新水印，audio_setting=origin 保留原音轨。duration、ratio 和 generateAudio 不向上游发送。官方合同：https://www.alibabacloud.com/help/en/model-studio/happyhorse-video-edit-api-reference 。",
+  validations: [
+    { assert: eq(ref("request.model"), "happyhorse-1.0-video-edit"), message: "HappyHorse 编辑协议仅支持 happyhorse-1.0-video-edit" },
+    { assert: eq(len(ref("request.videos")), 1), message: "HappyHorse 编辑必须输入一个视频" },
+    { assert: lte(len(ref("request.images")), 5), message: "HappyHorse 编辑最多支持五张参考图" },
+    { assert: eq(len(ref("request.audios")), 0), message: "HappyHorse 编辑不接受参考音频" }
+  ],
+  create: jsonCreate("/api/v1/services/aigc/video-generation/video-synthesis", {
+    model: ref("request.model"),
+    input: { prompt: ref("request.prompt"), media: map(sorted(ref("request.inputs")), "media", {
+      type: conditional(eq(ref("media.kind"), "video"), "video", "reference_image"), url: ref("media.value")
+    }) },
+    parameters: { resolution: omit({ $upper: ref("request.resolution") }), watermark: ref("request.watermark"), audio_setting: "origin" }
+  }, { headers: { "X-DashScope-Async": "enable" }, originPath: true }),
+  poll: { method: "GET", path: "/api/v1/tasks/{{taskId}}", originPath: true },
+  response: asyncResponse("video", {
+    taskId: coalesce(ref("response.output.task_id"), ref("taskId")),
+    status: conditional(eq(lower(ref("response.output.task_status")), "unknown"), "failed", coalesce(ref("response.output.task_status"), "pending")),
+    videos: ref("response.output.video_url"), usage: ref("response.usage"),
+    errorPaths: ["code", "output.code"], messagePaths: ["message", "output.message"]
+  })
+});
+
+add({
   id: "dashscope-wan-video", providerId: "dashscope-wan-video", name: "DashScope Wan Video", vendor: "Alibaba Cloud", capability: "video",
   baseUrl: "https://dashscope.aliyuncs.com", auth: bearer, params: videoParams, requiresPublicMediaUrls: true,
   validations: [

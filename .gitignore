@@ -32,6 +32,8 @@ docs/content/docs/backend/*
 !docs/content/docs/backend/channel-sync.mdx
 !docs/content/docs/backend/github-sync.mdx
 !docs/content/docs/backend/creative-agent-runtime.mdx
+!docs/content/docs/backend/image-watermark-removal.mdx
+!docs/content/docs/backend/video-watermark-removal.mdx
 # Keep the creative Agent design versioned without unignoring generated docs.
 !docs/content/docs/overview/
 docs/content/docs/overview/*

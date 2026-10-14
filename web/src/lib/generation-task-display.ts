@@ -1,5 +1,7 @@
 import type { GenerationTask, TaskStatus } from "@/services/api/task-center";
 import { localeText, type AppLocale } from "@/lib/i18n";
+import { isImageCleanupTask } from "@/lib/image-cleanup";
+import { isVideoCleanupTask } from "@/lib/video-cleanup";
 
 export const statusLabel: Record<TaskStatus, string> = {
     queued: "排队中",
@@ -141,6 +143,8 @@ export const taskTypeLabel: Record<string, string> = {
 };
 
 export function formatTaskKind(task: GenerationTask, locale: AppLocale = "zh-CN") {
+    if (isImageCleanupTask(task)) return localeText("图片去水印", "Image watermark removal", locale);
+    if (isVideoCleanupTask(task)) return localeText("视频去水印", "Video watermark removal", locale);
     const typeLabel = taskTypeLabel[task.type];
     const operationLabel = task.operation ? operationLabelByValue.get(task.operation) : "";
 

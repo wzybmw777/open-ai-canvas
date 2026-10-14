@@ -5,6 +5,23 @@ description: 从产品功能快速定位主要代码入口
 
 # 代码功能地图
 
+## AI 去水印统一入口
+
+`web/src/components/layout/workspace-sidebar-nav.tsx` 提供一个“AI 去水印”入口，路由 `/toolbox/watermark`。`pages/workbench/watermark-page.tsx` 负责统一外壳、图片/视频页签和功能开放状态；两个处理面板共用 `use-watermark-task.ts`，隔离 `imageTask` / `videoTask` 查询参数，切换保留处理状态。
+
+## 图片去水印
+
+- 页面与 API：`web/src/pages/workbench/image-watermark-page.tsx`、`services/api/image-cleanup.ts`；复用 `components/image-mask-editor.tsx` 的涂抹能力。
+- 后端：`handler/workbench.go` → `service/aliases_image_cleanup.go` → `app/image_cleanup.go`；`imagecleanup/validation.go` 校验图片与透明蒙版，实际执行复用 `CreateTask`、现有平台图片模型、计费和资源存储。
+- 历史识别：`app/task_output.go` 的 `clientContext.imageCleanup` 与 `web/src/lib/image-cleanup.ts`；协议见 [图片去水印](/docs/backend/image-watermark-removal)。
+
+## 视频去水印
+
+- 页面与 API：`web/src/pages/workbench/video-watermark-page.tsx`、`services/api/video-watermark.ts`；统一入口内的视频面板。
+- 入参、权限与任务组合：`handler/workbench.go` → `service/aliases_video_cleanup.go` → `app/video_cleanup.go`，真实媒体合同在 `internal/videocleanup`，后续调用已有任务与计费服务。
+- 模型协议：`plugin-packages/dashscope-happyhorse-video-edit`，生成源在 `generate-catalog.mjs`，前后端默认能力分别在 `app/model_capability_defaults.go` 与 `web/src/lib/model-capabilities.ts`。
+- 摘要与历史：`app/task_output.go` 的 `clientContext.videoCleanup`、`web/src/lib/video-cleanup.ts`；部署与合同见 [视频去水印](/docs/backend/video-watermark-removal)。
+
 ## 用户登录日志
 
 - 持久化：`backend/internal/model/models_login_log.go`、`repository/login_logs.go`；会话与日志原子提交在 `repository/account.go`，schema v57 在 `database/migrations.go`。

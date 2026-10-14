@@ -98,7 +98,7 @@ FROM ${PI_RUNTIME_DEPS_IMAGE} AS pi-runtime-deps
 # reusable layer instead of being copied into every backend image build.
 FROM pi-runtime-deps
 
-RUN apk add --no-cache ca-certificates tzdata wget \
+RUN apk add --no-cache ca-certificates tzdata wget ffmpeg \
     && addgroup -S app \
     && adduser -S app -G app
 

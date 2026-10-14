@@ -13,6 +13,76 @@ import (
 )
 
 func RegisterWorkbenchRoutes(r *gin.RouterGroup, svc *service.Service) {
+	r.GET("/workbench/video-cleanup", func(c *gin.Context) {
+		user, err := currentUser(c, svc)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		status, err := svc.VideoCleanupStatus(user.ID)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		ok(c, status)
+	})
+	r.POST("/workbench/video-cleanup/tasks", func(c *gin.Context) {
+		user, err := currentUser(c, svc)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		policy, available := loadRuntimePolicy(c, svc)
+		if !available || !enforceRateLimit(c, "tasks:"+user.ID, policy.Request.TaskCreatePerMinute, time.Minute) {
+			return
+		}
+		var req service.VideoCleanupRequest
+		if err := decodeWorkbenchJSON(c, &req); err != nil {
+			fail(c, http.StatusBadRequest, err)
+			return
+		}
+		task, err := svc.CreateVideoCleanupTask(user.ID, req, TraceID(c), RequestID(c))
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		ok(c, task)
+	})
+	r.GET("/workbench/image-cleanup", func(c *gin.Context) {
+		user, err := currentUser(c, svc)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		status, err := svc.ImageCleanupStatus(user.ID)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		ok(c, status)
+	})
+	r.POST("/workbench/image-cleanup/tasks", func(c *gin.Context) {
+		user, err := currentUser(c, svc)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		policy, available := loadRuntimePolicy(c, svc)
+		if !available || !enforceRateLimit(c, "tasks:"+user.ID, policy.Request.TaskCreatePerMinute, time.Minute) {
+			return
+		}
+		var req service.ImageCleanupRequest
+		if err := decodeWorkbenchJSON(c, &req); err != nil {
+			fail(c, http.StatusBadRequest, err)
+			return
+		}
+		task, err := svc.CreateImageCleanupTask(user.ID, req, TraceID(c), RequestID(c))
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		ok(c, task)
+	})
 	r.GET("/workbench/tools", func(c *gin.Context) {
 		if _, err := currentUser(c, svc); err != nil {
 			failService(c, err)

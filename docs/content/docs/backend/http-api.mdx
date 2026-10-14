@@ -5,6 +5,18 @@ description: 信封、错误码与 OpenAPI
 
 # HTTP API 合同
 
+## 图片去水印
+
+需要登录并开启图片工作台。`GET /api/workbench/image-cleanup` 返回 `{ available, maxBytes, maxPixels, maxDimension }`。`POST /api/workbench/image-cleanup/tasks` 接受 `{ resourceId, maskResourceId?, model, channelId?, logicalModelId?, parameters?: { size?, quality?, imageResolution? } }`，返回标准图片任务；校验资源归属、限制、透明非空遮罩和模型图片编辑能力，沿用现有平台模型、积分计费、任务限流和存储配额。
+
+查询、取消、重试沿用现有 `/tasks/:id` 路径。任务 `type=canvas_image`、`operation=image`、`workbenchKind=image`；摘要 `clientContext.imageCleanup=true` 标记历史。成功 `resultJson.images[0]` 包含资源 ID、尺寸及存储元数据，公开 `inputJson` 保留原图、可选遮罩与 `metadata.edit=remove_watermark`。功能关闭返回 403，越权资源返回 404，图片/遮罩或模型选择无效按现有合同返回错误。详见 [图片去水印](/docs/backend/image-watermark-removal)。
+
+## 视频去水印
+
+需要登录并开启视频工作台。`GET /api/workbench/video-cleanup` 返回 `{ available, maxBytes, minSeconds, maxSeconds, message? }`，缺少服务器 `ffprobe` 时不可用。`POST /api/workbench/video-cleanup/tasks` 接受 `{ resourceId, model, channelId?, logicalModelId?, prompt?, resolution? }`，渠道与逻辑模型选择二选一，不接受未知字段。后端检查归属及真实 MP4/MOV 文件：3–15 秒、100 MiB 内，短边至少 360、长边不超过 4096、比例不超过 2.5、帧率 8–60；模型必须支持 `video_edit` 和视频输入。沿用统一任务限流、配额和积分预占。
+
+返回 `canvas_video`、`operation=video_edit`、`workbenchKind=video` 标准任务，摘要 `clientContext.videoCleanup=true`；完整输入含源 `resourceId` 和 `metadata.edit=remove_watermark`，成功结果为 `resultJson.video`。查询、取消、重试与保存恢复沿用任务 API。功能关闭返回 403，资源越权返回 404，输入无效返回 400，缺少探测组件返回 503。详见 [视频去水印](/docs/backend/video-watermark-removal)。
+
 ## 用户登录日志
 
 菜单“用户与运营 → 用户登录日志”，页面 `/admin/login-logs`。查询在 service 校验管理员权限：匿名 401、普通用户 403。

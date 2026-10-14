@@ -1,0 +1,7 @@
+.image-watermark-comparison { position: relative; overflow: hidden; border-radius: var(--r-lg); background: var(--surface-active); }
+.image-watermark-comparison > img { display: block; width: 100%; height: auto; }
+.image-watermark-comparison > .image-watermark-original { position: absolute; inset: 0; height: 100%; object-fit: contain; }
+.image-watermark-divider { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--primary); pointer-events: none; }
+.image-watermark-label { position: absolute; top: 12px; border-radius: var(--r-md); padding: 4px 8px; background: var(--surface); color: var(--foreground); font-size: var(--fs-caption); }
+.image-watermark-label.is-original { left: 12px; }
+.image-watermark-label.is-result { right: 12px; }

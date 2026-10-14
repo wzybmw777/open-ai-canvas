@@ -37,6 +37,7 @@ const ArkPrivateAssetsSettingsPage = lazy(() => import("@/pages/admin/settings/a
 const ResponseInterceptionSettingsPage = lazy(() => import("@/pages/admin/settings/response-interception-settings-page"));
 const ThirdPartySettingsPage = lazy(() => import("@/pages/admin/settings/libtv-settings-page"));
 const WorkbenchToolsPage = lazy(() => import("@/pages/admin/workbench-tools/workbench-tools-page"));
+const WatermarkPage = lazy(() => import("@/pages/workbench/watermark-page"));
 const SystemUpdatePage = lazy(() => import("@/pages/admin/settings/system-update-page"));
 const SystemPerformancePage = lazy(() => import("@/pages/admin/settings/system-performance-page"));
 const StoryboardPromptsPage = lazy(() => import("@/pages/admin/storyboard-prompts/storyboard-prompts-page"));
@@ -129,6 +130,10 @@ export const router = createBrowserRouter([
                         <RequireFeature feature="imageWorkbenchEnabled">{deferred(<ImageWorkbenchPage />)}</RequireFeature>
                     </RequireAuth>
                 ),
+            },
+            {
+                path: "/toolbox/watermark",
+                element: <RequireAuth>{deferred(<WatermarkPage />)}</RequireAuth>,
             },
             {
                 path: "/toolbox/video",
