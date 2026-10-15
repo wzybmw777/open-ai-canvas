@@ -125,6 +125,11 @@ func Build(existing []model.ChannelModel, authorized []string, retired map[strin
 				known[tier.ProviderModelKey] = true
 			}
 		}
+		// A disabled record is an explicit curation decision. Do not update its
+		// description or prices, and never re-enable it from upstream authorization.
+		if !item.Enabled {
+			continue
+		}
 		key := item.ProviderModelKey
 		if key == "" {
 			key = item.ModelKey

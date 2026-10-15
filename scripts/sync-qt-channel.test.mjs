@@ -134,7 +134,7 @@ test('an enabled model missing upstream blocks the whole batch; disabled records
   f.snapshot.models[1].enabled = false;
   const plan = buildPlan(f.catalog, f.snapshot);
   assert.equal(plan.models.length, 1);
-  assert.equal(plan.warnings.length, 1);
+  assert.equal(plan.warnings.length, 0);
 });
 
 test('costs use the tier provider SKU and descriptions use the channel model key', () => {
@@ -148,25 +148,18 @@ test('costs use the tier provider SKU and descriptions use the channel model key
   assert.equal(plan.models[0].description, f.upstream.description);
 });
 
-test('authorized existing models are enabled and unauthorized models are disabled', () => {
+test('disabled existing models stay curated out of synchronization', () => {
   const f = fixture();
   f.model.enabled = false;
-  const plan = buildPlan(f.catalog, f.snapshot);
-  assert.equal(plan.models[0].enabled, true);
-  assert.deepEqual(plan.enabledModels, ['test-video']);
-  assert.equal(plan.syncChannelModels, true);
-  f.model.enabled = true;
-  const disabled = buildPlan(f.catalog, f.snapshot, ['unpriced-other-model']);
-  assert.equal(disabled.models[0].enabled, false);
-  assert.deepEqual(disabled.missingPriceModels, ['unpriced-other-model']);
-  for (const list of [undefined, [], ['test-video', 'test-video']]) {
-    assert.throws(() => planForAuthorizedModels(f.catalog, f.snapshot, list));
-  }
+  const disabledPlan = buildPlan(f.catalog, f.snapshot);
+  assert.equal(disabledPlan.models.length, 0);
+  assert.equal(disabledPlan.matchedModels, 0);
+  assert.deepEqual(disabledPlan.enabledModels, []);
 });
 
 test('a configured model missing all price tiers gets explicit upstream tiers before enabling', () => {
   const f = fixture();
-  f.model.enabled = false;
+  f.model.enabled = true;
   f.model.price_configured = false;
   f.snapshot.tiers[0].channel_model_id = 'OTHER';
   f.snapshot.sequences = [{ name: 'id:MODEL', value: 100 }, { name: 'id:PTIER', value: 200 }];

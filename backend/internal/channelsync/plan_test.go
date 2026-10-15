@@ -45,7 +45,7 @@ func TestMicrocreditsAndProfitRatio(t *testing.T) {
 }
 
 func TestBuildRetainsManualDisableAndRetiredModels(t *testing.T) {
-	items := []model.ChannelModel{{ModelKey: "enabled", Enabled: true}, {ModelKey: "manual", Enabled: false}}
+	items := []model.ChannelModel{{ModelKey: "enabled", Enabled: true}, {ModelKey: "manual", Enabled: false, PriceTiers: []model.ChannelModelPriceTier{{ProviderModelKey: "manual", Enabled: true, PriceConfigured: true}}}}
 	plan, err := Build(items, []string{"manual", "new", "retired"}, map[string]bool{"retired": true}, nil, false, true)
 	if err != nil {
 		t.Fatal(err)
@@ -64,7 +64,7 @@ func TestTierPricesValidateQualityAndKeepOriginalSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	tier := model.ChannelModelPriceTier{ID: "tier", ProviderModelKey: "image-2k", SelectorJSON: `{"quality":"2k"}`, BillingMode: "fixed_request", Enabled: true, PriceConfigured: true, UnitPriceMicrocredits: 50000, CostPricing: model.CreditCostPricing{Configured: true, UnitPriceMicrocredits: 40000}}
-	items := []model.ChannelModel{{ModelKey: "image", ProviderModelKey: "image", PriceTiers: []model.ChannelModelPriceTier{tier}}}
+	items := []model.ChannelModel{{ModelKey: "image", ProviderModelKey: "image", Enabled: true, PriceTiers: []model.ChannelModelPriceTier{tier}}}
 	plan, err := Build(items, []string{"image-2k"}, nil, &group, true, false)
 	if err != nil {
 		t.Fatal(err)

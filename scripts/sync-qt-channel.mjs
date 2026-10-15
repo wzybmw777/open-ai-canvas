@@ -121,7 +121,13 @@ export function buildPlan(catalog, snapshot, authorizedKeys) {
     enabledModels: [], disabledModels: [], missingPriceModels: authorizedKeys.filter(key => !upstreamModels.has(key)) };
   const localKeys = new Set(prepared.models.map(model => model.model_key));
   plan.upstreamOnlyModels = [...upstreamModels.keys()].filter(key => !localKeys.has(key));
+  let activeModelCount = 0;
   for (const model of prepared.models) {
+    // Disabled catalog entries are curated out of the product. Keep the
+    // administrator's decision intact even when the upstream still authorizes
+    // the model; importNew is separately disabled for this deployment.
+    if (!model.enabled) continue;
+    activeModelCount++;
     const upstream = upstreamModels.get(model.model_key);
     if (!upstream) {
       if (model.enabled) throw new Error(`${model.model_key}: enabled model is missing upstream`);
@@ -187,8 +193,8 @@ export function buildPlan(catalog, snapshot, authorizedKeys) {
         enabled, configured, billing, versionChanged });
     }
   }
-  if (plan.matchedTiers === 0) throw new Error('No existing price tiers matched upstream');
-  const capabilityAudit = auditCapabilities(catalog, { models: prepared.models });
+  if (activeModelCount > 0 && plan.matchedTiers === 0) throw new Error('No existing price tiers matched upstream');
+  const capabilityAudit = auditCapabilities(catalog, { models: prepared.models.filter(model => model.enabled) });
   for (const item of capabilityAudit.models) {
     if (item.differences.length) plan.warnings.push(`${item.model}: capability mismatch (${item.differences.map(change => change.field).join(', ')}); run the capability audit`);
     if (item.pending.some(message => message.includes('介绍已变化'))) plan.warnings.push(`${item.model}: upstream capability description changed; reviewed rules require review`);
