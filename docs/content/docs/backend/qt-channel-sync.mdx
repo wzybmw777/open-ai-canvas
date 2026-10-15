@@ -1,11 +1,11 @@
 ---
 title: QT 渠道每日同步
-description: 每天北京时间零点核对 QT中转-2 授权目录，同步价格、简介并启用已配置型号
+description: 已停用宿主机 QT 定时器的历史规则与人工排查说明
 ---
 
 # QT 渠道每日同步
 
-后台已提供统一的 [上游渠道同步管理](./channel-sync)。切换到后台 Worker 后停用此页的宿主机定时器，避免重复执行；下文保留旧脚本的人工排查说明。
+后台已提供统一的 [上游渠道同步管理](./channel-sync)。宿主机定时器已停用。本站原 `QT中转-2` 现更名为“万有引力渠道”，只启用 Wan 3.0，另外三个渠道分别负责影策图片、宇熙 Seedance 与 QT 文本。新的精选目录优先于下文历史全量启用规则；不要运行旧脚本的应用命令或重新启用旧定时器，否则可能恢复已停用型号。下文仅保留旧脚本的人工排查说明，其目标名称保护未随渠道更名放宽。
 
 `scripts/sync-qt-channel.sh` 从 [QT 模型广场](https://api.qtrader.cc/model-plaza?embedded=1) 使用的公开接口 `https://api.qtrader.cc/api/v1/model-plaza` 读取“万有引力图片视频组”（ID 83）。目标是系统渠道 `QT中转-2`（ID `CHANNEL_000014`）。脚本另用该渠道已保存的密钥读取 `https://sub2.echoai.best/v1/models`，以当前授权目录作为启用依据，不需要管理员登录 Cookie。
 

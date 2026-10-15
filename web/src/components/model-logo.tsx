@@ -19,10 +19,10 @@ const iconLoaders = Object.fromEntries(
 ) as Record<string, () => Promise<LobeIconComponent>>;
 const iconRegistry = new Map<string, LobeIconComponent>();
 const iconLoadPromises = new Map<string, Promise<LobeIconComponent | undefined>>();
-const iconOptions = toc
+const iconOptions = [{ id: "Yingce", title: "影策 Yingce" }, ...toc
     .filter((item) => item.group === "model" || item.group === "provider" || item.group === "application")
     .map((item) => ({ id: item.id, title: item.fullTitle || item.title }))
-    .filter((item) => Boolean(iconLoaders[item.id]));
+    .filter((item) => Boolean(iconLoaders[item.id]))];
 
 function loadIcon(icon?: string) {
     if (!icon) return Promise.resolve(undefined);
@@ -59,6 +59,11 @@ export function ModelLogo({ icon, size = 18, className }: { icon?: string; size?
             cancelled = true;
         };
     }, [icon]);
+    if (icon === "Yingce") return (
+        <svg width={size} height={size} viewBox="0 0 64 64" fill="none" className={cn("shrink-0", className)} aria-hidden="true">
+            <path d="M6 8H36V16H14V36H28V44H6V8ZM58 20H36V28H50V48H28V56H58V20ZM24 27H40V37H24V27Z" fill="currentColor" />
+        </svg>
+    );
     if (!Icon) return <Cpu className={cn("shrink-0 text-foreground/45", className)} size={size} aria-hidden />;
     return <Icon size={size} className={cn("shrink-0", className)} aria-hidden />;
 }
