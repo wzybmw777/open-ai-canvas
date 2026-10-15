@@ -48,6 +48,7 @@ function buildNav(features: FeatureAvailability, locale: AppLocale): { groups: W
             items: [
                 { ...toolItem("create", "/"), id: "home", title: text("创作", "Create") },
                 { ...toolItem("inspirations", "/inspirations"), title: text("灵感", "Inspirations") },
+                { ...toolItem("projects", "/projects"), title: text("短剧创作", "Projects") },
                 { ...toolItem("canvas", "/canvas"), title: text("自由画布", "Canvas") },
                 { ...toolItem("theatre", "/theatre"), title: text("卓越剧场", "Excellence Theatre") },
             ],
@@ -312,6 +313,7 @@ export function workspaceNavActiveId(pathname: string, section?: string | null) 
     const segments = pathname.split("/").filter(Boolean);
     if (segments[0] === "toolbox" && segments[1]) return `toolbox-${segments[1]}`;
     const slug = segments[0] || "home";
+    if (slug === "create") return "home";
     return slug === "settings" && section ? `settings:${section}` : slug;
 }
 

@@ -53,7 +53,6 @@ const SharedCanvasPage = lazy(() => import("@/pages/canvas/shared"));
 const CreatePage = lazy(loadCreatePage);
 const ImageWorkbenchPage = lazy(() => import("@/pages/workbench/image-workbench-route"));
 const VideoWorkbenchPage = lazy(() => import("@/pages/workbench/video-workbench-page"));
-const InspirationsPage = lazy(loadInspirationsPage);
 const NotFound = lazy(() => import("@/pages/not-found"));
 const SkillsPage = lazy(() => import("@/pages/skills"));
 const PluginsPage = lazy(() => import("@/pages/plugins"));
@@ -143,7 +142,6 @@ export const router = createBrowserRouter([
                     </RequireAuth>
                 ),
             },
-            { path: "/inspirations", element: deferred(<InspirationsPage />) },
             {
                 path: "/tasks",
                 element: (
