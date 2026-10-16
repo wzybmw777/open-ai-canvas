@@ -236,6 +236,10 @@
     border: 0 !important;
 }
 
+.app-user-workspace .creation-home .creation-chat-composer:focus-within {
+    box-shadow: none !important;
+}
+
 .app-user-workspace .creation-home .creation-composer-shell:focus-within {
     border-color: var(--user-border-strong) !important;
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--user-accent) 14%, transparent) !important;
