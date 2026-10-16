@@ -194,7 +194,7 @@ func singleImageSizeTier(image *ImageCapabilityConfig) (string, bool) {
 }
 
 func activeImageSizePresets(image *ImageCapabilityConfig) []ImageSizePreset {
-	if image.Parameters == nil || image.Resolution.Supported {
+	if image.Parameters == nil || image.Resolution.Supported || image.ResolutionUsesQuality {
 		return image.Size.Presets
 	}
 	tier, ok := singleImageSizeTier(image)
@@ -397,10 +397,16 @@ func applyImageParameterValues(config *providerConfig, profile *ImageCapabilityC
 	}, profile.Parameters)
 	for _, field := range profile.Parameters {
 		if field.Name == "size" && !field.Accepts(values["size"]) {
-			size, resolution := fmt.Sprint(values["size"]), config.ImageResolution
-			if pixels := resolveImageTaskSize(profile, config.InterfaceType, size, resolution); field.Encoding == "pixels" && field.Accepts(pixels) {
+			size, tier := fmt.Sprint(values["size"]), ""
+			if value, ok := values["imageResolution"].(string); ok {
+				tier = value
+			}
+			if profile.ResolutionUsesQuality {
+				tier, _ = values["quality"].(string)
+			}
+			if pixels := resolveImageTaskSize(profile, config.InterfaceType, size, tier); field.Encoding == "pixels" && field.Accepts(pixels) {
 				values["size"] = pixels
-			} else if ratio := imageSizeRatioForDeclaredPreset(profile, size, resolution); ratio != "" && field.Accepts(ratio) {
+			} else if ratio := imageSizeRatioForDeclaredPreset(profile, size, tier); ratio != "" && field.Accepts(ratio) {
 				values["size"] = ratio
 			}
 		}
@@ -419,12 +425,19 @@ func applyImageParameterValues(config *providerConfig, profile *ImageCapabilityC
 	config.Size, config.ImageResolution, config.Quality = text("size"), text("imageResolution"), text("quality")
 	config.Count, config.TransparentBackground = text("count"), text("transparentBackground")
 	if imageSizePixelOutbound(profile, config.InterfaceType) {
-		config.Size = resolveImageTaskSize(profile, config.InterfaceType, config.Size, config.ImageResolution)
+		config.Size = resolveImageTaskSize(profile, config.InterfaceType, config.Size, imageSizeSelectionValue(profile, config))
 		if strings.Contains(config.Size, ":") {
 			return BadAuthRequest("当前比例与分辨率缺少明确的像素尺寸映射")
 		}
 	}
 	return nil
+}
+
+func imageSizeSelectionValue(profile *ImageCapabilityConfig, config *providerConfig) string {
+	if profile.ResolutionUsesQuality {
+		return config.Quality
+	}
+	return config.ImageResolution
 }
 
 func imagePriceSelectorForParameters(parameters []protocol.ImageParameter, intent ModelRequestIntent) map[string]string {

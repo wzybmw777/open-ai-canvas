@@ -56,6 +56,31 @@ func TestImageSizePresetsValidationAndRoundTrip(t *testing.T) {
 	}
 }
 
+func TestLegacyOpenAIImageModelFillsMissingPixelPresets(t *testing.T) {
+	profile := DefaultImageCapabilityConfig("openai-image", "yingce-image-2.5")
+	profile.Size.Presets = nil
+	profile.Quality = ImageQualityConfig{Supported: true, Values: []string{"1k", "2k", "4k"}, Default: "1k"}
+
+	normalized, err := NormalizeModelCapabilityConfigForModel("image", "openai-image", "yingce-image-2.5", &ModelCapabilityConfig{Version: 1, Image: profile})
+	if err != nil {
+		t.Fatalf("normalize legacy image capability: %v", err)
+	}
+	if got := len(normalized.Image.Size.Presets); got != 24 {
+		t.Fatalf("pixel presets = %d, want 24", got)
+	}
+	if err := imageSizePresetReadyError(normalized.Image, "openai-image"); err != nil {
+		t.Fatalf("normalized profile is not ready: %v", err)
+	}
+	input := canvasGenerationInput{Mode: "image", Prompt: "portrait", Config: providerConfig{InterfaceType: "openai-image", Model: "yingce-image-2.5", Size: "1:1", Quality: "1k", Count: "1"}}
+	raw := map[string]any{"config": map[string]any{"size": "1:1", "quality": "1k"}}
+	if err := validateImageTaskWithResolvedSize(raw, &input, normalized.Image); err != nil {
+		t.Fatalf("resolve 1K square image: %v", err)
+	}
+	if input.Config.Size != "1024x1024" {
+		t.Fatalf("resolved image size = %q, want 1024x1024", input.Config.Size)
+	}
+}
+
 func TestImageQualityDoesNotSelectResolutionPresets(t *testing.T) {
 	profile := DefaultImageCapabilityConfig("openai-image", "test")
 	profile.Size = ImageSizeConfig{Parameter: "aspect_ratio", Values: []string{"1:1"}, Default: "1:1", Presets: []ImageSizePreset{

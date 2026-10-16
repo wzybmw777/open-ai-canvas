@@ -596,12 +596,27 @@ func declaredImageResolutionTier(value string) string {
 	}
 }
 
+func imageSizeQualityTiers(profile *ImageCapabilityConfig) bool {
+	if profile == nil || !profile.Quality.Supported || len(profile.Quality.Values) == 0 {
+		return false
+	}
+	for _, value := range profile.Quality.Values {
+		if declaredImageResolutionTier(value) == "" {
+			return false
+		}
+	}
+	return declaredImageResolutionTier(profile.Quality.Default) != ""
+}
+
 // Legacy aliases are meaningful only when the model explicitly declares resolution tiers.
 // Ordinary image quality never selects a pixel preset.
 func imagePresetSelectionTier(profile *ImageCapabilityConfig, value string) string {
 	if profile.Parameters != nil {
 		if profile.Resolution.Supported && containsCapabilityString(profile.Resolution.Values, value) {
 			return value
+		}
+		if profile.ResolutionUsesQuality && containsCapabilityString(profile.Quality.Values, value) {
+			return declaredImageResolutionTier(value)
 		}
 		if !profile.Resolution.Supported {
 			if tier, ok := singleImageSizeTier(profile); ok {
@@ -793,6 +808,9 @@ func openAIImageDefaultPixelSize(ratio string, tier string) (ImageSizePreset, bo
 // 而不是要求人工逐条重配。补不齐（声明了表里没有的比例）时保持原样，交给调用方拒绝。
 // 返回是否发生了补齐。
 func fillMissingImageSizePresets(profile *ImageCapabilityConfig, protocol string) bool {
+	if profile == nil || profile.Parameters != nil && protocol != string(model.ChannelInterfaceOpenAIImage) {
+		return false
+	}
 	if !imageSizePresetMissingExact(profile, protocol) {
 		return false
 	}

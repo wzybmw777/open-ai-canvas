@@ -229,14 +229,15 @@ func NormalizeModelCapabilityConfigForModel(capability string, protocol string, 
 			if err := projectImageParameters(input.Image); err != nil {
 				return nil, err
 			}
+			if protocol == string(model.ChannelInterfaceOpenAIImage) && imageSizePixelOutbound(input.Image, protocol) && imageSizeQualityTiers(input.Image) {
+				input.Image.ResolutionUsesQuality = true
+			}
 		} else {
 			normalizeLegacyImageResolutionConfig(protocol, input.Image)
 			input.Image.ResolutionUsesQuality = strings.TrimSpace(protocol) == string(model.ChannelInterfaceGeminiImage)
 		}
-		// 旧配置缺换算表时按声明的档位与比例补齐后再校验，保存即把旧线路归一化成当前形态。
-		if input.Image.Parameters == nil {
-			fillMissingImageSizePresets(input.Image, protocol)
-		}
+		// 投影后的 OpenAI Images 参数也可能来自缺少像素预设的旧线路。
+		fillMissingImageSizePresets(input.Image, protocol)
 		value := &ModelCapabilityConfig{Version: 1, Image: input.Image}
 		if err := validateImageCapabilityConfig(value.Image); err != nil {
 			return nil, err

@@ -36,6 +36,52 @@ func imageParameterTestAdapter(t *testing.T, packageID, providerID string) proto
 	return nil
 }
 
+func TestOpenAIImagePluginRestoresLegacyPixelPresets(t *testing.T) {
+	adapter := imageParameterTestAdapter(t, "openai-images", "openai-image")
+	registry, err := protocol.NewRegistry(adapter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := DefaultModelCapabilityConfigForModel("openai-image", "yingce-image-2.5")
+	config.Image.Size.Presets = nil
+	config.Image.Quality = ImageQualityConfig{Supported: true, Values: []string{"1k", "2k", "4k"}, Default: "1k"}
+
+	normalized, err := NormalizeModelCapabilityConfigForModel("image", "openai-image", "yingce-image-2.5", config, registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := len(normalized.Image.Size.Presets); got != 24 {
+		t.Fatalf("pixel presets after plugin projection = %d, want 24", got)
+	}
+	if err := imageSizePresetReadyError(normalized.Image, "openai-image"); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ ratio, tier, pixels string }{
+		{"1:1", "1k", "1024x1024"},
+		{"1:1", "2k", "2048x2048"},
+		{"1:1", "4k", "2880x2880"},
+		{"16:9", "2k", "2752x1536"},
+	} {
+		t.Run(tc.ratio+"/"+tc.tier, func(t *testing.T) {
+			input := canvasGenerationInput{Mode: "image", Prompt: "portrait", Config: providerConfig{InterfaceType: "openai-image", Model: "yingce-image-2.5", Size: tc.ratio, Quality: tc.tier, Count: "1"}}
+			raw := map[string]any{"config": map[string]any{"size": tc.ratio, "quality": tc.tier}}
+			if err := validateImageTaskWithResolvedSize(raw, &input, normalized.Image); err != nil {
+				t.Fatal(err)
+			}
+			if input.Config.Size != tc.pixels {
+				t.Fatalf("resolved size = %q, want %q", input.Config.Size, tc.pixels)
+			}
+		})
+	}
+	input := canvasGenerationInput{Mode: "image", Prompt: "portrait", Config: providerConfig{InterfaceType: "openai-image", Model: "yingce-image-2.5", Size: "1:1", Quality: "1k", Count: "1", ImageParameters: map[string]any{"quality": "2k"}}}
+	if err := validateImageTaskWithResolvedSize(map[string]any{"config": map[string]any{}}, &input, normalized.Image); err != nil {
+		t.Fatalf("resolve explicit imageParameters quality: %v", err)
+	}
+	if input.Config.Size != "2048x2048" || input.Config.Quality != "2k" {
+		t.Fatalf("explicit quality resolved to size %q and quality %q", input.Config.Size, input.Config.Quality)
+	}
+}
+
 func TestImageParameterRatioUsesDeclaredPixelPreset(t *testing.T) {
 	profile := DefaultModelCapabilityConfigForModel("openai-image", "GPT Image 2.5")
 	profile.Image.Parameters = []protocol.ImageParameter{{
