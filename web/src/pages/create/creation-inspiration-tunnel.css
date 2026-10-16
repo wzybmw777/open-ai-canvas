@@ -224,6 +224,48 @@
     outline-offset: 3px;
 }
 
+.creation-gallery-controls {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 8px;
+    color: var(--user-ink-muted);
+    font-size: var(--fs-label, 11px);
+    font-variant-numeric: tabular-nums;
+}
+
+.creation-gallery-controls button {
+    display: grid;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+    border: 1px solid var(--user-border);
+    border-radius: var(--user-radius-control, 6px);
+    background: var(--user-surface);
+    color: var(--user-ink-muted);
+    cursor: pointer;
+    transition: background var(--user-motion, 180ms), border-color var(--user-motion, 180ms), color var(--user-motion, 180ms);
+}
+
+.creation-gallery-controls button:hover {
+    border-color: var(--user-border-strong);
+    background: var(--user-surface-hover);
+    color: var(--user-ink);
+}
+
+.creation-gallery-controls button:focus-visible {
+    outline: 2px solid var(--control-focus-ring, var(--user-accent));
+    outline-offset: 2px;
+}
+
+.creation-gallery-controls svg {
+    width: 15px;
+    height: 15px;
+}
+
 /* 卡片对辅助技术隐藏，切换结果改由这条文本播报。 */
 .creation-gallery-announce {
     position: absolute;
@@ -289,6 +331,8 @@
     .creation-tunnel-card.is-active:hover {
         transform: translate(-50%, -50%) translate(var(--card-x, 0px), 0) scale(var(--card-scale, 1));
     }
+
+    .creation-gallery-controls button { transition: none; }
 
 }
 

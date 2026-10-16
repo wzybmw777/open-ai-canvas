@@ -175,6 +175,150 @@
     .app-product-workspace .creation-home .creation-submit.ant-btn:not(:disabled):hover .creation-submit-action::after { animation: none; }
 }
 
+/* Minimal product pass: keep the creation flow focused on one primary action. */
+.app-user-workspace .creation-home {
+    --creation-product-radius: 8px;
+    --creation-product-radius-small: 6px;
+    --creation-product-motion: 180ms ease;
+}
+
+.app-user-workspace .creation-home > .creation-empty-workspace {
+    width: min(1200px, calc(100% - 48px)) !important;
+    padding-top: 24px !important;
+    padding-bottom: 48px !important;
+}
+
+.app-user-workspace .creation-home .creation-launchpad {
+    width: min(896px, 100%) !important;
+}
+
+.app-user-workspace .creation-home .creation-mode-tabs {
+    margin-bottom: 16px !important;
+    padding: 4px !important;
+    border: 1px solid var(--user-border) !important;
+    border-radius: var(--creation-product-radius) !important;
+    background: var(--user-surface-muted) !important;
+    box-shadow: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+
+.app-user-workspace .creation-home .creation-mode-indicator {
+    border-radius: var(--creation-product-radius-small) !important;
+    box-shadow: none !important;
+}
+
+.app-user-workspace .creation-home .creation-mode-button {
+    border-radius: var(--creation-product-radius-small) !important;
+    transition: background var(--creation-product-motion), color var(--creation-product-motion) !important;
+}
+
+.app-user-workspace .creation-home .creation-mode-button:active {
+    transform: none !important;
+}
+
+.app-user-workspace .creation-home .creation-mode-spark {
+    animation: none !important;
+}
+
+.app-user-workspace .creation-home .creation-chat-composer,
+.app-user-workspace .creation-home .creation-composer-shell {
+    border: 1px solid var(--user-border) !important;
+    border-radius: var(--creation-product-radius) !important;
+    background: var(--user-surface) !important;
+    box-shadow: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+
+.app-user-workspace .creation-home .creation-chat-composer:focus-within {
+    border-color: var(--user-border-strong) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--user-accent) 14%, transparent) !important;
+}
+
+.app-user-workspace .creation-home .creation-chat-control,
+.app-user-workspace .creation-home .creation-reference-add-button,
+.app-user-workspace .creation-home .creation-submit-action {
+    transition: background var(--creation-product-motion), border-color var(--creation-product-motion), color var(--creation-product-motion) !important;
+}
+
+.app-user-workspace .creation-home .creation-chat-control:hover,
+.app-user-workspace .creation-home .creation-chat-control[aria-expanded="true"],
+.app-user-workspace .creation-home .creation-reference-add-button:hover:not(:disabled) {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.app-user-workspace .creation-home .creation-submit-action::after {
+    display: none !important;
+}
+
+.app-user-workspace .creation-home .creation-empty-suggest {
+    gap: 8px !important;
+}
+
+.app-user-workspace .creation-home .creation-empty-suggest .suggest-card,
+.app-user-workspace .creation-home .creation-empty-suggest .creation-hero-prompt {
+    min-height: 72px !important;
+    border: 1px solid var(--user-border) !important;
+    border-radius: var(--creation-product-radius) !important;
+    background: var(--user-surface) !important;
+    box-shadow: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    transition: background var(--creation-product-motion), border-color var(--creation-product-motion) !important;
+}
+
+.app-user-workspace .creation-home .creation-empty-suggest .suggest-card:hover,
+.app-user-workspace .creation-home .creation-empty-suggest .creation-hero-prompt:hover,
+.app-user-workspace .creation-home .creation-empty-suggest .suggest-card:focus-visible,
+.app-user-workspace .creation-home .creation-empty-suggest .creation-hero-prompt:focus-visible {
+    transform: none !important;
+    border-color: var(--user-border-strong) !important;
+    background: var(--user-surface-hover) !important;
+    box-shadow: none !important;
+}
+
+.app-user-workspace .creation-home .creation-inspiration-tunnel {
+    margin-block: 8px 16px;
+    opacity: .92;
+}
+
+.app-user-workspace .creation-home .creation-tunnel-card {
+    border: 1px solid var(--user-border) !important;
+    border-radius: var(--creation-product-radius) !important;
+    box-shadow: none !important;
+}
+
+.app-user-workspace .creation-home .creation-tunnel-card::after {
+    display: none !important;
+}
+
+.app-user-workspace .creation-home .creation-tunnel-card.is-active:hover {
+    transform: translate(-50%, -50%) translate(var(--card-x, 0px), var(--card-enter-y, 0px)) scale(var(--card-scale, 1)) !important;
+}
+
+@media (max-width: 720px) {
+    .app-user-workspace .creation-home > .creation-empty-workspace {
+        width: calc(100% - 32px) !important;
+        padding-top: 16px !important;
+        padding-bottom: 32px !important;
+    }
+
+    .app-user-workspace .creation-home .creation-empty-suggest {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-user-workspace .creation-home .creation-chat-composer,
+    .app-user-workspace .creation-home .creation-chat-control,
+    .app-user-workspace .creation-home .creation-empty-suggest .suggest-card,
+    .app-user-workspace .creation-home .creation-empty-suggest .creation-hero-prompt {
+        transition: none !important;
+    }
+}
+
 /* 参数弹窗挂在 body overlays，必须直接用用户表面 token；描边由 Ant inner 的 1px border 造成。 */
 .app-user-overlays .creation-control-popover,
 .app-product-overlays .creation-control-popover {
