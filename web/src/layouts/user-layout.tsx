@@ -17,6 +17,7 @@ export default function UserLayout({ children }: { children: ReactNode }) {
     const adminWorkspace = pathname === "/admin" || pathname.startsWith("/admin/");
     const spatialWorkbench = isSpatialWorkbenchPath(pathname);
     const productWorkspace = !adminWorkspace && !/^\/canvas\/[^/]+(?:\/|$)/.test(pathname);
+    const creationPlatform = pathname === "/" || pathname === "/create";
     useWorkspaceButtonFeedback(productWorkspace);
 
     useLayoutEffect(() => {
@@ -40,7 +41,7 @@ export default function UserLayout({ children }: { children: ReactNode }) {
             dropdown={productWorkspace ? { classNames: { root: "workspace-quiet-popup" } } : undefined}
             popover={productWorkspace ? { classNames: { root: "workspace-quiet-popup" } } : undefined}
         >
-            <div className={cn("app-user-workspace h-dvh overflow-hidden text-foreground", spatialWorkbench && "app-spatial-workspace", productWorkspace && "app-product-workspace")}>
+            <div className={cn("app-user-workspace h-dvh overflow-hidden text-foreground", spatialWorkbench && "app-spatial-workspace", productWorkspace && "app-product-workspace", creationPlatform && "app-creation-platform")}>
                 <AppWorkspaceShell>{children}</AppWorkspaceShell>
             </div>
         </ConfigProvider>

@@ -703,6 +703,98 @@
     .app-product-workspace .studio-collection-page > div { width: calc(100% - 32px); }
 }
 
+/* The creation landing page follows the dark LibTV content-platform shell on
+   both appearance modes. Other user routes keep their selected appearance. */
+.app-user-workspace.app-creation-platform {
+    --user-page-bg: #111111;
+    --user-surface: #1b1b1b;
+    --user-surface-raised: #242424;
+    --user-surface-muted: #202020;
+    --user-surface-hover: #292929;
+    --user-border: #303030;
+    --user-border-strong: #454545;
+    --user-ink: #f4f4f4;
+    --user-ink-muted: #a3a3a3;
+    --user-ink-soft: #777777;
+    background: #111111 !important;
+    color: #f4f4f4 !important;
+}
+.app-user-workspace.app-creation-platform .app-workspace-shell,
+.app-user-workspace.app-creation-platform .app-workspace-stage,
+.app-user-workspace.app-creation-platform .app-user-content,
+.app-user-workspace.app-creation-platform .creation-home { background: #111111 !important; }
+.app-user-workspace.app-creation-platform .app-workspace-sidebar,
+.app-user-workspace.app-creation-platform .app-workspace-sidebar-nav { width: 328px !important; flex-basis: 328px !important; background: #141414 !important; border-color: #2a2a2a !important; }
+.app-user-workspace.app-creation-platform .app-workspace-sidebar-brand-row { min-height: 88px; padding: 22px 16px 16px !important; }
+.app-user-workspace.app-creation-platform .app-workspace-sidebar-scroll-area { padding: 0 16px 16px !important; gap: 20px !important; }
+.app-user-workspace.app-creation-platform .app-workspace-nav-link { min-height: 44px !important; border-radius: 8px !important; color: #c7c7c7 !important; }
+.app-user-workspace.app-creation-platform .app-workspace-nav-link:hover:not(.is-active),
+.app-user-workspace.app-creation-platform .app-workspace-nav-link:focus-visible:not(.is-active) { background: #1d1d1d !important; color: #f5f5f5 !important; }
+.app-user-workspace.app-creation-platform .app-workspace-nav-link.is-active { background: #242424 !important; color: #ffffff !important; }
+.app-user-workspace.app-creation-platform .app-workspace-nav-group-label { color: #777 !important; }
+.app-user-workspace.app-creation-platform .app-workspace-topbar { min-height: 64px !important; height: 64px !important; background: #111111 !important; border-bottom: 0 !important; }
+.app-user-workspace.app-creation-platform .app-workspace-topbar-breadcrumb,
+.app-user-workspace.app-creation-platform .app-workspace-topbar-breadcrumb > span[aria-hidden="true"] { color: #8f8f8f !important; }
+.app-user-workspace.app-creation-platform .project-context-bar { border-color: #2b2b2b; color: #e5e5e5; background: #111111; }
+.app-user-workspace.app-creation-platform .project-context-bar p { color: #858585; }
+.app-user-workspace.app-creation-platform .project-context-bar .ant-select-selector { border-color: #383838 !important; background: #1c1c1c !important; color: #f1f1f1 !important; }
+.app-user-workspace.app-creation-platform .project-context-bar a { color: #16c8d2; }
+.app-user-workspace.app-creation-platform .creation-home > .creation-empty-workspace { width: min(1680px, calc(100% - 72px)) !important; padding-top: 28px !important; }
+.app-user-workspace.app-creation-platform .creation-lib-tv-create-card { min-height: 218px; margin-bottom: 28px; }
+.app-user-workspace.app-creation-platform .creation-lib-tv-quick-actions {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 18px;
+    margin: 0 28px 34px;
+}
+.app-user-workspace.app-creation-platform .creation-lib-tv-quick-actions button {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    border: 0;
+    background: transparent;
+    color: #d7d7d7;
+    cursor: pointer;
+    font-size: 14px;
+}
+.app-user-workspace.app-creation-platform .creation-lib-tv-quick-icon {
+    display: grid;
+    width: 136px;
+    max-width: 100%;
+    height: 76px;
+    place-items: center;
+    border: 1px solid #2a2a2a;
+    border-radius: 20px;
+    background: linear-gradient(145deg, #252525, #1b1b1b);
+    color: #f3f3f3;
+    transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
+}
+.app-user-workspace.app-creation-platform .creation-lib-tv-quick-icon svg { width: 27px; height: 27px; stroke-width: 1.7; }
+.app-user-workspace.app-creation-platform .creation-lib-tv-quick-actions button:hover .creation-lib-tv-quick-icon,
+.app-user-workspace.app-creation-platform .creation-lib-tv-quick-actions button:focus-visible .creation-lib-tv-quick-icon { transform: translateY(-2px); border-color: #4d4d4d; background: #2c2c2c; }
+.app-user-workspace.app-creation-platform .creation-lib-tv-quick-actions button:focus-visible { outline: 2px solid #20cbd4; outline-offset: 4px; border-radius: 8px; }
+.app-user-workspace.app-creation-platform .creation-lib-tv-quick-actions strong { font-weight: 560; white-space: nowrap; }
+.app-user-workspace.app-creation-platform .creation-launchpad { width: min(980px, 100%); margin: 0 auto 32px; }
+.app-user-workspace.app-creation-platform .creation-chat-composer.is-empty .creation-chat-writing-surface { min-height: 112px !important; padding: 18px 22px 8px !important; }
+.app-user-workspace.app-creation-platform .creation-chat-composer.is-empty .creation-chat-mention-editor { min-height: 48px !important; font-size: 16px !important; }
+.app-user-workspace.app-creation-platform .creation-chat-composer.is-empty .creation-chat-dock { min-height: 54px !important; padding: 8px 14px 12px !important; }
+.app-user-workspace.app-creation-platform .creation-lib-tv-inspiration { margin-top: 36px; }
+.app-user-workspace.app-creation-platform .creation-lib-tv-inspiration > header h2 { color: #f4f4f4; }
+.app-user-workspace.app-creation-platform .creation-home .creation-chat-composer { border-color: #353535 !important; background: #1b1b1b !important; }
+.app-user-workspace.app-creation-platform .creation-home .creation-empty-suggest .suggest-card { border-color: #2a2a2a !important; background: #191919 !important; }
+
+@media (max-width: 1200px) {
+    .app-user-workspace.app-creation-platform .creation-lib-tv-quick-actions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+    .app-user-workspace.app-creation-platform .app-workspace-sidebar { width: 240px !important; flex-basis: 240px !important; }
+    .app-user-workspace.app-creation-platform .creation-home > .creation-empty-workspace { width: calc(100% - 24px) !important; }
+    .app-user-workspace.app-creation-platform .creation-lib-tv-quick-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-inline: 8px; }
+    .app-user-workspace.app-creation-platform .creation-lib-tv-quick-icon { width: 100%; height: 68px; }
+}
+
 /* LibTV-inspired creation home: make the primary canvas entry visible before
    the inspiration rail while keeping the existing composer and actions intact. */
 .app-workspace-announcement-fallback {

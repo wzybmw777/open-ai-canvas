@@ -39,7 +39,7 @@ import { CreationAttachmentThumbnail, CreationMediaPreviewModal } from "./creati
 
 export { CreationHistoryDrawer } from "./creation-workspace-history";
 export { CreationMessageView } from "./creation-workspace-messages";
-export { CreationEmptyBanner, CreationEmptySuggest, CreationFeaturedWorks } from "./creation-workspace-empty";
+export { CreationEmptyBanner, CreationEmptySuggest, CreationFeaturedWorks, CreationQuickActions } from "./creation-workspace-empty";
 
 const CanvasPromptOptimizerDrawer = lazy(() => import("@/components/canvas/canvas-prompt-optimizer-drawer").then((module) => ({ default: module.CanvasPromptOptimizerDrawer })));
 
