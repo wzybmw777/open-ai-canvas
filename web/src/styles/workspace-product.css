@@ -930,6 +930,161 @@
     padding: 0;
 }
 
+/* LibTV-inspired workspace surface: light navigation, clear creation entry,
+   and content-first card grids without decorative effects. */
+.app-product-workspace:not(.app-spatial-workspace) {
+    --product-content-max: 1320px;
+    --product-page-radius: 10px;
+    --product-control-radius: 8px;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-stage {
+    background: var(--user-page-bg);
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-topbar {
+    min-height: 56px !important;
+    height: 56px !important;
+    padding-inline: 20px !important;
+    border-bottom: 1px solid var(--user-border) !important;
+    background: var(--user-surface) !important;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-topbar-breadcrumb {
+    gap: 10px;
+    color: var(--user-ink-muted) !important;
+    font-size: 13px;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-topbar-breadcrumb > span[aria-hidden="true"] {
+    color: var(--user-border-strong);
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-topbar-actions {
+    gap: 6px;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-topbar-icon-button {
+    border-radius: var(--product-control-radius);
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-sidebar {
+    width: 248px !important;
+    flex-basis: 248px !important;
+    background: var(--user-surface) !important;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-sidebar-nav {
+    background: var(--user-surface) !important;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-sidebar-brand-row {
+    min-height: 72px;
+    padding: 16px 16px 12px !important;
+    border-bottom: 1px solid var(--user-border);
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-sidebar-scroll-area {
+    gap: 18px !important;
+    padding: 18px 12px 14px !important;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-nav-group {
+    gap: 4px;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-nav-group-label {
+    padding: 0 10px 6px;
+    color: var(--user-ink-soft) !important;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-nav-link {
+    min-height: 42px !important;
+    border-radius: var(--product-control-radius) !important;
+    padding: 9px 12px !important;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-nav-link.is-active {
+    background: color-mix(in srgb, var(--user-accent) 10%, var(--user-surface)) !important;
+    color: var(--user-accent) !important;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) main.app-user-content:not(.workbench-page) > div {
+    width: min(var(--product-content-max), calc(100% - 64px));
+    padding: 28px 0 56px;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) main.app-user-content:not(.workbench-page) .app-page-header {
+    min-height: 64px;
+    padding-bottom: 18px;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) main.app-user-content:not(.workbench-page) .app-page-header-title,
+.app-product-workspace:not(.app-spatial-workspace) main.app-user-content:not(.workbench-page) .app-page-header h1 {
+    font-size: 22px !important;
+    letter-spacing: -.03em;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) main.app-user-content:not(.workbench-page) :is(.collection-toolbar, .library-toolbar, .admin-list-toolbar) {
+    margin: 20px 0 18px;
+    border: 1px solid var(--user-border);
+    border-radius: var(--product-page-radius);
+    padding: 8px;
+    background: var(--user-surface);
+}
+
+.app-product-workspace:not(.app-spatial-workspace) main.app-user-content:not(.workbench-page) :is(.library-grid, .assets-library-grid, .project-library-grid, .skill-library-grid, .plugins-grid, .task-grid-view) {
+    gap: 18px;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .inspiration-hall {
+    max-width: var(--product-content-max);
+    margin-top: 0;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .inspiration-hall-toolbar {
+    margin-bottom: 18px;
+    border: 1px solid var(--user-border);
+    border-radius: var(--product-page-radius);
+    padding: 8px;
+    background: var(--user-surface);
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .inspiration-gallery {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 246px), 1fr));
+    gap: 18px;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .inspiration-card {
+    border: 1px solid var(--user-border);
+    border-radius: var(--product-page-radius);
+    background: var(--user-surface);
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .inspiration-card:hover,
+.app-product-workspace:not(.app-spatial-workspace) .inspiration-card:focus-within {
+    border-color: var(--user-border-strong);
+    background: var(--user-surface-hover);
+    transform: none;
+}
+
+@media (max-width: 720px) {
+    .app-product-workspace:not(.app-spatial-workspace) .app-workspace-sidebar {
+        width: min(84vw, 320px) !important;
+        flex-basis: min(84vw, 320px) !important;
+    }
+
+    .app-product-workspace:not(.app-spatial-workspace) main.app-user-content:not(.workbench-page) > div {
+        width: calc(100% - 32px);
+        padding-top: 18px;
+        padding-bottom: 36px;
+    }
+}
+
 .app-changelog-heading {
     display: flex;
     align-items: center;
