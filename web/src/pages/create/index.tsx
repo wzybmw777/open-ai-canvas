@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { App, Spin } from "antd";
 import { Tooltip } from "@/components/ui/base/tooltip";
-import { History, Sparkles, Maximize2, Plus } from "lucide-react";
+import { History, Sparkles, Maximize2 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useNavigate, useSearchParams } from "react-router";
 import { getProjectCore } from "@/services/api/projects";
@@ -1137,17 +1137,7 @@ export default function CreatePage() {
                     </motion.div> : null}
                 </AnimatePresence>
                 <main ref={threadScrollRef} onScroll={handleThreadScroll} className="creation-empty-workspace creation-scrollbar">
-                <section className="creation-lib-tv-create-card" aria-label={text("新建画布创作", "New canvas creation")}>
-                    <button
-                        type="button"
-                        className="creation-lib-tv-create-action"
-                        onClick={() => composerFocusRef.current?.focus({ preventScroll: true })}
-                    >
-                        <Plus aria-hidden="true" />
-                    </button>
-                    <strong>{text("新建画布创作", "New canvas creation")}</strong>
-                    <span>{text("从一句想法开始，生成视频、图片或故事", "Start with an idea and create video, images, or stories")}</span>
-                </section>
+                <CreationInspirationTunnel mode={mode} composing={Boolean(prompt.trim())} onStartPrompt={startPrompt} />
                 <section ref={launchpadRef} className="creation-launchpad" aria-label={text("开始创作", "Start creating")}>
                     <div className={cn("creation-composer-stage is-home-mode", agentMode && "is-agent-mode")}>
                         <CreationModeTabs mode={mode} agentActive={agentMode} onAgentSelect={() => setAgentMode(true)} onModeChange={(next) => { setAgentMode(false); selectMode(next); }} />
@@ -1157,16 +1147,6 @@ export default function CreatePage() {
                         onStartPrompt={startPrompt}
                         onOpenLibrary={() => { if (!requireCreationProject()) return; setAgentMode(false); selectMode("image"); setLibraryOpen(true); }}
                     />
-                </section>
-                <section className="creation-lib-tv-inspiration" aria-labelledby="creation-lib-tv-inspiration-title">
-                    <header>
-                        <div>
-                            <span>INSPIRE</span>
-                            <h2 id="creation-lib-tv-inspiration-title">{text("灵感推荐", "Inspiration")}</h2>
-                        </div>
-                        <p>{text("选择一个创意，快速带入创作输入框", "Pick an idea to fill the creation composer")}</p>
-                    </header>
-                    <CreationInspirationTunnel mode={mode} composing={Boolean(prompt.trim())} onStartPrompt={startPrompt} />
                 </section>
                 <Suspense fallback={<div className="creation-hall-loading" role="status">{text("正在加载灵感库…", "Loading inspiration library…")}</div>}>
                     <InspirationHall onUse={(item) => startPrompt(item.mode, fillablePrompt(item))} />

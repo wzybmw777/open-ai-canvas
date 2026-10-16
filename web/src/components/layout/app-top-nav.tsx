@@ -84,7 +84,7 @@ export function AppWorkspaceShell({ children }: { children: ReactNode }) {
                 <div className={cn("app-workspace-shell flex h-dvh min-h-0 w-full flex-col overflow-hidden", spatialWorkbench && "is-spatial", creationWorkspace && "is-creation-workspace")}>
                     {!hideChrome && mobileSidebarExpanded ? <button type="button" className="app-workspace-sidebar-scrim lg:hidden" aria-label={text("收起侧栏", "Close sidebar")} onClick={() => setMobileSidebarExpanded(false)} /> : null}
 
-                    {showGlobalTopBar ? <BannerAnnouncementsSlider showFallback={creationWorkspace} /> : null}
+                    {showGlobalTopBar ? <BannerAnnouncementsSlider /> : null}
 
                     <div className="app-workspace-main-row flex min-h-0 min-w-0 flex-1 overflow-hidden">
                         {!hideChrome ? (
