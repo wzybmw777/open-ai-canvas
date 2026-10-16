@@ -74,7 +74,7 @@ export function BannerAnnouncementsSlider() {
     // 底色随每条通知的类型切换：加过渡让不同风格的条目轮播时平滑换色，与标题动画节奏一致。
     return (
         <div
-            className="app-workspace-announcement relative flex min-h-10 w-full shrink-0 items-center justify-center px-4 py-2 text-white transition-colors duration-300 ease-out"
+            className="relative flex min-h-10 w-full shrink-0 items-center justify-center px-4 py-2 text-white transition-colors duration-300 ease-out"
             style={bannerAnnouncementBarStyle(currentBanner.noticeType)}
         >
             <button
