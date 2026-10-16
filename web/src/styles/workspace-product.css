@@ -729,6 +729,183 @@
     .app-product-workspace .plugins-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
+/* Product-wide refinement for the sidebar pages. Keep every route on the same
+   8px rhythm and reserve motion for direct user feedback. */
+.app-product-workspace:not(.app-spatial-workspace) {
+    --product-page-radius: 8px;
+    --product-control-radius: 6px;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-sidebar {
+    background: var(--user-page-bg) !important;
+    border-right: 1px solid var(--user-border) !important;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-sidebar-brand-row {
+    padding: 20px 16px 12px !important;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-sidebar-scroll-area {
+    gap: 20px !important;
+    padding: 16px 12px 12px !important;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-sidebar-footer {
+    padding: 12px !important;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-nav-link {
+    min-height: 40px !important;
+    border-radius: var(--product-control-radius) !important;
+    padding: 8px 10px !important;
+    color: var(--user-ink-muted) !important;
+    transition: background var(--product-state) var(--product-ease), color var(--product-state) var(--product-ease) !important;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-nav-link:hover:not(.is-active),
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-nav-link:focus-visible:not(.is-active) {
+    background: var(--user-surface-hover) !important;
+    color: var(--user-ink) !important;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-nav-link.is-active {
+    background: var(--user-nav-active-bg) !important;
+    color: var(--user-nav-active-ink) !important;
+    font-weight: 650 !important;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-nav-link:hover .app-workspace-nav-icon,
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-nav-link:focus-visible .app-workspace-nav-icon,
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-nav-link:active .app-workspace-nav-icon {
+    transform: none !important;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-nav-group > div > div .app-workspace-nav-link {
+    animation: none !important;
+}
+
+.app-product-workspace:not(.app-spatial-workspace) .app-workspace-nav-group-toggle {
+    min-height: 32px;
+    padding-inline: 10px;
+    color: var(--user-ink-soft) !important;
+    font-size: var(--fs-label);
+    letter-spacing: .02em;
+}
+
+.app-product-workspace main.app-user-content:not(.workbench-page) > div {
+    width: min(1200px, calc(100% - 48px));
+    margin-inline: auto;
+    padding: 24px 0 48px;
+}
+
+.app-product-workspace main.app-user-content:not(.workbench-page) .app-page-header {
+    position: static;
+    min-height: 56px;
+    padding: 0 0 16px;
+    border-bottom: 1px solid var(--user-border);
+    background: transparent;
+    backdrop-filter: none;
+}
+
+.app-product-workspace main.app-user-content:not(.workbench-page) .app-page-header-title,
+.app-product-workspace main.app-user-content:not(.workbench-page) .app-page-header h1 {
+    font-size: 20px !important;
+    font-weight: 650 !important;
+    letter-spacing: -.02em;
+}
+
+.app-product-workspace main.app-user-content:not(.workbench-page) .app-page-header p {
+    max-width: 60ch;
+    margin-top: 6px !important;
+    line-height: 1.55 !important;
+}
+
+.app-product-workspace main.app-user-content:not(.workbench-page) :is(.collection-toolbar, .library-toolbar, .admin-list-toolbar) {
+    margin: 16px 0 20px;
+    border: 1px solid var(--user-border);
+    border-radius: var(--product-page-radius);
+    padding: 8px;
+    background: var(--user-surface);
+}
+
+.app-product-workspace main.app-user-content:not(.workbench-page) :is(.collection-toolbar, .library-toolbar, .admin-list-toolbar) :is(.ant-input-affix-wrapper, .ant-select-selector, .ant-segmented) {
+    border-radius: var(--product-control-radius) !important;
+}
+
+.app-product-workspace main.app-user-content:not(.workbench-page) :is(.product-collection-card, .library-card, .task-grid-card, .task-record-row, .skill-library-card, .plugin-card, .inspiration-card) {
+    border: 1px solid var(--user-border) !important;
+    border-radius: var(--product-page-radius) !important;
+    background: var(--user-surface) !important;
+    box-shadow: none !important;
+    transform: none !important;
+    transition: background var(--product-state) var(--product-ease), border-color var(--product-state) var(--product-ease) !important;
+    animation: none !important;
+}
+
+.app-product-workspace main.app-user-content:not(.workbench-page) :is(.product-collection-card, .library-card, .task-grid-card, .task-record-row, .skill-library-card, .plugin-card, .inspiration-card):is(:hover, :focus-within) {
+    border-color: var(--user-border-strong) !important;
+    background: var(--user-surface-hover) !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+.app-product-workspace main.app-user-content:not(.workbench-page) :is(.library-card, .product-collection-card, .task-grid-card, .skill-library-card, .plugin-card, .inspiration-card) img {
+    animation: none !important;
+    filter: none !important;
+}
+
+.app-product-workspace main.app-user-content:not(.workbench-page) :is(.app-table-surface, .canvas-library-frame, .assets-library-frame, .task-library-frame, .settings-library-frame) {
+    border: 1px solid var(--user-border) !important;
+    border-radius: var(--product-page-radius) !important;
+    background: var(--user-surface) !important;
+    box-shadow: none !important;
+}
+
+.app-product-workspace .workbench-shell {
+    border: 1px solid var(--user-border);
+    border-radius: var(--product-page-radius);
+}
+
+.app-product-workspace .workbench-composer,
+.app-product-workspace .workbench-result-stage,
+.app-product-workspace .workbench-guide-stage,
+.app-product-workspace .workbench-active-panel,
+.app-product-workspace .workbench-history-panel {
+    border: 1px solid var(--user-border) !important;
+    border-radius: var(--product-page-radius) !important;
+    box-shadow: none !important;
+}
+
+.app-product-workspace .workbench-composer :is(.workbench-prompt-surface, .workbench-reference-slot, .workbench-parameters),
+.app-product-workspace .workbench-result-stage :is(.workbench-stage-frame, .workbench-result-media) {
+    border-radius: var(--product-control-radius) !important;
+    box-shadow: none !important;
+}
+
+.app-product-workspace :is(.ant-btn-primary, .workbench-submit):not(:disabled):hover {
+    transform: none !important;
+}
+
+@media (max-width: 720px) {
+    .app-product-workspace main.app-user-content:not(.workbench-page) > div {
+        width: calc(100% - 32px);
+        padding-top: 16px;
+        padding-bottom: 32px;
+    }
+
+    .app-product-workspace main.app-user-content:not(.workbench-page) .app-page-header {
+        align-items: flex-start;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-product-workspace:not(.app-spatial-workspace) :is(.app-workspace-nav-link, .product-collection-card, .library-card, .task-grid-card, .task-record-row, .skill-library-card, .plugin-card, .inspiration-card),
+    .app-product-workspace :is(.ant-btn, .workbench-submit) {
+        transition: none !important;
+        animation: none !important;
+    }
+}
+
 /* Changelog Modal Styles */
 .app-changelog-modal .ant-modal-container {
     display: flex;
