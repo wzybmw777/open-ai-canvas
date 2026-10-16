@@ -972,7 +972,7 @@ export default function CreatePage() {
     };
 
     const restoreMessageDraft = (item: CreationMessage) => {
-        if (!requireCreationProject()) return;
+        if (!requireCreationProject()) return false;
         const nextMode = item.mode || "text";
         const nextSettings = item.settings;
         selectMode(nextMode);
@@ -980,7 +980,7 @@ export default function CreatePage() {
         setAttachments(item.attachments ? [...item.attachments] : []);
         setDraftReferences(item.references ? [...item.references] : []);
         if (item.model) updateConfig(nextMode === "text" ? "textModel" : nextMode === "image" ? "imageModel" : "videoModel", item.model);
-        if (!nextSettings) return;
+        if (!nextSettings) return true;
         setRatio(nextSettings.ratio);
         setSeconds(nextSettings.seconds);
         setQuality(nextSettings.quality);
@@ -988,6 +988,11 @@ export default function CreatePage() {
         setCount(nextSettings.count);
         if (nextMode === "image") rememberImageSettings({ ratio: nextSettings.ratio, quality: nextSettings.quality, count: nextSettings.count });
         if (nextMode === "video") rememberVideoSettings({ ratio: nextSettings.ratio, seconds: nextSettings.seconds, videoQuality: nextSettings.videoQuality });
+        return true;
+    };
+
+    const reuseMessageDraft = (item: CreationMessage) => {
+        if (restoreMessageDraft(item)) window.requestAnimationFrame(() => composerFocusRef.current?.focus());
     };
 
     const retryFailedMessage = async (item: CreationMessage, index: number) => {
@@ -1175,7 +1180,7 @@ export default function CreatePage() {
                         onCreateVariant={() => createVariant(item, index)}
                         onContinueCanvas={(ids) => void continueOnCanvas(ids)}
                         openingCanvas={openingCanvas}
-                        onEditUserMessage={(text) => { if (!requireCreationProject()) return; setComposerPrompt(text); window.requestAnimationFrame(() => composerFocusRef.current?.focus()); }}
+                        onReuseUserMessage={reuseMessageDraft}
                     /></div>)}</div></section>
                 </main>
                 <section className="creation-thread-composer"><CreationComposer {...composerProps} variant="thread" /></section>

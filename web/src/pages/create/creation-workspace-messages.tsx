@@ -31,7 +31,7 @@ export function CreationMessageView({
     shotNumber,
     onRetryFailure,
     onCreateVariant,
-    onEditUserMessage,
+    onReuseUserMessage,
     onContinueCanvas,
     openingCanvas,
 }: {
@@ -39,12 +39,12 @@ export function CreationMessageView({
     shotNumber: number;
     onRetryFailure: () => void;
     onCreateVariant: () => void;
-    onEditUserMessage: (text: string) => void;
+    onReuseUserMessage: (item: CreationMessage) => void;
     onContinueCanvas: (ids?: string[]) => void;
     openingCanvas: boolean;
 }) {
     const brandName = useAppearanceStore((state) => state.appearance.brandName);
-    if (item.role === "user") return <CreationUserMessage item={item} shotNumber={shotNumber} onEditUserMessage={onEditUserMessage} />;
+    if (item.role === "user") return <CreationUserMessage item={item} shotNumber={shotNumber} onReuseUserMessage={onReuseUserMessage} />;
     const mode = item.mode || "text";
     const stateLabel = item.status === "pending" ? "生成中" : item.status === "cancelled" ? "已停止" : item.status === "error" ? "生成失败" : "";
     const heading =
@@ -122,7 +122,7 @@ export function CreationMessageView({
     );
 }
 
-export function CreationUserMessage({ item, shotNumber, onEditUserMessage }: { item: CreationMessage; shotNumber: number; onEditUserMessage: (text: string) => void }) {
+export function CreationUserMessage({ item, shotNumber, onReuseUserMessage }: { item: CreationMessage; shotNumber: number; onReuseUserMessage: (item: CreationMessage) => void }) {
     const { text } = useLocaleText();
     const [previewUrl, setPreviewUrl] = useState("");
     const [previewType, setPreviewType] = useState<"image" | "video">("image");
@@ -188,13 +188,16 @@ export function CreationUserMessage({ item, shotNumber, onEditUserMessage }: { i
                 </div>
             ) : null}
             <div className="creation-user-message-actions">
-                <Tooltip title={text("复制提示词", "Copy prompt")}>
-                    <button type="button" className="creation-user-message-copy" aria-label={text("复制提示词", "Copy prompt")} onClick={() => copyText(visiblePrompt, text("提示词已复制", "Prompt copied"))}>
+                <Tooltip title={text("复制并带入输入框", "Copy and add to editor")}>
+                    <button type="button" className="creation-user-message-copy" aria-label={text("复制并带入输入框", "Copy and add to editor")} onClick={() => {
+                        copyText(visiblePrompt, text("提示词已复制", "Prompt copied"));
+                        onReuseUserMessage(item);
+                    }}>
                         <Copy />
                     </button>
                 </Tooltip>
                 <Tooltip title="编辑并重新发送">
-                    <button type="button" className="creation-user-message-edit" aria-label="编辑提示词" onClick={() => onEditUserMessage(visiblePrompt)}>
+                    <button type="button" className="creation-user-message-edit" aria-label="编辑提示词" onClick={() => onReuseUserMessage(item)}>
                         <Pencil />
                     </button>
                 </Tooltip>
