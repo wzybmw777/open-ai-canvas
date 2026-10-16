@@ -10,7 +10,7 @@ import { Select } from "@/components/ui/base/select";
 import { AssetFilterGroup, AssetsBatchBar, AssetsEmptyState, AssetDrawer } from "./asset-library-panels";
 import { DeleteButton } from "@/components/ui/base/buttons/delete-button";
 import { cn } from "@/lib/utils";
-import { WorkspaceState } from "@/components/layout/workspace-state";
+import { WorkspaceLoadingState, WorkspaceState } from "@/components/layout/workspace-state";
 import { AssetCard } from "./asset-library-cards";
 import { Switch } from "@/components/ui/base/switch";
 import { resourceStorageTitle, resourceStorageLabel } from "@/lib/canvas/resource-storage-status";
@@ -163,17 +163,30 @@ export default function AssetsPage() {
     // 仅在「远端空、本地仍有筛选结果」或「远端总数>0 但本页全是被排除的 entity」时回退本地。
     const remotePageAssets = useMemo(() => assetPageQuery.data?.assets || [], [assetPageQuery.data?.assets]);
     const remoteTotal = assetPageQuery.data?.total ?? 0;
-    const remoteReady = assetPageQuery.isSuccess && assetPageQuery.data !== undefined;
-    const preferLocalUnsynced = remoteReady && remoteTotal === 0 && localVisibleAssets.length > 0;
-    const remoteEntityOnlyPage = remoteReady && remotePageAssets.length === 0 && remoteTotal > 0;
-    const useRemotePage = remoteReady && !preferLocalUnsynced && !remoteEntityOnlyPage && (remotePageAssets.length > 0 || remoteTotal === 0);
+    // keepPreviousData 会在筛选条件变化时暂时保留上一页数据；isPlaceholderData
+    // 用来避免把上一组筛选条件的总数显示成当前结果。
+    const remoteDataReady = assetPageQuery.isSuccess && assetPageQuery.data !== undefined && !assetPageQuery.isPlaceholderData;
+    const preferLocalUnsynced = remoteDataReady && remoteTotal === 0 && localVisibleAssets.length > 0;
+    const remoteEntityOnlyPage = remoteDataReady && remotePageAssets.length === 0 && remoteTotal > 0;
+    const useRemoteFacets = remoteDataReady && !preferLocalUnsynced;
+    const useRemotePage = useRemoteFacets && !remoteEntityOnlyPage && (remotePageAssets.length > 0 || remoteTotal === 0);
     const visibleAssets = useMemo(() => useRemotePage ? remotePageAssets : localVisibleAssets, [useRemotePage, remotePageAssets, localVisibleAssets]);
     const visibleAssetIds = useMemo(() => visibleAssets.map((asset) => asset.id), [visibleAssets]);
     const allFilteredSelected = visibleAssetIds.length > 0 && visibleAssetIds.every((id) => selectedIds.includes(id));
-    const totalAssets = useRemotePage ? remoteTotal : filteredAssets.length;
-    const kindCounts = useMemo(() => assetCountMap(kindOptions, useRemotePage ? assetPageQuery.data?.kindCounts : undefined, viewMode === "trash" ? trashAssets : activeAssets, (asset) => asset.kind), [activeAssets, assetPageQuery.data?.kindCounts, trashAssets, useRemotePage, viewMode]);
-    const categoryCounts = useMemo(() => assetCountMap(categoryOptions, useRemotePage ? assetPageQuery.data?.categoryCounts : undefined, viewMode === "trash" ? trashAssets : activeAssets, (asset) => asset.category || "other"), [activeAssets, assetPageQuery.data?.categoryCounts, trashAssets, useRemotePage, viewMode]);
-    const folderCounts = assetPageQuery.data?.folderCounts || {};
+    // 总数属于当前筛选条件，即使当前页的 DTO 因历史数据不完整而为空，
+    // 也必须保留服务端 total，不能回退到未同步的本地数组。
+    const totalAssets = useRemoteFacets ? remoteTotal : filteredAssets.length;
+    const kindCounts = useMemo(() => assetCountMap(kindOptions, useRemoteFacets ? assetPageQuery.data?.kindCounts : undefined, viewMode === "trash" ? trashAssets : activeAssets, (asset) => asset.kind), [activeAssets, assetPageQuery.data?.kindCounts, trashAssets, useRemoteFacets, viewMode]);
+    const categoryCounts = useMemo(() => assetCountMap(categoryOptions, useRemoteFacets ? assetPageQuery.data?.categoryCounts : undefined, viewMode === "trash" ? trashAssets : activeAssets, (asset) => asset.category || "other"), [activeAssets, assetPageQuery.data?.categoryCounts, trashAssets, useRemoteFacets, viewMode]);
+    const folderCounts = useRemoteFacets ? assetPageQuery.data?.folderCounts || {} : {};
+    const localStatusAssets = viewMode === "trash" ? trashAssets : activeAssets;
+    const allFolderCount = useRemoteFacets
+        ? Object.values(folderCounts).reduce((sum, count) => sum + count, 0)
+        : localStatusAssets.length;
+    const uncategorizedFolderCount = useRemoteFacets
+        ? folderCounts[""] ?? 0
+        : localStatusAssets.filter((asset) => !asset.folderId).length;
+    const assetLibraryLoading = Boolean(userId) && !remoteDataReady && !assetPageQuery.isError;
 
     useEffect(() => {
         const maxPage = Math.max(1, Math.ceil(totalAssets / pageSize));
@@ -547,7 +560,7 @@ export default function AssetsPage() {
                     <PageHeader
                         title={viewMode === "trash" ? text("素材库 / 回收站", "Asset library / Trash") : text("素材库", "Asset library")}
                         description={viewMode === "trash" ? text("已删除画布或手动归档的临时素材，可随时还原或彻底清理。", "Restore or permanently remove assets from deleted canvases and manual archives.") : text("管理文本、图片、视频、音频和 3D 模型素材。", "Manage text, image, video, audio, and 3D assets.")}
-                        meta={<span className="app-projects-header-meta assets-header-meta">{totalAssets} {text("个素材", "assets")}</span>}
+                        meta={<span className="app-projects-header-meta assets-header-meta">{assetLibraryLoading ? text("统计中…", "Counting…") : `${totalAssets} ${text("个素材", "assets")}`}</span>}
                         actions={
                             <div className="assets-header-actions">
                                 <div className="assets-header-action-buttons">
@@ -662,10 +675,10 @@ export default function AssetsPage() {
                                 </div>
                                 <div className="collection-folder-list">
                                     <button type="button" aria-pressed={folderFilter === "all"} className={`assets-filter-item ${folderFilter === "all" ? "is-active" : ""}`} onClick={() => { setFolderFilter("all"); setPage(1); }}>
-                                        <span className="assets-filter-item-label">{text("全部", "All")}</span><span className="assets-filter-count">{activeAssets.length}</span>
+                                        <span className="assets-filter-item-label">{text("全部", "All")}</span><span className="assets-filter-count">{allFolderCount}</span>
                                     </button>
                                     <button type="button" aria-pressed={folderFilter === "uncategorized"} className={`assets-filter-item ${folderFilter === "uncategorized" ? "is-active" : ""}`} onClick={() => { setFolderFilter("uncategorized"); setPage(1); }}>
-                                        <span className="assets-filter-item-label">{text("未分类", "Uncategorized")}</span><span className="assets-filter-count">{folderCounts[""] ?? activeAssets.filter((asset) => !asset.folderId).length}</span>
+                                        <span className="assets-filter-item-label">{text("未分类", "Uncategorized")}</span><span className="assets-filter-count">{uncategorizedFolderCount}</span>
                                     </button>
                                     {folders.map((folder) => (
                                         <div key={folder.id} className="assets-folder-row">
@@ -729,7 +742,9 @@ export default function AssetsPage() {
                                     onDelete={() => setBatchDeleteOpen(true)}
                                 />
                             ) : null}
-                            {validAssets.length === 0 && totalAssets === 0 ? (
+                            {assetLibraryLoading ? (
+                                <WorkspaceLoadingState label={text("正在读取素材", "Loading assets")} detail={text("正在同步当前账号的素材数量与列表。", "Syncing the asset count and list for this account.")} rows={2} />
+                            ) : validAssets.length === 0 && totalAssets === 0 ? (
                                 viewMode === "trash" ? (
                                     <WorkspaceState icon="assets" compact title={text("回收站是空的", "Trash is empty")} description={text("删除画布或手动移入回收站的素材会暂存到这里，可在需要时随时还原。", "Assets moved to trash will appear here until restored or deleted.")} />
                                 ) : (
