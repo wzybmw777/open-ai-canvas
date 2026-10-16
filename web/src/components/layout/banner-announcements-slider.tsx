@@ -15,7 +15,7 @@ import { useUserStore } from "@/stores/use-user-store";
 const BANNER_AUTO_SLIDE_MS = 4000;
 const BANNER_DISMISS_STORAGE_PREFIX = "yingce.banner-announcements.dismissed";
 
-export function BannerAnnouncementsSlider() {
+export function BannerAnnouncementsSlider({ showFallback = false }: { showFallback?: boolean }) {
     const navigate = useNavigate();
     const reducedMotion = useReducedMotion();
     const userId = useUserStore((state) => state.user?.id);
@@ -68,7 +68,18 @@ export function BannerAnnouncementsSlider() {
         setDismissed(true);
     };
 
-    if (!banners.length || dismissed) return null;
+    if (!banners.length) {
+        if (!showFallback) return null;
+        return (
+            <div className="app-workspace-announcement app-workspace-announcement-fallback" role="status">
+                <span className="app-workspace-announcement-fallback-digits" aria-hidden="true">04 : 09 : 45</span>
+                <strong>{"节后复工｜AI 创作工作台已准备就绪"}</strong>
+                <span className="app-workspace-announcement-fallback-copy">从灵感到成片，一站完成</span>
+                <span className="app-workspace-announcement-fallback-cta">开始创作</span>
+            </div>
+        );
+    }
+    if (dismissed) return null;
     const currentBanner = banners[currentIndex % banners.length];
 
     // 底色随每条通知的类型切换：加过渡让不同风格的条目轮播时平滑换色，与标题动画节奏一致。
