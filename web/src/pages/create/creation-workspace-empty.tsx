@@ -2,7 +2,7 @@
 
 import { useAppearanceStore } from "@/stores/use-appearance-store";
 import type { CreationMode } from "./creation-assets";
-import { ArrowUp, BarChart3, ChevronDown, Clapperboard, FileText, Image as ImageIcon, Music2, ScrollText, Sparkles, Video, WandSparkles } from "lucide-react";
+import { ArrowUp, ChevronDown, Clapperboard, FileText, Image as ImageIcon, Sparkles } from "lucide-react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { aceternityMotion } from "@/lib/aceternity-motion";
@@ -76,33 +76,6 @@ export function CreationEmptySuggest({ onStartPrompt, onOpenLibrary }: { onStart
                 })}
             </div>
         </LayoutGroup>
-    );
-}
-
-const creationQuickActions: Array<{ label: string; mode: CreationMode; icon: typeof Sparkles; prompt?: string; openLibrary?: boolean }> = [
-    { label: "Wan 3.0", mode: "video", icon: Sparkles, prompt: "用 Wan 3.0 创作一个电影感短片：" },
-    { label: "Vidu Q4 Preview", mode: "video", icon: WandSparkles, prompt: "用 Vidu Q4 Preview 生成一段镜头：" },
-    { label: "Seedance 2.5", mode: "video", icon: BarChart3, prompt: "用 Seedance 2.5 生成一段镜头：" },
-    { label: "视频生成", mode: "video", icon: Video, prompt: "生成一段视频：" },
-    { label: "图片生成", mode: "image", icon: ImageIcon, openLibrary: true },
-    { label: "音频生成", mode: "text", icon: Music2, prompt: "帮我设计这段视频的音效和配乐：" },
-    { label: "剧本生成", mode: "text", icon: ScrollText, prompt: "帮我创作一个短剧剧本，先从故事梗概开始：" },
-    { label: "智能剪辑", mode: "video", icon: Clapperboard, prompt: "帮我规划一套智能剪辑方案：" },
-];
-
-export function CreationQuickActions({ onStartPrompt, onOpenLibrary }: { onStartPrompt: (mode: CreationMode, prompt: string) => void; onOpenLibrary: () => void }) {
-    return (
-        <section className="creation-lib-tv-quick-actions" aria-label="快捷创作工具">
-            {creationQuickActions.map((item) => {
-                const Icon = item.icon;
-                return (
-                    <button key={item.label} type="button" onClick={() => item.openLibrary ? onOpenLibrary() : onStartPrompt(item.mode, item.prompt || "")}>
-                        <span className="creation-lib-tv-quick-icon"><Icon aria-hidden="true" /></span>
-                        <strong>{item.label}</strong>
-                    </button>
-                );
-            })}
-        </section>
     );
 }
 

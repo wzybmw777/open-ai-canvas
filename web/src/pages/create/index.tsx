@@ -36,7 +36,7 @@ import { creationAttachmentFromAudio, creationAttachmentFromDocument, creationAt
 import { creationLibraryDisabledReason, creationLibrarySelectionToAttachments } from "./creation-library";
 import { defaultCreationMode, modeLabels, type CreationConversation, type CreationMessage, type CreationMode, type CreationRetryContext, type CreationSettings, type CreationShotRailEntry, type CreationStatus } from "./creation-types";
 import { attachCreationTaskContexts, completedCreationGenerationTask, conversationTimestamp, creationShotRail, creationVideoShotOrdinal, isImageAttachment, isVideoAttachment, materializeCreationTaskResults, newConversation, newMessage, reconcileCreationTaskMessages } from "./creation-conversations";
-import { CreationComposer, CreationEmptySuggest, CreationHistoryDrawer, CreationMessageView, CreationModeTabs, CreationQuickActions, CreationWorkspaceToolbar, creationAssetCategoryLabels } from "./creation-workspace";
+import { CreationComposer, CreationEmptySuggest, CreationHistoryDrawer, CreationMessageView, CreationModeTabs, CreationWorkspaceToolbar, creationAssetCategoryLabels } from "./creation-workspace";
 import { CreationInspirationTunnel } from "./creation-inspiration-tunnel";
 import { declaredInspirationSources } from "@/lib/inspirations/catalog";
 import { fillablePrompt } from "@/lib/inspirations/resolve";
@@ -1148,10 +1148,6 @@ export default function CreatePage() {
                     <strong>{text("新建画布创作", "New canvas creation")}</strong>
                     <span>{text("从一句想法开始，生成视频、图片或故事", "Start with an idea and create video, images, or stories")}</span>
                 </section>
-                <CreationQuickActions
-                    onStartPrompt={startPrompt}
-                    onOpenLibrary={() => { if (!requireCreationProject()) return; setAgentMode(false); selectMode("image"); setLibraryOpen(true); }}
-                />
                 <section ref={launchpadRef} className="creation-launchpad" aria-label={text("开始创作", "Start creating")}>
                     <div className={cn("creation-composer-stage is-home-mode", agentMode && "is-agent-mode")}>
                         <CreationModeTabs mode={mode} agentActive={agentMode} onAgentSelect={() => setAgentMode(true)} onModeChange={(next) => { setAgentMode(false); selectMode(next); }} />
