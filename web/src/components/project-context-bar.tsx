@@ -21,6 +21,6 @@ export function ProjectContextBar({ projectId, disabled, onChange, description, 
                 notFoundContent={text("暂无可用项目，请先新建项目", "Create a project to get started")} />
             {action || (projectId ? <Link to={`/projects/${encodeURIComponent(projectId)}/overview`}>{text("打开项目", "Open project")}</Link> : <Link to="/projects?create=1">{text("新建项目", "New project")}</Link>)}
         </div>
-        {projects.isError ? <p role="alert">{text("项目列表加载失败。", "Could not load projects.")} <Button size="small" onClick={() => void projects.refetch()}>{text("重试", "Retry")}</Button></p> : <p>{description}</p>}
+        {projects.isError ? <p role="alert">{text("项目列表加载失败。", "Could not load projects.")} <Button size="small" onClick={() => void projects.refetch()}>{text("重试", "Retry")}</Button></p> : description ? <p>{description}</p> : null}
     </section>;
 }

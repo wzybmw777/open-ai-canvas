@@ -14,7 +14,7 @@
 // 更远的两张在短暂延迟后补齐，切换时不会出现空白。
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
-import { ArrowLeft, ArrowRight, ArrowUp } from "lucide-react";
+import { ArrowUp } from "lucide-react";
 
 import { catalogIdOf, curatedInspirations, type CreationInspiration } from "@/lib/inspirations/catalog";
 import { fillablePrompt } from "@/lib/inspirations/resolve";
@@ -306,12 +306,6 @@ export function CreationInspirationTunnel({ mode, onStartPrompt, composing = fal
                         </button>
                     );
                 })}
-            </div>
-
-            <div className="creation-gallery-controls" aria-label="切换灵感">
-                <button type="button" aria-label="上一条灵感" onClick={() => step(-1)}><ArrowLeft aria-hidden="true" /></button>
-                <span aria-hidden="true">{active + 1} / {shots.length}</span>
-                <button type="button" aria-label="下一条灵感" onClick={() => step(1)}><ArrowRight aria-hidden="true" /></button>
             </div>
 
             {/* 卡片本身对辅助技术隐藏，切换结果靠这条播报传达。 */}
