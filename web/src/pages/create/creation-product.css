@@ -223,15 +223,20 @@
 
 .app-user-workspace .creation-home .creation-chat-composer,
 .app-user-workspace .creation-home .creation-composer-shell {
-    border: 1px solid var(--user-border) !important;
     border-radius: var(--creation-product-radius) !important;
     background: var(--user-surface) !important;
     box-shadow: none !important;
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
 }
+.app-user-workspace .creation-home .creation-composer-shell {
+    border: 1px solid var(--user-border) !important;
+}
+.app-user-workspace .creation-home .creation-chat-composer {
+    border: 0 !important;
+}
 
-.app-user-workspace .creation-home .creation-chat-composer:focus-within {
+.app-user-workspace .creation-home .creation-composer-shell:focus-within {
     border-color: var(--user-border-strong) !important;
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--user-accent) 14%, transparent) !important;
 }
