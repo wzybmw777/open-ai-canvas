@@ -33,6 +33,7 @@ export type WorkspaceNavItem = {
 
 type WorkspaceNavGroup = {
     heading?: string;
+    initiallyCollapsed?: boolean;
     items: WorkspaceNavItem[];
 };
 
@@ -46,25 +47,26 @@ function buildNav(features: FeatureAvailability, locale: AppLocale): { groups: W
     const groups: WorkspaceNavGroup[] = [
         {
             items: [
-                { ...toolItem("create", "/"), id: "home", title: text("创作", "Create") },
-                { ...toolItem("inspirations", "/inspirations"), title: text("灵感", "Inspirations") },
-                { ...toolItem("projects", "/projects"), title: text("短剧创作", "Projects") },
-                { ...toolItem("canvas", "/canvas"), title: text("自由画布", "Canvas") },
-                { ...toolItem("theatre", "/theatre"), title: text("卓越剧场", "Excellence Theatre") },
+                { ...toolItem("create", "/"), id: "home", title: text("开始创作", "Start creating") },
+                { ...toolItem("projects", "/projects"), title: text("我的项目", "My projects") },
+                { ...toolItem("assets", "/assets"), title: text("素材库", "Asset library") },
+                { ...toolItem("theatre", "/theatre"), title: text("作品与发布", "Works & publishing") },
             ],
         },
         {
-            heading: text("资源与工具", "Resources & tools"),
+            heading: text("创作工具", "Creative tools"),
+            initiallyCollapsed: false,
             items: [
+                { ...toolItem("canvas", "/canvas"), title: text("画布", "Canvas") },
+                { ...toolItem("inspirations", "/inspirations"), title: text("灵感库", "Inspiration library") },
+                { ...toolItem("skills", "/skills"), title: text("技能", "Skills") },
+                ...(features.pluginCenterEnabled ? [{ ...toolItem("plugins", "/plugins"), title: text("插件", "Plugins") }] : []),
                 ...(features.imageWorkbenchEnabled ? [{ id: "toolbox-image", title: text("图片生成", "Image generation"), icon: ImageIcon, to: "/toolbox/image" }] : []),
                 ...(features.videoWorkbenchEnabled ? [{ id: "toolbox-video", title: text("视频生成", "Video generation"), icon: Video, to: "/toolbox/video" }] : []),
                 ...(features.imageWorkbenchEnabled || features.videoWorkbenchEnabled ? [{ id: "toolbox-watermark", title: text("AI 去水印", "AI watermark removal"), icon: Eraser, to: "/toolbox/watermark" }] : []),
-                { ...toolItem("assets", "/assets"), title: text("资产", "Assets") },
-                { ...toolItem("skills", "/skills"), title: text("技能", "Skills") },
-                ...(features.pluginCenterEnabled ? [{ ...toolItem("plugins", "/plugins"), title: text("插件", "Plugins") }] : []),
             ],
         },
-        ...(features.taskCenterEnabled ? [{ items: [{ ...toolItem("tasks", "/tasks"), title: text("创作历史", "History"), icon: HistoryIcon }] }] : []),
+        ...(features.taskCenterEnabled ? [{ heading: text("记录", "Records"), items: [{ ...toolItem("tasks", "/tasks"), title: text("生成任务", "Generation tasks"), icon: HistoryIcon }] }] : []),
     ];
 
     // 管理、设置和退出登录不再占据参考站式侧栏底部，而是通过用户卡片菜单进入。
@@ -173,7 +175,10 @@ function NavItem({
     const Icon = item.icon;
     const rowStyle = collapsed ? undefined : ({ paddingLeft: `${level * 12 + 10}px` } as CSSProperties);
 
-    const collapsedTitle = locale === "en-US" ? item.title : item.id === "home" ? "创作" : item.id === "projects" ? "短剧" : item.id === "canvas" ? "画布" : item.id === "assets" ? "资产" : item.id === "skills" ? "技能" : item.id === "plugins" ? "插件" : item.id === "tasks" ? "历史" : item.title.slice(0, 2);
+    const collapsedTitles = locale === "en-US"
+        ? { home: "Create", projects: "Projects", canvas: "Canvas", theatre: "Works", inspirations: "Ideas", assets: "Assets", skills: "Skills", plugins: "Plugins", tasks: "Tasks" }
+        : { home: "创作", projects: "项目", canvas: "画布", theatre: "作品", inspirations: "灵感", assets: "素材", skills: "技能", plugins: "插件", tasks: "任务" };
+    const collapsedTitle = collapsedTitles[item.id as keyof typeof collapsedTitles] || item.title.slice(0, 2);
     const rowContent = (
         <>
             <span className="app-workspace-nav-main flex min-w-0 items-center gap-2.5">
@@ -269,7 +274,7 @@ function NavItem({
 }
 
 function NavGroup({ group, activeId, onNavigate, onOpenSearch, onLogout, collapsed }: { group: WorkspaceNavGroup; activeId: string; onNavigate: () => void; onOpenSearch: () => void; onLogout: () => void; collapsed: boolean }) {
-    const [isOpen, setIsOpen] = useState(true);
+    const [isOpen, setIsOpen] = useState(!group.initiallyCollapsed);
     const hasActive = group.items.some((item) => item.id === activeId || (item.id === "settings" && activeId.startsWith("settings:")));
 
     // 激活项所在分组自动展开，保证当前位置可见。

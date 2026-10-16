@@ -228,7 +228,7 @@ func (w *taskWorkerCoordinator) processClaimedTask(task *model.Task, globalSlot 
 		}
 		// Legacy tasks without an explicit new retry run retain their conservative
 		// submission handling, as in createDirectTaskAttempt.
-		if len(attempts) == 0 && task.RouteRun <= 1 && task.Attempts > 1 {
+		if len(attempts) == 0 && task.RouteRun <= 0 && task.Attempts > 1 {
 			uncertain = true
 		}
 		return terminal.markPreparationFailure(task, "渠道不可用", errors.Join(err, readErr), uncertain, "自定义渠道已关闭，上游请求未发出")

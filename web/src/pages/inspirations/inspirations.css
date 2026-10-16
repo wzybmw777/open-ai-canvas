@@ -1,7 +1,9 @@
-/* 创作首页中的灵感大厅：标题与常用筛选常驻，完整管理功能按需展开。 */
+/* 创作首页中的灵感库：标题与常用筛选常驻，完整管理功能按需展开。 */
 .inspiration-hall {
     min-width: 0;
     width: 100%;
+    max-width: var(--product-content-max);
+    margin-inline: auto;
     margin-top: var(--space-8);
     scroll-margin-block-start: var(--space-24);
     color: var(--user-ink);

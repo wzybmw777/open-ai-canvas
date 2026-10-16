@@ -9,12 +9,12 @@ export const navigationTools = [
     },
     {
         slug: "inspirations",
-        label: "灵感",
+        label: "灵感库",
         icon: GalleryVerticalEnd,
     },
     {
         slug: "projects",
-        label: "短剧创作",
+        label: "项目",
         icon: Clapperboard,
         section: "创作空间",
     },
@@ -26,19 +26,19 @@ export const navigationTools = [
     },
     {
         slug: "tasks",
-        label: "任务",
+        label: "生成任务",
         icon: ListTodo,
         section: "创作空间",
     },
     {
         slug: "theatre",
-        label: "卓越剧场",
+        label: "作品与发布",
         icon: Film,
         section: "创作空间",
     },
     {
         slug: "assets",
-        label: "素材",
+        label: "素材库",
         icon: Images,
         section: "创作空间",
     },

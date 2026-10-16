@@ -811,6 +811,76 @@ func TestOfficialOpenAIAudioSpeedDefaultsInvalidAndZeroValues(t *testing.T) {
 	}
 }
 
+func TestOfficialDoubaoSeedAudioUsesVolcengineEndpointAndAPIKeyAuth(t *testing.T) {
+	adapter := officialPackageAdapter(t, "doubao-streaming-tts.yingce-plugin", "doubao-streaming-tts")
+	create, err := adapter.BuildCreate(context.Background(), RequestContext{BaseURL: "https://openspeech.bytedance.com", Request: GenerationRequest{
+		Capability: CapabilityAudio,
+		Model:      "seed-audio-1.0",
+		Prompt:     "hello from Seed Audio",
+		Extra:      map[string]any{"audioFormat": "wav", "audioSpeed": "1.25"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if create.Auth.Type != "header" || create.Auth.Header != "X-Api-Key" {
+		t.Fatalf("auth = %#v", create.Auth)
+	}
+	body := manifestTestBody(t, create)
+	if body["model"] != "seed-audio-1.0" || body["text_prompt"] != "hello from Seed Audio" {
+		t.Fatalf("body = %#v", body)
+	}
+	audioConfig, _ := body["audio_config"].(map[string]any)
+	if audioConfig["format"] != "wav" || audioConfig["speech_rate"] != float64(25) {
+		t.Fatalf("audio_config = %#v", audioConfig)
+	}
+	result, err := adapter.ParseCreate(context.Background(), []byte(`{"code":0,"audio":"YXVkaW8="}`))
+	if err != nil || result.Status != StatusSucceeded || result.Result == nil || len(result.Result.Audios) != 1 {
+		t.Fatalf("result = %#v, err = %v", result, err)
+	}
+	if result.Result.Audios[0].DataURL != "data:audio/mpeg;base64,YXVkaW8=" {
+		t.Fatalf("audio = %#v", result.Result.Audios[0])
+	}
+}
+
+func TestOfficialSeedAudioOmitsOpenAIDefaultVoiceAndKeepsExplicitSpeaker(t *testing.T) {
+	adapter := officialPackageAdapter(t, "doubao-streaming-tts.yingce-plugin", "doubao-streaming-tts")
+	for _, voice := range []string{"", "alloy", "zh_female_vv_uranus_bigtts"} {
+		for _, withAudio := range []bool{false, true} {
+			request := GenerationRequest{Capability: CapabilityAudio, Model: "seed-audio-1.0", Prompt: "Hello", Extra: map[string]any{"audioVoice": voice}}
+			if withAudio {
+				request.Audios = []MediaReference{{URL: "https://example.com/reference.mp3"}}
+			}
+			create, err := adapter.BuildCreate(context.Background(), RequestContext{Request: request})
+			if err != nil {
+				t.Fatal(err)
+			}
+			body := manifestTestBody(t, create)
+			refs, _ := body["references"].([]any)
+			want := 0
+			if withAudio {
+				want++
+				if len(refs) == 0 || refs[0].(map[string]any)["audio_url"] != "https://example.com/reference.mp3" {
+					t.Fatalf("reference audio was lost: %#v", body)
+				}
+			}
+			if voice != "" && voice != "alloy" {
+				want++
+				if len(refs) != want || refs[len(refs)-1].(map[string]any)["speaker"] != voice {
+					t.Fatalf("explicit speaker was lost: %#v", body)
+				}
+			}
+			if len(refs) != want {
+				t.Fatalf("voice=%q, withAudio=%v: references=%#v, want %d", voice, withAudio, refs, want)
+			}
+			if want == 0 {
+				if _, present := body["references"]; present {
+					t.Fatalf("plain generation must omit references: %#v", body)
+				}
+			}
+		}
+	}
+}
+
 func TestOfficialArkSeedreamParsesB64JSONAsDataURL(t *testing.T) {
 	for _, tc := range []struct {
 		packageName, providerID string

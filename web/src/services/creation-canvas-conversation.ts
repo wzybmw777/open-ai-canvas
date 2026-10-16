@@ -9,7 +9,7 @@ type SourceMessage = {
     settings?: unknown; attachments?: Array<{ name: string; storageKey?: string }>;
     references?: Array<{ id: string; label: string; kind: string }>;
 };
-type SourceConversation = { id: string; title: string; updatedAt: string; canvasId?: string; messages: SourceMessage[] };
+type SourceConversation = { id: string; title: string; updatedAt: string; projectId?: string; canvasId?: string; messages: SourceMessage[] };
 
 // Same source IDs merge into the same canvas conversation, without replaying tasks
 // or replacing messages produced by the canvas Agent after the handoff.
@@ -38,6 +38,7 @@ export async function continueCreationConversationOnCanvas(source: SourceConvers
         const project = await loadCanvasProjectForEditing(existingId);
         assertScope();
         if (!project) throw new Error("关联画布已不存在，请先恢复画布后继续。");
+        if (source.projectId && project.projectId !== source.projectId) throw new Error("关联画布不属于当前项目，请在对应项目中继续创作。");
         const sessions = project.chatSessions || [];
         const previous = sessions.find((item) => item.id === sessionId);
         const incoming = new Map(messages.map((item) => [item.id, item]));
@@ -56,7 +57,7 @@ export async function continueCreationConversationOnCanvas(source: SourceConvers
         } catch (cause) { syncError = cause; }
     } else {
         const session: CanvasAssistantSession = { id: sessionId, title: source.title, createdAt: source.messages[0].createdAt, updatedAt: source.updatedAt, messages };
-        const created = await createCanvasProjectWithRemoteSync(source.title || "创作画布", undefined, { chatSessions: [session], activeChatId: sessionId });
+        const created = await createCanvasProjectWithRemoteSync(source.title || "创作画布", source.projectId, { chatSessions: [session], activeChatId: sessionId });
         id = created.id;
         syncError = created.syncError;
         await flushCanvasStorePersistence();

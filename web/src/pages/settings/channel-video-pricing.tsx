@@ -74,7 +74,7 @@ export function ChannelModelSettings({ channel, onChange }: { channel: ModelChan
                     <div className="text-xs font-medium">{text("模型能力与请求协议", "Model capabilities and protocols")}</div>
                     <div className="mt-0.5 text-[var(--fs-tiny)] text-foreground/42">{text("与运营后台使用同一能力目录；测试会发起真实请求并可能产生供应商费用", "Model tests send real requests and may incur provider charges")}</div>
                 </div>
-                <span className="text-[var(--fs-tiny)] text-foreground/35">{locale === "en-US" ? `${channel.models.length} models` : `${channel.models.length} 个模型`}</span>
+                <span className="text-[var(--fs-caption)] text-muted-foreground">{locale === "en-US" ? `${channel.models.length} models` : `${channel.models.length} 个模型`}</span>
             </div>
             <div className="space-y-2">
                 {channel.models.map((rawModel) => {
@@ -89,14 +89,14 @@ export function ChannelModelSettings({ channel, onChange }: { channel: ModelChan
                                 <Settings2 className="size-4" />
                             </span>
                             <div className="min-w-0 flex-1">
-                                <div className="truncate text-xs font-medium" title={displayName === model ? model : `${displayName} (${model})`}>
+                                <div className="truncate text-sm font-medium" title={displayName === model ? model : `${displayName} (${model})`}>
                                     {displayName}
                                 </div>
                                 <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
                                     <Tag className="mr-0 text-[var(--fs-tiny)]" bordered={false}>
                                         {capabilityLabel(capability, locale)}
                                     </Tag>
-                                    <span className="truncate font-mono text-[var(--fs-tiny)] text-foreground/40" title={modelProtocolDefinition(protocol, availableProtocols)?.create}>
+                                    <span className="truncate font-mono text-[var(--fs-tiny)] text-muted-foreground" title={modelProtocolDefinition(protocol, availableProtocols)?.create}>
                                         {modelProtocolDefinition(protocol, availableProtocols)?.create || text("待配置请求协议", "Protocol not configured")}
                                     </span>
                                 </div>

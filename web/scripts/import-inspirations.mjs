@@ -20,6 +20,8 @@ const PUBLIC_DIR = join(WEB_DIR, "public", "inspirations");
 const SHOT_DIR = join(WEB_DIR, "public");
 /** 首页画廊的池子。放 public 而不是打进包：正文很长，进包会让首屏 JS 白背几百 KB。 */
 const GALLERY_POOL_FILE = join(PUBLIC_DIR, "gallery-pool.json");
+/** 首页只需要随机抽样；限制每种创作类型，避免把完整提示词正文下载到首屏。 */
+const GALLERY_POOL_LIMIT_PER_MODE = 48;
 /** 只留各来源的上游版本号，几行字，进包无所谓。 */
 const REVISIONS_FILE = join(WEB_DIR, "src", "lib", "inspirations", "source-revisions.ts");
 const UA = "Mozilla/5.0 (compatible; yingce-inspiration-import/1.0; +https://github.com/ddcat-ai/open-ai-canvas)";
@@ -390,9 +392,16 @@ ${Object.entries(revisions)
  * 描述空着的卡片第三行会缺一块。这些条目仍留在全量目录里，灵感页照常展示。
  */
 function renderGalleryPool(revisions, highlights) {
+    const counts = new Map();
     const entries = Object.values(highlights)
         .flat()
         .filter((entry) => entry.description)
+        .filter((entry) => {
+            const count = counts.get(entry.mode) || 0;
+            if (count >= GALLERY_POOL_LIMIT_PER_MODE) return false;
+            counts.set(entry.mode, count + 1);
+            return true;
+        })
         .map((entry) => ({ ...toCatalogEntry(entry), featured: true }));
     return JSON.stringify({ generatedAt: new Date().toISOString(), revisions, entries });
 }

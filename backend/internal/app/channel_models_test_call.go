@@ -100,6 +100,10 @@ func (s *Service) TestAdminChannelModel(ctx context.Context, actor *model.User, 
 		},
 		Metadata: map[string]interface{}{},
 	}
+	if string(protocol) == "doubao-streaming-tts" {
+		// Seed Audio can generate its own voice; OpenAI's alloy is not a valid speaker ID.
+		input.Config.AudioVoice = ""
+	}
 	if capability == "image" {
 		input.ImageCapability = imageProfile
 		if imageProfile.Parameters != nil {

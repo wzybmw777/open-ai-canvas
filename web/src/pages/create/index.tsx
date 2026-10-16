@@ -3,7 +3,9 @@ import { App, Spin } from "antd";
 import { Tooltip } from "@/components/ui/base/tooltip";
 import { History, Sparkles, Maximize2 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
+import { getProjectCore } from "@/services/api/projects";
+import { CreationProjectContext } from "./creation-project-context";
 
 import type { AssetLibraryPickerItem } from "@/components/assets/asset-library-picker-modal";
 import { generationErrorCode, generationErrorMessage } from "@/lib/generation-error";
@@ -22,7 +24,6 @@ import { resolveModelChannel, resolveModelRequestConfig, selectableModelsByCapab
 import { useCreationPreferencesStore } from "@/stores/use-creation-preferences-store";
 import { useAssetStore, type Asset } from "@/stores/use-asset-store";
 import { loadAssetsForUse } from "@/services/user-data-sync";
-import { useAppearanceStore } from "@/stores/use-appearance-store";
 import { cn } from "@/lib/utils";
 import { useLocaleText } from "@/lib/i18n";
 import { useUserStore } from "@/stores/use-user-store";
@@ -39,7 +40,6 @@ import { CreationComposer, CreationEmptySuggest, CreationHistoryDrawer, Creation
 import { CreationInspirationTunnel } from "./creation-inspiration-tunnel";
 import { declaredInspirationSources } from "@/lib/inspirations/catalog";
 import { fillablePrompt } from "@/lib/inspirations/resolve";
-import { CreationRecentCanvases } from "./creation-recent-canvases";
 import { CreationAgentEntry } from "./creation-agent-entry";
 import { createCreationSubmitGate } from "./creation-submit-gate";
 import { creationVideoConfig } from "./creation-generation-config";
@@ -74,9 +74,10 @@ export default function CreatePage() {
     const [agentMode, setAgentMode] = useState(false);
     const { message: toast, modal } = App.useApp();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const requestedProjectId = searchParams.get("project") || "";
     const [openingCanvas, setOpeningCanvas] = useState(false);
     const openingCanvasRef = useRef(false);
-    const brandName = useAppearanceStore((state) => state.appearance.brandName);
     const config = useEffectiveConfig();
     const composerPreferencesHydrated = useCreationPreferencesStore((state) => state.hydrated);
     const rememberMode = useCreationPreferencesStore((state) => state.rememberMode);
@@ -142,6 +143,15 @@ export default function CreatePage() {
     attachmentsRef.current = attachments;
 
     const activeConversation = useMemo(() => conversations.find((item) => item.id === activeId) || conversations[0], [activeId, conversations]);
+    const projectRequired = !activeConversation?.projectId;
+    const requireCreationProject = () => {
+        if (!projectRequired) return true;
+        toast.warning(text("请先选择创作项目，再输入内容或添加参考素材", "Choose a project before entering a prompt or adding references"));
+        return false;
+    };
+    const setComposerPrompt = (value: string) => {
+        if (!projectRequired) setPrompt(value);
+    };
     const historyConversations = useMemo(
         () => conversations.filter((conversation) => conversation.id === activeId || conversation.messages.length > 0).sort((left, right) => conversationTimestamp(right.updatedAt) - conversationTimestamp(left.updatedAt)),
         [activeId, conversations],
@@ -275,10 +285,15 @@ export default function CreatePage() {
         setConversationScope(null);
         void loadCreationConversations<CreationConversation>().then((stored) => {
             if (cancelled || getActiveUserScope() !== scope || (useUserStore.getState().user?.id || null) !== userId) return;
-            const next = stored?.length ? stored : [newConversation()];
+            let next = stored?.length ? stored : [newConversation()];
+            let initial = requestedProjectId ? next.find((item) => item.projectId === requestedProjectId) : next[0];
+            if (!initial) {
+                initial = { ...newConversation(), projectId: requestedProjectId };
+                next = [initial, ...next];
+            }
             conversationsRef.current = next;
             setConversations(next);
-            setActiveId(next[0].id);
+            setActiveId(initial.id);
             setConversationScope(scope);
             setHydrated(true);
         });
@@ -286,7 +301,7 @@ export default function CreatePage() {
             cancelled = true;
             // 页面卸载只停止当前页面的状态更新，后台任务由任务中心继续执行，返回页面后再恢复状态。
         };
-    }, [userId, userSessionHydrated]);
+    }, [userId, userSessionHydrated, requestedProjectId]);
 
     useEffect(() => () => abortRef.current?.abort(), []);
 
@@ -427,9 +442,9 @@ export default function CreatePage() {
     const externalLibraryItems = useMemo<AssetLibraryPickerItem[]>(
         () => externalAssetSources.items.map((item) => ({
             ...item,
-            disabledReason: creationLibraryDisabledReason(mode, item.external?.item.kind),
+            disabledReason: creationLibraryDisabledReason(mode, item.external?.item.kind, videoReferenceLimits),
         })),
-        [externalAssetSources.items, mode],
+        [externalAssetSources.items, mode, videoReferenceLimits],
     );
     const libraryItems = useMemo<AssetLibraryPickerItem[]>(() => [
         ...assets
@@ -441,10 +456,10 @@ export default function CreatePage() {
                 kindLabel: asset.kind === "video" ? text("视频", "Video") : asset.kind === "audio" ? text("音频", "Audio") : text("图片", "Image"),
                 asset,
                 searchText: (asset.tags || []).join(" "),
-                disabledReason: creationLibraryDisabledReason(mode, asset.kind),
+                disabledReason: creationLibraryDisabledReason(mode, asset.kind, videoReferenceLimits),
             })),
         ...externalLibraryItems,
-    ], [assets, externalLibraryItems, mode, text]);
+    ], [assets, externalLibraryItems, mode, text, videoReferenceLimits]);
     const uploadCreationAsset = async (file: File) => {
         const { uploadImage, uploadMediaFile } = await loadCreationRuntime();
         if (file.type.startsWith("video/")) {
@@ -472,6 +487,7 @@ export default function CreatePage() {
         };
     };
     const uploadLibraryAssets = async (files: FileList | File[]) => {
+        if (!requireCreationProject()) return [];
         const next = Array.from(files).filter((file) => creationFileAccepted(mode, file));
         if (!next.length) return [];
         const settled = await Promise.allSettled(next.map(async (file) => {
@@ -486,6 +502,7 @@ export default function CreatePage() {
     };
 
     const handleLibrarySelect = async (selectedIds: string[], pickedItems = libraryItems) => {
+        if (!requireCreationProject()) return;
         const next = creationLibrarySelectionToAttachments(selectedIds, pickedItems, mode, videoReferenceLimits);
         if (!next.length) return;
         const selected = new Set(selectedIds);
@@ -603,6 +620,23 @@ export default function CreatePage() {
             releaseSubmitGate();
             return;
         }
+        if (!activeConversation.projectId) {
+            toast.warning(text("请先选择创作所属项目", "Choose a project before generating"));
+            releaseRetryLock();
+            releaseSubmitGate();
+            return;
+        }
+        const submitScope = getActiveUserScope();
+        try {
+            const { project } = await getProjectCore(activeConversation.projectId);
+            if (submitScope !== getActiveUserScope()) throw new Error(text("账号已切换，请重新开始创作", "Account changed. Start again."));
+            if (project.status !== "active") throw new Error(text("项目已归档，请恢复后再创作", "Restore this project before generating"));
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : text("项目不可用，请重新选择", "Project unavailable. Choose another."));
+            releaseRetryLock();
+            releaseSubmitGate();
+            return;
+        }
         if (mode === "video" && !videoDurationAllowed(videoProfile, Number(seconds))) {
             toast.error(text("当前模型不支持所选视频时长，请重新选择", "This model does not support the selected duration."));
             releaseRetryLock();
@@ -660,6 +694,11 @@ export default function CreatePage() {
             return;
         }
         const expandedPrompt = skillExecution.prompt;
+        if (submitScope !== getActiveUserScope() || activeIdRef.current !== activeConversation.id || conversationsRef.current.find((item) => item.id === activeConversation.id)?.projectId !== activeConversation.projectId) {
+            releaseRetryLock();
+            releaseSubmitGate();
+            return;
+        }
         const referenceMetadata = skillExecution.metadata;
         followLatestMessageRef.current = true;
         const userMessage = newMessage("user", promptText, { mode, model: selectedModel, attachments, references, settings });
@@ -716,6 +755,7 @@ export default function CreatePage() {
         try {
             if (mode === "text") {
                 const result = await runtime.runGenerationOperationOnce(retryContext?.clientOperationId, () => runtime.runBackendGenerationTask({
+                    projectId: activeConversation.projectId,
                     mode: "text",
                     prompt: expandedPrompt,
                     config: requestConfig,
@@ -736,6 +776,7 @@ export default function CreatePage() {
             } else if (mode === "image") {
                 const taskCount = Math.max(1, Math.min(imageProfile.maxOutputs, Math.floor(Number(count) || 1)));
                 const settled = await runtime.runGenerationOperationOnce(retryContext?.clientOperationId, () => runtime.runBackendGenerationTaskBatch({
+                    projectId: activeConversation.projectId,
                     mode: "image",
                     prompt: expandedPrompt,
                     config: { ...requestConfig, count: "1" },
@@ -778,6 +819,7 @@ export default function CreatePage() {
                 updateOriginAssistant((item) => ({ ...item, content: failedCount ? `${resultUrls.length} 张图片已生成，${failedCount} 张失败` : "图片已生成" }));
             } else {
                 const result = await runtime.runGenerationOperationOnce(retryContext?.clientOperationId, () => runtime.runBackendGenerationTask({
+                    projectId: activeConversation.projectId,
                     mode: "video",
                     prompt: expandedPrompt,
                     config: requestConfig,
@@ -827,7 +869,7 @@ export default function CreatePage() {
     }, [retrySequence]);
 
     const startNewConversation = () => {
-        const next = newConversation();
+        const next = { ...newConversation(), projectId: activeConversation?.projectId };
         followLatestMessageRef.current = true;
         setConversations((current) => [next, ...current]);
         setActiveId(next.id);
@@ -930,6 +972,7 @@ export default function CreatePage() {
     };
 
     const restoreMessageDraft = (item: CreationMessage) => {
+        if (!requireCreationProject()) return;
         const nextMode = item.mode || "text";
         const nextSettings = item.settings;
         selectMode(nextMode);
@@ -1007,17 +1050,19 @@ export default function CreatePage() {
 
     const generationActive = activeConversation.messages.some((message) => message.role === "assistant" && message.status === "pending");
     const startPrompt = (nextMode: CreationMode, nextPrompt: string) => {
+        if (!requireCreationProject()) return;
         setAgentMode(false);
         selectMode(nextMode);
         setPrompt(nextPrompt);
-        threadScrollRef.current?.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
+        launchpadRef.current?.scrollIntoView({ block: "start", behavior: reducedMotion ? "auto" : "smooth" });
         window.requestAnimationFrame(() => composerFocusRef.current?.focus({ preventScroll: true }));
     };
 
     const composerProps = {
         mode,
         prompt,
-        setPrompt,
+        setPrompt: setComposerPrompt,
+        projectRequired,
         busy,
         generationActive,
         referenceReplacementBusy,
@@ -1032,7 +1077,7 @@ export default function CreatePage() {
         onReorderAttachments: reorderAttachments,
         onReplaceAttachment: replaceReferenceFromTrack,
         onReplaceReferenceFiles: replaceReferenceFromFiles,
-        onOpenLibrary: () => setLibraryOpen(true),
+        onOpenLibrary: () => { if (requireCreationProject()) setLibraryOpen(true); },
         onModeChange: selectMode,
         model: selectedModel,
         modelRequirements,
@@ -1068,9 +1113,10 @@ export default function CreatePage() {
 
     return <>
         <div className="creation-home relative flex h-full min-h-0 flex-col overflow-hidden">
+            <CreationProjectContext projectId={activeConversation.projectId} locked={Boolean(activeConversation.messages.length) || busy} onChange={(projectId) => updateActive((conversation) => ({ ...conversation, projectId }))} onNew={startNewConversation} />
             {isEmpty ? <>
                 <div className="creation-top-actions">
-                    <Tooltip title={text("历史对话", "History")}><button type="button" aria-label={text("查看历史对话", "View history")} aria-expanded={historyOpen} className="creation-top-action" onClick={() => setHistoryOpen(true)}><History /></button></Tooltip>
+                    <Tooltip title={text("历史对话", "History")}><button type="button" aria-label={text("查看历史对话", "View history")} aria-expanded={historyOpen} className="creation-top-action" onClick={() => setHistoryOpen(true)}><History /><span>{text("历史对话", "History")}</span></button></Tooltip>
                 </div>
                 <AnimatePresence>
                     {launchpadCondensed && !agentMode ? <motion.div className="creation-floating-prompt" key="floating-prompt"
@@ -1078,36 +1124,26 @@ export default function CreatePage() {
                         initial={{ opacity: 0, y: -12, scale: .97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8, scale: .98 }}
                         transition={reducedMotion ? { duration: 0 } : { type: "spring", stiffness: 360, damping: 32, mass: .8 }}>
                         <Sparkles aria-hidden="true" />
-                        <input aria-label={text("快捷编辑提示词", "Edit prompt")} placeholder={text("继续描述你的创作想法…", "Continue describing your idea...")} value={prompt} disabled={busy || referenceReplacementBusy} onChange={(event) => setPrompt(event.target.value)} />
+                        <input aria-label={text("快捷编辑提示词", "Edit prompt")} placeholder={projectRequired ? text("请先选择创作项目", "Choose a project first") : text("继续描述你的创作想法…", "Continue describing your idea...")} value={prompt} disabled={projectRequired || busy || referenceReplacementBusy} onChange={(event) => setComposerPrompt(event.target.value)} />
                         <Tooltip title={text("展开完整创作区", "Open editor")}><button type="button" aria-label={text("展开完整创作区", "Open editor")} onClick={() => {
-                            threadScrollRef.current?.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
+                            launchpadRef.current?.scrollIntoView({ block: "start", behavior: reducedMotion ? "auto" : "smooth" });
                             composerFocusRef.current?.focus({ preventScroll: true });
                         }}><Maximize2 /></button></Tooltip>
                     </motion.div> : null}
                 </AnimatePresence>
                 <main ref={threadScrollRef} onScroll={handleThreadScroll} className="creation-empty-workspace creation-scrollbar">
-                <div className="creation-home-heading">
-                    <span className="creation-home-eyebrow">{text("AI 创作工作台", "AI CREATIVE WORKSPACE")}</span>
-                    <h1>{text("让灵感，", "Turn ideas ")}<span className="creation-home-heading-accent">{text("成为作品", "into stories")}</span></h1>
-                    <p>{text(`和${brandName}一起，从一个画面、一个角色或一句话开始。`, `Create with ${brandName}. Start with a scene, a character, or a single line.`)}</p>
-                </div>
-                <CreationInspirationTunnel
-                    mode={mode}
-                    composing={Boolean(prompt.trim())}
-                    onStartPrompt={(nextMode, prompt) => { setAgentMode(false); selectMode(nextMode); setPrompt(prompt); window.requestAnimationFrame(() => composerFocusRef.current?.focus()); }}
-                />
+                <CreationInspirationTunnel mode={mode} composing={Boolean(prompt.trim())} onStartPrompt={startPrompt} />
                 <section ref={launchpadRef} className="creation-launchpad" aria-label={text("开始创作", "Start creating")}>
                     <div className={cn("creation-composer-stage is-home-mode", agentMode && "is-agent-mode")}>
                         <CreationModeTabs mode={mode} agentActive={agentMode} onAgentSelect={() => setAgentMode(true)} onModeChange={(next) => { setAgentMode(false); selectMode(next); }} />
-                        {agentMode ? <CreationAgentEntry /> : <div className="creation-empty-composer"><CreationComposer {...composerProps} variant="empty" /></div>}
+                        {agentMode ? <CreationAgentEntry projectId={activeConversation.projectId} /> : <div className="creation-empty-composer"><CreationComposer {...composerProps} variant="empty" /></div>}
                     </div>
                     <CreationEmptySuggest
                         onStartPrompt={startPrompt}
-                        onOpenLibrary={() => { setAgentMode(false); selectMode("image"); setLibraryOpen(true); }}
+                        onOpenLibrary={() => { if (!requireCreationProject()) return; setAgentMode(false); selectMode("image"); setLibraryOpen(true); }}
                     />
                 </section>
-                <CreationRecentCanvases onRequireLogin={() => setLoginDialogOpen(true)} />
-                <Suspense fallback={<div className="creation-hall-loading" role="status">正在准备灵感大厅…</div>}>
+                <Suspense fallback={<div className="creation-hall-loading" role="status">{text("正在加载灵感库…", "Loading inspiration library…")}</div>}>
                     <InspirationHall onUse={(item) => startPrompt(item.mode, fillablePrompt(item))} />
                 </Suspense>
                 {inspirationSourcesVisible ? <div className="creation-source-notice">
@@ -1139,7 +1175,7 @@ export default function CreatePage() {
                         onCreateVariant={() => createVariant(item, index)}
                         onContinueCanvas={(ids) => void continueOnCanvas(ids)}
                         openingCanvas={openingCanvas}
-                        onEditUserMessage={(text) => { setPrompt(text); window.requestAnimationFrame(() => composerFocusRef.current?.focus()); }}
+                        onEditUserMessage={(text) => { if (!requireCreationProject()) return; setComposerPrompt(text); window.requestAnimationFrame(() => composerFocusRef.current?.focus()); }}
                     /></div>)}</div></section>
                 </main>
                 <section className="creation-thread-composer"><CreationComposer {...composerProps} variant="thread" /></section>

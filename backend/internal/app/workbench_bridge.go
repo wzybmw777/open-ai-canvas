@@ -1,8 +1,10 @@
 package app
 
 import (
+	"errors"
 	"strings"
 
+	"gorm.io/gorm"
 	"yingce/backend/internal/assets"
 	"yingce/backend/internal/model"
 	"yingce/backend/internal/workbench"
@@ -117,6 +119,10 @@ func (s *Service) CreateWorkbenchTask(userID string, req WorkbenchTaskInput, tra
 	} else {
 		return nil, BadAuthRequest("工作台类型无效")
 	}
+	project, err := s.requireWorkbenchProject(userID, req.ProjectID)
+	if err != nil {
+		return nil, err
+	}
 	resolved, err := s.workbenchDomain().ResolveTask(userID, req)
 	if err != nil {
 		return nil, err
@@ -131,10 +137,10 @@ func (s *Service) CreateWorkbenchTask(userID string, req WorkbenchTaskInput, tra
 		return nil, BadAuthRequest("所选系统模型不可用")
 	}
 	resolved.Model = modelName
-	return s.CreateTask(userID, CreateTaskRequest{Type: resolved.TaskType, Operation: resolved.Operation, Prompt: resolved.Prompt, Model: resolved.Model, LogicalModelID: resolved.LogicalModelID, Input: resolved.Input, TraceID: traceID, RequestID: requestID, workbenchKind: req.Kind})
+	return s.CreateTask(userID, CreateTaskRequest{ProjectID: project.ID, Type: resolved.TaskType, Operation: resolved.Operation, Prompt: resolved.Prompt, Model: resolved.Model, LogicalModelID: resolved.LogicalModelID, Input: resolved.Input, TraceID: traceID, RequestID: requestID, workbenchKind: req.Kind})
 }
 
-func (s *Service) WorkbenchTasks(userID, kind string, activeOnly bool, limit int) ([]TaskSummary, error) {
+func (s *Service) WorkbenchTasks(userID, kind, projectID string, activeOnly bool, limit int) ([]TaskSummary, error) {
 	if kind == WorkbenchKindImage {
 		if err := s.RequireFeature(FeatureImageWorkbench); err != nil {
 			return nil, err
@@ -146,7 +152,35 @@ func (s *Service) WorkbenchTasks(userID, kind string, activeOnly bool, limit int
 	} else {
 		return nil, BadAuthRequest("工作台类型无效")
 	}
-	return s.TasksWithOptions(userID, TaskListOptions{Limit: limit, ActiveOnly: activeOnly, WorkbenchKind: kind})
+	projectID = strings.TrimSpace(projectID)
+	if projectID != "" {
+		if _, err := s.repo.ProjectForUser(userID, projectID); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, NotFound("项目不存在或无权访问")
+			}
+			return nil, err
+		}
+	}
+	return s.TasksWithOptions(userID, TaskListOptions{Limit: limit, ProjectID: projectID, ActiveOnly: activeOnly, WorkbenchKind: kind})
+}
+
+// 独立工作台始终归属业务项目，不接受本地画布 ID 或未关联任务作为兜底。
+func (s *Service) requireWorkbenchProject(userID, projectID string) (*model.Project, error) {
+	projectID = strings.TrimSpace(projectID)
+	if projectID == "" {
+		return nil, BadAuthRequest("请选择生成内容所属项目")
+	}
+	project, err := s.repo.ProjectForUser(userID, projectID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, NotFound("项目不存在或无权访问")
+	}
+	if err != nil {
+		return nil, err
+	}
+	if project.Status != model.ProjectStatusActive {
+		return nil, BadAuthRequest("项目已归档，无法创建生成任务")
+	}
+	return project, nil
 }
 
 func (s *Service) resolveWorkbenchProviderConfig(kind, modelName, logicalModelID, channelID string, parameters map[string]any, input map[string]any) (map[string]any, error) {

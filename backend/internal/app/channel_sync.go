@@ -96,7 +96,7 @@ func (s *Service) SaveAdminChannelSync(actor *model.User, id string, input Chann
 		return nil, err
 	}
 	if job.Enabled && job.NextRunAt == nil {
-		next := channelsync.NextMidnight(time.Now())
+		next := channelsync.NextRunAt(time.Now())
 		job.NextRunAt = &next
 	}
 	if !job.Enabled {
@@ -161,7 +161,7 @@ func channelSyncAppError(err error) error {
 
 func (s *Service) claimChannelSync(job model.ChannelSyncJob, trigger, actorID string) (*model.ChannelSyncRun, error) {
 	run := &model.ChannelSyncRun{ID: newID(), ChannelID: job.ChannelID, Trigger: trigger, ActorID: actorID, Status: "running", StartedAt: time.Now()}
-	err := s.repo.ClaimChannelSync(job, run, channelsync.NextMidnight(run.StartedAt))
+	err := s.repo.ClaimChannelSync(job, run, channelsync.NextRunAt(run.StartedAt))
 	return run, err
 }
 
@@ -170,6 +170,10 @@ func (s *Service) startChannelSyncWorker() {
 		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()
 		for {
+			now := time.Now()
+			if err := s.repo.BringForwardChannelSyncJobs(now, channelsync.NextRunAt(now)); err != nil {
+				slog.Warn("channel sync schedule adjustment failed", "errorType", fmt.Sprintf("%T", err))
+			}
 			if err := s.repo.RecoverExpiredChannelSync(time.Now()); err != nil {
 				slog.Warn("channel sync lease recovery failed", "errorType", fmt.Sprintf("%T", err))
 			}
@@ -295,6 +299,25 @@ func (s *Service) prepareChannelSync(ctx context.Context, job model.ChannelSyncJ
 		}
 		group, err = channelsync.SelectGroup(catalog, job.GroupID)
 		if err != nil {
+			if errors.Is(err, channelsync.ErrPriceGroupUnavailable) {
+				existing, loadErr := s.repo.ChannelModels(job.ChannelID, true)
+				if loadErr != nil {
+					return nil, nil, nil, "", loadErr
+				}
+				changed := make([]model.ChannelModel, 0, len(existing))
+				for _, item := range existing {
+					if item.Enabled {
+						item.Enabled = false
+						changed = append(changed, item)
+					}
+				}
+				summary, _ := json.Marshal(channelsync.Summary{
+					Authorized: len(keys),
+					Disabled:   len(changed),
+					Warnings:   []string{"上游价格分组不存在或为空，相关模型已停用"},
+				})
+				return channel, changed, nil, string(summary), nil
+			}
 			return nil, nil, nil, "", BadAuthRequest(err.Error())
 		}
 	}
@@ -306,6 +329,20 @@ func (s *Service) prepareChannelSync(ctx context.Context, job model.ChannelSyncJ
 	if err != nil {
 		return nil, nil, nil, "", BadAuthRequest(err.Error())
 	}
+	previouslyEnabled := make(map[string]bool, len(existing))
+	for _, item := range existing {
+		previouslyEnabled[item.ID] = item.Enabled
+	}
+	for i := range plan.Models {
+		item := &plan.Models[i]
+		if item.Enabled && !previouslyEnabled[item.ID] {
+			if err := s.validateChannelSyncReactivation(channel, *item); err != nil {
+				item.Enabled = false
+				plan.Summary.Enabled--
+				plan.Summary.Warnings = append(plan.Summary.Warnings, item.ModelKey+"：协议、能力或价格档配置不完整，保持停用，请在系统渠道中完善配置")
+			}
+		}
+	}
 	added := make([]model.ChannelModel, 0, len(plan.NewKeys))
 	for _, key := range plan.NewKeys {
 		id, err := s.repo.NextPrefixedID("MODEL")
@@ -316,6 +353,23 @@ func (s *Service) prepareChannelSync(ctx context.Context, job model.ChannelSyncJ
 	}
 	summary, _ := json.Marshal(plan.Summary)
 	return channel, plan.Models, added, string(summary), nil
+}
+
+func (s *Service) validateChannelSyncReactivation(channel *model.ModelChannel, item model.ChannelModel) error {
+	_, providerKey, capability, protocol, err := s.normalizeChannelModelContract(channel, ChannelModelRequest{
+		ModelKey: item.ModelKey, ProviderModelKey: item.ProviderModelKey, Capability: item.Capability, Protocol: string(item.Protocol),
+	})
+	if err != nil {
+		return err
+	}
+	config, err := DecodeModelCapabilityConfig(item.CapabilityConfigJSON)
+	if err != nil {
+		return err
+	}
+	if _, err := NormalizeModelCapabilityConfigForModel(capability, string(protocol), providerKey, config, s.protocolRegistry()); err != nil {
+		return err
+	}
+	return validateChannelModelTierCapabilities(item.PriceTiers, item.CapabilityConfigJSON, capability, string(protocol))
 }
 
 func (s *Service) readChannelSyncJSON(request *http.Request, proxy string, target any) error {

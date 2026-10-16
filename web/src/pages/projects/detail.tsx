@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, App } from "antd";
-import { ArrowLeft, Plus } from "lucide-react";
+import { Alert, App, Dropdown } from "antd";
+import { ArrowLeft, ChevronDown, Plus } from "lucide-react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
 
 import { getProjectCore, getProjectOverview, getProjectUnitWorkspace, linkCanvasUnit, listProjectUnits } from "@/services/api/projects";
@@ -9,6 +9,7 @@ import { WorkspacePage } from "@/components/layout/workspace-page";
 import { WorkspaceErrorState, WorkspaceLoadingState } from "@/components/layout/workspace-state";
 import type { ProjectDetail } from "@/services/api/projects";
 import { localeText, localizedErrorMessage, useLocaleText } from "@/lib/i18n";
+import { useUserStore } from "@/stores/use-user-store";
 
 import { WorkflowChapterNavigator } from "./detail/workflow-chapter-navigator";
 
@@ -157,6 +158,11 @@ export default function ProjectDetailPage() {
 
 function ProjectWorkspaceHeader({ detail, projectId, activeView, unitId, stage, chapterHref, workflowHref, onCreateCanvas }: { detail: ProjectDetail; projectId: string; activeView: DetailView; unitId?: string; stage?: string; chapterHref: string; workflowHref: string; onCreateCanvas: () => void }) {
     const { locale, text } = useLocaleText();
+    const features = useUserStore((state) => state.features);
+    const tools = [
+        ...(features.imageWorkbenchEnabled ? [{ key: "image", label: <Link to={`/toolbox/image?project=${encodeURIComponent(projectId)}`}>{text("生成图片", "Generate images")}</Link> }] : []),
+        ...(features.videoWorkbenchEnabled ? [{ key: "video", label: <Link to={`/toolbox/video?project=${encodeURIComponent(projectId)}`}>{text("生成视频", "Generate videos")}</Link> }] : []),
+    ];
     const archived = detail.project.status === "archived";
     const createCanvasLabel = activeView === "chapters" && detail.units.length ? text("新建当前章节画布", "New canvas for this chapter") : text("新建项目画布", "New project canvas");
     return (
@@ -188,6 +194,10 @@ function ProjectWorkspaceHeader({ detail, projectId, activeView, unitId, stage, 
                 })}
             </nav>
             <div className="project-workspace-actions">
+                {!archived ? <Link className="project-workspace-create" to={`/?project=${encodeURIComponent(projectId)}`}>{text("AI 创作", "Create with AI")}</Link> : null}
+                {!archived && tools.length ? <Dropdown menu={{ items: tools }} trigger={["click"]}>
+                    <button type="button" className="project-workspace-create">{text("生成工具", "Generation tools")}<ChevronDown /></button>
+                </Dropdown> : null}
                 {activeView === "workflow" ? (
                     <WorkflowChapterNavigator projectId={projectId} units={detail.units} unitId={unitId} stage={stage} />
                 ) : (

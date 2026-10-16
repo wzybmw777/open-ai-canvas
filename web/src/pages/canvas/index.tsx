@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { App, Button, Dropdown, Input, Modal } from "antd";
 import { Select } from "@/components/ui/base/select";
@@ -23,7 +23,7 @@ import { saveCanvasDrawing, type CanvasDrawingRenderDraft } from "@/lib/canvas/c
 import { createCanvasProjectWithRemoteSync, hasRemoteUserDataSyncSession, loadCanvasProjectForEditing, saveRemoteUserDataNow, scheduleRemoteUserDataSync } from "@/services/user-data-sync";
 import { listRemoteCanvasProjectsPage, type CanvasLibrarySummary } from "@/services/api/user-data";
 import { useUserStore } from "@/stores/use-user-store";
-import { listProjects } from "@/services/api/projects";
+import { getProjectCore, listProjects } from "@/services/api/projects";
 import { loadCanvasProjectPage } from "@/lib/workspace-route-modules";
 import { resourceFileUrl, resourceStorageKey, uploadResourceFile } from "@/services/api/resources";
 import { primeResourceBlobCache } from "@/services/resource-blob-cache";
@@ -37,12 +37,17 @@ export default function CanvasPage() {
     const { message } = App.useApp();
     const brandName = useAppearanceStore((state) => state.appearance.brandName);
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const inputRef = useRef<HTMLInputElement>(null);
     const autoOpenRef = useRef(false);
     const [keyword, setKeyword] = useState("");
     const [sort, setSort] = useState<"updated" | "name" | "nodes">("updated");
-    const [projectFilter, setProjectFilter] = useState("all");
+    const [projectFilter, setProjectFilter] = useState(searchParams.get("project") || "all");
+    const [createOpen, setCreateOpen] = useState(false);
+    const [createProjectId, setCreateProjectId] = useState(searchParams.get("project") || "");
+    const [createTitle, setCreateTitle] = useState("");
+    const [creating, setCreating] = useState(false);
+    const createPendingRef = useRef(false);
     const loadMoreRef = useRef<HTMLDivElement>(null);
     const [loadedProjectCount, setLoadedProjectCount] = useState(50);
     const [openingProjectId, setOpeningProjectId] = useState("");
@@ -75,7 +80,7 @@ export default function CanvasPage() {
     const [historyOpen, setHistoryOpen] = useState(false);
     const [associationOpen, setAssociationOpen] = useState(false);
     const [associationProjectId, setAssociationProjectId] = useState("");
-    const projectQuery = useQuery({ queryKey: ["projects"], queryFn: () => listProjects() });
+    const projectQuery = useQuery({ queryKey: ["projects", "canvas", userId], queryFn: () => listProjects(), enabled: Boolean(userId) });
 
     const mode = searchParams.get("mode");
     const agentMode = mode === "new" || mode === "recent" || mode === "choose";
@@ -95,10 +100,28 @@ export default function CanvasPage() {
         [forwardedQuery, navigate, preloadProject],
     );
     const createAndEnter = () => {
-        void createCanvasProjectWithRemoteSync(`自由画布 ${projects.length + 1}`).then(({ id, syncError }) => {
+        setCreateProjectId(projectFilter !== "all" && projectFilter !== "independent" ? projectFilter : "");
+        setCreateTitle(`画布 ${projects.length + 1}`);
+        setCreateOpen(true);
+    };
+    const confirmCreate = async () => {
+        if (createPendingRef.current || !createProjectId || !createTitle.trim() || !userId) return;
+        createPendingRef.current = true;
+        setCreating(true);
+        try {
+            const current = await getProjectCore(createProjectId);
+            if (useUserStore.getState().user?.id !== userId) throw new Error("登录状态已变化，请重新选择项目");
+            if (current.project.status !== "active") throw new Error("项目已归档，请选择进行中的项目");
+            const { id, syncError } = await createCanvasProjectWithRemoteSync(createTitle.trim(), createProjectId);
+            if (useUserStore.getState().user?.id !== userId) return;
             if (syncError) message.warning(syncError instanceof Error ? `画布已在本地创建，云端同步失败：${syncError.message}` : "画布已在本地创建，云端同步失败");
             enterProject(id);
-        });
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : "创建画布失败");
+        } finally {
+            createPendingRef.current = false;
+            setCreating(false);
+        }
     };
     const filteredProjects = useMemo(() => {
         if (userId) return projects;
@@ -398,13 +421,8 @@ export default function CanvasPage() {
             enterProject(projects[0].id);
             return;
         }
-        void createCanvasProjectWithRemoteSync(`自由画布 ${projects.length + 1}`).then(({ id, syncError }) => {
-            if (syncError) message.warning(syncError instanceof Error ? `画布已在本地创建，云端同步失败：${syncError.message}` : "画布已在本地创建，云端同步失败");
-            enterProject(id);
-        });
+        createAndEnter();
     }, [hydrated, message, mode, projects, sessionHydrated, userId, libraryQuery.isSuccess]);
-
-    if (hydrated && !libraryQuery.isError && (mode === "new" || mode === "recent" || mode === "handoff")) return <main className="flex h-full items-center justify-center bg-background text-sm text-stone-500">正在打开画布...</main>;
 
     return (
         <WorkspacePage className="studio-collection-page">
@@ -517,6 +535,23 @@ export default function CanvasPage() {
             </div>
 
             <input ref={inputRef} type="file" accept="application/zip,.zip" className="hidden" onChange={(event) => void importCanvas(event.target.files?.[0])} />
+            <Modal title="新建项目画布" open={createOpen} okText="创建画布" cancelText="取消" confirmLoading={creating}
+                okButtonProps={{ disabled: !createProjectId || !createTitle.trim() || !userId || projectQuery.isError }}
+                onOk={() => void confirmCreate()}
+                onCancel={() => {
+                    if (creating) return;
+                    setCreateOpen(false);
+                    setSearchParams((current) => { const next = new URLSearchParams(current); next.delete("mode"); return next; }, { replace: true });
+                }}>
+                <div className="space-y-4">
+                    <label className="block space-y-2"><span>所属项目</span><Select className="w-full" value={createProjectId || undefined} placeholder="选择项目" disabled={creating}
+                        options={(projectQuery.data?.projects || []).filter(({ project }) => project.status === "active").map(({ project }) => ({ value: project.id, label: project.name }))}
+                        onChange={setCreateProjectId} /></label>
+                    {projectQuery.isError ? <p role="alert">项目加载失败。<Button size="small" onClick={() => void projectQuery.refetch()}>重试</Button></p> : null}
+                    <label className="block space-y-2"><span>画布名称</span><Input value={createTitle} onChange={(event) => setCreateTitle(event.target.value)} disabled={creating} maxLength={120} /></label>
+                    <p className="text-[var(--fs-caption)] text-muted-foreground">画布及其生成内容会保留项目关联。<Link to="/projects?create=1">新建项目</Link></p>
+                </div>
+            </Modal>
             <Modal
                 title="加入项目"
                 open={associationOpen}

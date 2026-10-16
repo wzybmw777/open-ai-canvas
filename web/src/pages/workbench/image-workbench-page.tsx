@@ -8,6 +8,8 @@ import { MediaPreview } from "@/components/media-preview";
 import { ModelPicker } from "@/components/model-picker";
 import { SpotlightSurface } from "@/components/ui/aceternity/spotlight-surface";
 import { WorkspacePage } from "@/components/layout/workspace-page";
+import { ProjectContextBar } from "@/components/project-context-bar";
+import { getProjectCore } from "@/services/api/projects";
 import { CanvasResourceMentionTextarea } from "@/components/canvas/canvas-resource-mention-textarea";
 import { normalizeCanvasNodeMentionTokens, type CanvasResourceReference } from "@/lib/canvas/canvas-resource-references";
 import { imageResolutionUsesQuality } from "@/lib/image-size-presets";
@@ -163,11 +165,27 @@ function flowStepState(step: string, values: { tool: WorkbenchTool | null; refer
 }
 
 export function WorkbenchPage({ kind }: { kind: WorkbenchKind }) {
+    const [params, setParams] = useSearchParams();
+    const userId = useUserStore((state) => state.user?.id);
+    const projectId = params.get("project")?.trim() || "";
+    return <ProjectWorkbench key={`${userId}:${kind}:${projectId}`} kind={kind} projectId={projectId} userId={userId}
+        onProjectChange={(id) => setParams((current) => { const next = new URLSearchParams(current); next.set("project", id); return next; }, { replace: true })} />;
+}
+
+function ProjectWorkbench({ kind, projectId, userId, onProjectChange }: { kind: WorkbenchKind; projectId: string; userId?: string; onProjectChange: (id: string) => void }) {
     const { message } = App.useApp();
     const config = useEffectiveConfig();
     const updateConfig = useConfigStore((state) => state.updateConfig);
     const isAiConfigReady = useConfigStore((state) => state.isAiConfigReady);
     const [searchParams, setSearchParams] = useSearchParams();
+    const lifecycle = useRef<AbortController | null>(null);
+    const submitting = useRef(false);
+    useEffect(() => {
+        const controller = new AbortController();
+        lifecycle.current = controller;
+        return () => controller.abort();
+    }, []);
+    const currentScope = () => !lifecycle.current?.signal.aborted && Boolean(userId) && useUserStore.getState().user?.id === userId;
     const [tools, setTools] = useState<WorkbenchTool[]>([]);
     const [directoryLoading, setDirectoryLoading] = useState(true);
     const [directoryError, setDirectoryError] = useState("");
@@ -391,17 +409,19 @@ export function WorkbenchPage({ kind }: { kind: WorkbenchKind }) {
     }, [capability, composerConfig, config, creditsEnabled, kind, quoteRequirements, seconds, selectedCount, selectedModel]);
 
     const loadTasks = useCallback(async () => {
+        if (!projectId || !userId) { setTasks([]); setTasksLoading(false); return []; }
         try {
-            const result = await listWorkbenchTasks(kind, 100);
+            const result = await listWorkbenchTasks(kind, 100, false, lifecycle.current?.signal, projectId);
+            if (lifecycle.current?.signal.aborted || useUserStore.getState().user?.id !== userId) return [];
             setTasks(result);
             return result;
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "任务列表加载失败");
+            if (!lifecycle.current?.signal.aborted) message.error(error instanceof Error ? error.message : "任务列表加载失败");
             return [];
         } finally {
             setTasksLoading(false);
         }
-    }, [kind, message]);
+    }, [kind, message, projectId, userId]);
 
     useEffect(() => {
         let stopped = false;
@@ -557,6 +577,8 @@ export function WorkbenchPage({ kind }: { kind: WorkbenchKind }) {
     };
 
     const submit = async () => {
+        if (submitting.current) return;
+        if (!projectId || !currentScope()) { message.warning("请先选择创作所属项目"); return; }
         const revision = workbenchRevisionRef.current;
         const submittedPrompt = normalizeCanvasNodeMentionTokens(prompt.trim(), promptReferences);
         if (tool?.inputContract?.promptRequired && !submittedPrompt) {
@@ -590,8 +612,13 @@ export function WorkbenchPage({ kind }: { kind: WorkbenchKind }) {
             message.error("提示词超过当前模型支持的长度");
             return;
         }
+        submitting.current = true;
         setBusy(true);
+        let submittedTaskId = "";
         try {
+            const { project } = await getProjectCore(projectId);
+            if (!currentScope()) return;
+            if (project.status !== "active") throw new Error("项目已归档，请选择进行中的项目");
             const imageRequest = kind === "image" && imageProfile ? normalizeImageValue(imageProfile, { size: ratio, quality, imageResolution, imageParameters: config.imageParameters, count, transparentBackground: config.transparentBackground }) : null;
             const videoRequest = kind === "video" && videoProfile ? normalizeVideoValue(videoProfile, { seconds, ratio, resolution: videoQuality }) : null;
             const parameters = imageRequest
@@ -614,6 +641,7 @@ export function WorkbenchPage({ kind }: { kind: WorkbenchKind }) {
             const createdTask =
                 logicalModelId || channel?.scope === "system"
                     ? await createWorkbenchTask({
+                          projectId,
                           kind,
                           ...(tool ? { toolId: tool.id } : {}),
                           ...(tool && preset ? { presetId: preset.id } : {}),
@@ -622,8 +650,10 @@ export function WorkbenchPage({ kind }: { kind: WorkbenchKind }) {
                           ...(logicalModelId ? { logicalModelId } : { channelId: channel.id }),
                           parameters,
                           references: readyReferences.map((reference) => ({ resourceId: reference.resourceId!, kind: reference.kind, role: reference.role, ...(reference.slotKey ? { slotKey: reference.slotKey } : {}) })),
-                      })
+                      }, lifecycle.current?.signal)
                     : await submitBackendGenerationTask({
+                          projectId,
+                          signal: lifecycle.current?.signal,
                           mode: kind,
                           prompt: submittedPrompt,
                           config: generationConfig,
@@ -668,7 +698,10 @@ export function WorkbenchPage({ kind }: { kind: WorkbenchKind }) {
                               workbench: { kind, ...(tool ? { toolId: tool.id } : {}), ...(tool && preset ? { presetId: preset.id } : {}), parameters, references: referenceSnapshot },
                           },
                       });
-            const task = await queryGenerationTask(createdTask.id);
+            submittedTaskId = createdTask.id;
+            if (!currentScope()) return;
+            const task = await queryGenerationTask(createdTask.id, { signal: lifecycle.current?.signal });
+            if (!currentScope()) return;
             setTasks((current) => [task, ...current.filter((item) => item.id !== task.id)]);
             if (revision === workbenchRevisionRef.current) {
                 setResultHidden(false);
@@ -677,8 +710,14 @@ export function WorkbenchPage({ kind }: { kind: WorkbenchKind }) {
             }
             message.success("生成任务已提交");
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "任务提交失败");
+            if (currentScope()) {
+                if (submittedTaskId) {
+                    message.warning("任务已提交，详情暂时无法读取，请在生成记录中刷新查看，勿重复提交");
+                    void loadTasks();
+                } else message.error(error instanceof Error ? error.message : "任务提交失败");
+            }
         } finally {
+            submitting.current = false;
             setBusy(false);
         }
     };
@@ -697,6 +736,10 @@ export function WorkbenchPage({ kind }: { kind: WorkbenchKind }) {
     };
 
     const restoreTaskToComposer = async (task: GenerationTask, notify = true) => {
+        if (!projectId || task.projectId !== projectId || !currentScope()) {
+            if (notify) message.warning("请先切换到任务所属项目");
+            return false;
+        }
         const snapshot = workbenchTaskSnapshot(task);
         if (!snapshot || snapshot.kind !== kind) {
             if (notify) message.warning("该任务没有可恢复的工作台参数");
@@ -750,6 +793,7 @@ export function WorkbenchPage({ kind }: { kind: WorkbenchKind }) {
                 ...(reference.slotKey ? { slotKey: reference.slotKey } : {}),
             })),
         );
+        if (!currentScope()) return false;
         setReferences(restoredReferences);
         const params = new URLSearchParams(searchParams);
         if (restoredTool) params.set("tool", restoredTool.id);
@@ -766,8 +810,12 @@ export function WorkbenchPage({ kind }: { kind: WorkbenchKind }) {
     };
 
     const retryTask = async (task: GenerationTask) => {
+        if (!projectId || task.projectId !== projectId || !currentScope()) { message.warning("请先切换到任务所属项目"); return; }
         setTaskBusyId(task.id);
         try {
+            const { project } = await getProjectCore(projectId);
+            if (!currentScope()) return;
+            if (project.status !== "active") throw new Error("项目已归档，无法重试生成");
             let restoreSource = task;
             if (!restoreSource.inputJson) {
                 try {
@@ -777,13 +825,16 @@ export function WorkbenchPage({ kind }: { kind: WorkbenchKind }) {
                 }
             }
             const restored = await restoreTaskToComposer(restoreSource, false);
+            if (!currentScope()) return;
             const next = await retryGenerationTask(task.id);
+            if (!currentScope()) return;
             if (!restored) await restoreTaskToComposer(next, false);
+            if (!currentScope()) return;
             setTasks((current) => [next, ...current.filter((item) => item.id !== next.id)]);
             setActiveTask(next);
             message.success("任务已重新提交");
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "重试任务失败");
+            if (currentScope()) message.error(error instanceof Error ? error.message : "重试任务失败");
         } finally {
             setTaskBusyId("");
         }
@@ -961,6 +1012,8 @@ export function WorkbenchPage({ kind }: { kind: WorkbenchKind }) {
     return (
         <WorkspacePage fluid scroll={false} className="workbench-page">
             <div className="workbench-shell" data-kind={kind}>
+                <ProjectContextBar projectId={projectId} onChange={onProjectChange} disabled={busy}
+                    description={projectId ? "生成任务和素材保存到当前项目。切换项目会清空未提交的草稿。" : "选择项目后开始生成，并在这里查看该项目的任务。"} />
                 <div className="workbench-flow-steps" aria-label="创作流程">
                     <Tooltip title="清空工具、提示词、参考素材和生成结果">
                         <button type="button" className="workbench-flow-reset" onClick={resetWorkbench} aria-label="重置工作台">
@@ -969,9 +1022,9 @@ export function WorkbenchPage({ kind }: { kind: WorkbenchKind }) {
                         </button>
                     </Tooltip>
                     {[
-                        ["goal", "01", "选择出品目标", flowStepState("goal", { tool, references, prompt, selectedModel })],
+                        ["goal", "01", "选择创作目标", flowStepState("goal", { tool, references, prompt, selectedModel })],
                         ["reference", "02", "准备参考素材", flowStepState("reference", { tool, references, prompt, selectedModel })],
-                        ["prompt", "03", "描述商品画面", flowStepState("prompt", { tool, references, prompt, selectedModel })],
+                        ["prompt", "03", "描述画面内容", flowStepState("prompt", { tool, references, prompt, selectedModel })],
                         ["settings", "04", "确认参数并生成", flowStepState("settings", { tool, references, prompt, selectedModel })],
                     ].map(([key, number, label, state], index) => (
                         <div className={`workbench-flow-step is-${state}`} key={key}>
@@ -1018,13 +1071,13 @@ export function WorkbenchPage({ kind }: { kind: WorkbenchKind }) {
                                 {toolLibrary}
                             </Modal>
                             {!tool && tools.length ? (
-                                <section className="workbench-goal-picker" aria-label="快速选择出品目标">
+                                <section className="workbench-goal-picker" aria-label="快速选择创作目标">
                                     <div className="workbench-goal-heading">
                                         <div>
                                             <span className="workbench-section-index">01</span>
                                             <div>
                                                 <strong>你现在要做什么？</strong>
-                                                <span>选择一个出品目标，参数和提示词会更快就位</span>
+                                                <span>选择创作目标，载入对应参数和提示词</span>
                                             </div>
                                         </div>
                                         <button type="button" onClick={() => setToolLibraryOpen(true)}>查看更多 <ChevronDown /></button>
@@ -1039,7 +1092,7 @@ export function WorkbenchPage({ kind }: { kind: WorkbenchKind }) {
                                     <span className="workbench-section-index">03</span>
                                     <div>
                                         <strong>描述你想要的成品</strong>
-                                        <span>说清商品、场景、构图、光线和需要保留的细节</span>
+                                        <span>描述主体、场景、构图、光线和需要保留的细节</span>
                                     </div>
                                 </div>
                                 {tool?.presets.length ? (

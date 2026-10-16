@@ -61,7 +61,7 @@ export function InspirationDetailModal({
             {item ? (
                 <div className="flex max-h-[76vh] flex-col">
                     <div className="inspiration-detail-cover">
-                        <InspirationCover key={item.image} image={item.image} />
+                        <InspirationCover key={item.image} image={item.image} eager />
                     </div>
 
                     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5">
@@ -151,9 +151,9 @@ export function InspirationDetailModal({
     );
 }
 
-export function InspirationCover({ image }: { image: string }) {
-    const [failed, setFailed] = useState(false);
-    return failed ? <MediaPlaceholder failed /> : <img src={image} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setFailed(true)} />;
+export function InspirationCover({ image, eager = false }: { image: string; eager?: boolean }) {
+    const [failedSrc, setFailedSrc] = useState("");
+    return failedSrc === image ? <MediaPlaceholder failed /> : <img src={image} alt="" loading={eager ? "eager" : "lazy"} decoding="async" referrerPolicy="no-referrer" onError={() => setFailedSrc(image)} />;
 }
 
 function PromptSection({ label, text, onCopy }: { label: string; text: string; onCopy: (text: string, label: string) => void }) {

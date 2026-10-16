@@ -15,7 +15,7 @@ import { useUserStore } from "@/stores/use-user-store";
 const RECENT_COUNT = 4;
 const updatedFormatter = new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
-export function CreationRecentCanvases({ onRequireLogin }: { onRequireLogin: () => void }) {
+export function CreationRecentCanvases({ projectId, onRequireLogin }: { projectId?: string; onRequireLogin: () => void }) {
     const { message } = App.useApp();
     const navigate = useNavigate();
     const userId = useUserStore((state) => state.user?.id);
@@ -25,8 +25,8 @@ export function CreationRecentCanvases({ onRequireLogin }: { onRequireLogin: () 
     const [creating, setCreating] = useState(false);
     const creatingRef = useRef(false);
     const recentQuery = useQuery({
-        queryKey: ["canvas-library", userId, "recent"],
-        queryFn: ({ signal }) => listRemoteCanvasProjectsPage({ page: 1, pageSize: RECENT_COUNT, sort: "updated", signal }),
+        queryKey: ["canvas-library", userId, "recent", projectId],
+        queryFn: ({ signal }) => listRemoteCanvasProjectsPage({ page: 1, pageSize: RECENT_COUNT, projectId, sort: "updated", signal }),
         enabled: Boolean(userId) && sessionHydrated,
     });
     const recentProjects = useMemo<CanvasLibrarySummary[]>(
@@ -49,11 +49,15 @@ export function CreationRecentCanvases({ onRequireLogin }: { onRequireLogin: () 
             return;
         }
         if (!canvasHydrated || creatingRef.current) return;
+        if (!projectId) {
+            message.warning("请先选择创作项目");
+            return;
+        }
         const scope = getActiveUserScope();
         creatingRef.current = true;
         setCreating(true);
         try {
-            const { id, syncError } = await createCanvasProjectWithRemoteSync("未命名画布");
+            const { id, syncError } = await createCanvasProjectWithRemoteSync("未命名画布", projectId);
             await flushCanvasStorePersistence();
             if (getActiveUserScope() !== scope || useUserStore.getState().user?.id !== userId) return;
             if (syncError) message.warning("画布已保存在本机，云端同步尚未完成，将自动重试。");
@@ -71,9 +75,9 @@ export function CreationRecentCanvases({ onRequireLogin }: { onRequireLogin: () 
             <header className="creation-section-heading">
                 <h2 id="creation-recent-title">
                     <Clock3 aria-hidden="true" />
-                    最近画布
+                    {projectId ? "项目最近画布" : "最近画布"}
                 </h2>
-                <Link to="/canvas" className="creation-section-link">
+                <Link to={projectId ? `/projects/${encodeURIComponent(projectId)}/canvases` : "/canvas"} className="creation-section-link">
                     查看全部
                     <ArrowUpRight aria-hidden="true" />
                 </Link>

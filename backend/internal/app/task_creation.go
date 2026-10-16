@@ -46,6 +46,13 @@ func (s *Service) CreateTask(userID string, req CreateTaskRequest) (*model.Task,
 	if err != nil {
 		return nil, err
 	}
+	if metadata, ok := normalizedInput["metadata"].(map[string]any); ok && metadata["source"] == "workbench" {
+		project, err := s.requireWorkbenchProject(userID, req.ProjectID)
+		if err != nil {
+			return nil, err
+		}
+		req.ProjectID = project.ID
+	}
 	// Fail admission before queueing or charging; the worker validates again in
 	// case a tool is deleted or its visibility changes while queued.
 	toolMode, _ := normalizedInput["mode"].(string)
@@ -134,7 +141,7 @@ func (s *Service) CreateTask(userID string, req CreateTaskRequest) (*model.Task,
 	if workbenchKind == "" {
 		workbenchKind = workbenchKindFromTaskInput(normalizedInput, taskType)
 	}
-	task := model.Task{ID: newID(), UserID: userID, TraceID: req.TraceID, RequestID: req.RequestID, ProjectID: req.ProjectID, Type: taskType, WorkbenchKind: workbenchKind, Status: model.TaskStatusQueued, Stage: "等待队列调度", Progress: 5, Prompt: prompt, Operation: req.Operation, Provider: req.Provider, Model: req.Model}
+	task := model.Task{ID: newID(), UserID: userID, TraceID: req.TraceID, RequestID: req.RequestID, ProjectID: req.ProjectID, Type: taskType, WorkbenchKind: workbenchKind, Status: model.TaskStatusQueued, Stage: "等待队列调度", Progress: 5, Prompt: prompt, Operation: req.Operation, Provider: req.Provider, Model: req.Model, RouteRun: 1}
 	if req.admission != nil {
 		task.ID = req.admission.ID
 		task.AgentRunID = req.admission.AgentRunID
@@ -146,7 +153,6 @@ func (s *Service) CreateTask(userID string, req CreateTaskRequest) (*model.Task,
 		task.LogicalModelRevisionID = routed.Revision.ID
 		task.RouteID = routed.Route.ID
 		task.ChannelModelID = routed.ChannelModel.ID
-		task.RouteRun = 1
 		task.Model = routed.LogicalModel.Code
 		task.Provider = "managed"
 	}

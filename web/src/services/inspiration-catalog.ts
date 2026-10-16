@@ -55,7 +55,15 @@ async function buildCatalog(): Promise<InspirationCatalog> {
     ]);
 
     const entriesBySource = new Map<InspirationSourceId, CreationInspiration[]>();
-    CATALOG_SOURCES.forEach((source, index) => entriesBySource.set(source.key, packs[index]));
+    CATALOG_SOURCES.forEach((source, index) => {
+        // 同源小图优先填满默认分页，避免已生成的缩略图分散在外站大图之间。
+        const local: CreationInspiration[] = [];
+        const remote: CreationInspiration[] = [];
+        for (const entry of packs[index]) {
+            (entry.image.startsWith("/") && !entry.image.startsWith("//") ? local : remote).push(entry);
+        }
+        entriesBySource.set(source.key, [...local, ...remote]);
+    });
     entriesBySource.set("original", curatedInspirations);
 
     const categoriesBySource = {} as Record<InspirationSourceId, InspirationCategoryOption[]>;
@@ -96,7 +104,7 @@ const GALLERY_POOL_FILE = "/inspirations/gallery-pool.json";
 let galleryPool: Promise<CreationInspiration[]> | null = null;
 
 /**
- * 池子有几百条、几百 KB，是全量目录之外的单独一份，只服务画廊一处。
+ * 池子是全量目录之外的单独一份，只保留首页随机抽样需要的条目，只服务画廊一处。
  * 拿不到就退回打包的原创条目——画廊宁可少几张，也不该空着。
  */
 export function loadGalleryPool(): Promise<CreationInspiration[]> {

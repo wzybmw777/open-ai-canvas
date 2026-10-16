@@ -387,6 +387,7 @@ export function getAntThemeConfig(dark: boolean, skinID: unknown = "classic"): T
 export function getWorkspaceAntThemeConfig(): ThemeConfig {
     return {
         token: {
+            fontFamily: "var(--font-sans)", fontSize: 14, fontSizeSM: 12,
             borderRadius: 12, borderRadiusLG: 16, borderRadiusSM: 8,
             controlHeight: 38, controlHeightSM: 30, controlHeightLG: 44,
             motionDurationFast: "0.12s", motionDurationMid: "0.18s", motionDurationSlow: "0.36s",

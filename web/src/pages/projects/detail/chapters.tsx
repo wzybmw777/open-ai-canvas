@@ -49,7 +49,7 @@ import {
     X,
 } from "lucide-react";
 
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 
 import { SkillRuntimePicker, useSkillRuntimeCatalog } from "@/components/skills/skill-runtime-picker";
 import { ModelPicker } from "@/components/model-picker";
@@ -75,6 +75,7 @@ import { listGenerationTasks, queryGenerationTask, type GenerationTask } from "@
 import { formatCount, formatTime, statusLabel, type ProjectDetailViewProps } from "./shared";
 import { chapterStoryboardAssets, chapterStoryboardCharacters, chapterStoryboardReplaceImpact, storyboardRowsToProjectShots } from "./chapter-storyboard-production";
 import { chapterAssetsFromGenerationTask, chapterStoryboardFromGenerationTask, chapterTaskIdentity, extractChapterAssets, generateChapterStoryboard } from "./project-chapter-ai";
+import { ProjectStoryGenerator } from "./project-story-generator";
 
 const CHAPTER_ROW_HEIGHT = 62;
 const MAX_NOVEL_IMPORT_CHAPTERS = 2500;
@@ -90,12 +91,22 @@ export default function ProjectChaptersView({ detail, refreshProject }: ProjectD
     const { locale, text } = useLocaleText();
     const { message, modal } = App.useApp();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const queryClient = useQueryClient();
     const { chapterId = "" } = useParams();
     const initialSelectedId = detail.units.some((unit) => unit.id === chapterId) ? chapterId : detail.units[0]?.id || "";
     const [selectedId, setSelectedId] = useState(initialSelectedId);
     const [createOpen, setCreateOpen] = useState(false);
     const [importOpen, setImportOpen] = useState(false);
+    useEffect(() => {
+        if (searchParams.get("import") !== "1") return;
+        setImportOpen(true);
+        setSearchParams((current) => {
+            const next = new URLSearchParams(current);
+            next.delete("import");
+            return next;
+        }, { replace: true });
+    }, [searchParams, setSearchParams]);
     const [searchQuery, setSearchQuery] = useState("");
     const [moveTargetId, setMoveTargetId] = useState("");
     const [movePosition, setMovePosition] = useState<number | null>(null);
@@ -547,6 +558,7 @@ export default function ProjectChaptersView({ detail, refreshProject }: ProjectD
                 <div className="flex h-11 shrink-0 items-center justify-between border-b border-border/70 px-2.5">
                     <div className="text-xs font-medium text-foreground/55">{text("章节", "Chapters")} <span className="ml-1 tabular-nums text-foreground/35">{detail.units.length.toLocaleString(locale)}</span></div>
                     <div className="flex items-center gap-0.5">
+                        <ProjectStoryGenerator key={detail.project.id} project={detail.project} refreshProject={refreshProject} />
                         {selectedId ? <Tooltip title={text("回到当前章节", "Go to current chapter")}><Button type="text" size="small" icon={<Crosshair className="size-3.5" />} aria-label={text("回到当前章节", "Go to current chapter")} onClick={revealSelectedChapter} /></Tooltip> : null}
                         <Tooltip title={text("导入小说", "Import novel")}><Button type="text" size="small" icon={<FileUp className="size-3.5" />} aria-label={text("导入小说", "Import novel")} onClick={() => setImportOpen(true)} /></Tooltip>
                         <Tooltip title={text("添加章节", "Add chapter")}><Button type="text" size="small" icon={<Plus className="size-4" />} aria-label={text("添加章节", "Add chapter")} onClick={() => setCreateOpen(true)} /></Tooltip>

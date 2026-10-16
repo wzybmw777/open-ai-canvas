@@ -22,7 +22,7 @@ func TestTasksWithWorkbenchKindRequiresMatchingTaskType(t *testing.T) {
 	legacyVideo := `{"metadata":{"source":"workbench","workbenchKind":"video"}}`
 	createdAt := time.Now()
 	tasks := []model.Task{
-		{ID: "image-column", UserID: "user", Type: "canvas_image", WorkbenchKind: "image", InputJSON: `{}`, CreatedAt: createdAt},
+		{ID: "image-column", UserID: "user", ProjectID: "project-a", Type: "canvas_image", WorkbenchKind: "image", InputJSON: `{}`, CreatedAt: createdAt},
 		{ID: "image-legacy", UserID: "user", Type: "canvas_image", InputJSON: legacyImage, CreatedAt: createdAt.Add(time.Second)},
 		{ID: "video-column", UserID: "user", Type: "canvas_video", WorkbenchKind: "video", InputJSON: `{}`, CreatedAt: createdAt.Add(2 * time.Second)},
 		{ID: "video-legacy", UserID: "user", Type: "canvas_video", InputJSON: legacyVideo, CreatedAt: createdAt.Add(3 * time.Second)},
@@ -36,6 +36,14 @@ func TestTasksWithWorkbenchKindRequiresMatchingTaskType(t *testing.T) {
 	}
 
 	repo := New(db)
+	projectTasks, err := repo.TasksWithWorkbenchKind("user", 50, "project-a", false, "image")
+	if err != nil || len(projectTasks) != 1 || projectTasks[0].ID != "image-column" {
+		t.Fatalf("project filter: tasks=%v err=%v", projectTasks, err)
+	}
+	otherUserTasks, err := repo.TasksWithWorkbenchKind("other", 50, "project-a", false, "image")
+	if err != nil || len(otherUserTasks) != 0 {
+		t.Fatalf("project filter leaked another user's tasks: tasks=%v err=%v", otherUserTasks, err)
+	}
 	for _, tc := range []struct {
 		kind string
 		want map[string]bool

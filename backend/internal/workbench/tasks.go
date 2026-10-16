@@ -12,6 +12,7 @@ import (
 )
 
 type TaskInput struct {
+	ProjectID      string          `json:"projectId"`
 	Kind           string          `json:"kind"`
 	ToolID         string          `json:"toolId"`
 	PresetID       string          `json:"presetId,omitempty"`

@@ -26,8 +26,10 @@ func TestQueuedCustomChannelRecheck(t *testing.T) {
 		name                              string
 		retry, enabled, system, uncertain bool
 		dispatch                          string
+		claims                            int
 	}{
 		{name: "new"}, {name: "retry", retry: true},
+		{name: "reclaimed_before_dispatch", claims: 1},
 		{name: "enabled", enabled: true}, {name: "system", system: true},
 		{name: "accepted", dispatch: "accepted", uncertain: true},
 		{name: "submission_unknown", dispatch: "submission_unknown", uncertain: true},
@@ -52,6 +54,7 @@ func TestQueuedCustomChannelRecheck(t *testing.T) {
 			}
 			encoded, _ := json.Marshal(input)
 			task := &model.Task{ID: newID(), UserID: "user", Type: "canvas_text", Status: model.TaskStatusQueued, InputJSON: string(encoded), RouteRun: 1}
+			task.Attempts = tc.claims
 			if tc.retry {
 				task.Status = model.TaskStatusFailed
 				task.Attempts = 1

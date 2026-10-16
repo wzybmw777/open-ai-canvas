@@ -1,4 +1,5 @@
 import { doubaoAudioVoiceOptions, doubaoDefaultAudioVoice } from "@/lib/doubao-audio-voices";
+import { isSeedAudioProtocol } from "@/lib/model-protocols";
 import { resolveModelRequestConfig } from "@/stores/use-config-store";
 import type { AiConfig } from "@/stores/use-config-store";
 
@@ -84,7 +85,7 @@ export const doubaoAudioFormatOptions = [
 ];
 
 export function isDoubaoAudioConfig(config: AiConfig) {
-    return resolveModelRequestConfig(config, config.model || config.audioModel).interfaceType === "doubao-streaming-tts";
+    return isSeedAudioProtocol(resolveModelRequestConfig(config, config.model || config.audioModel).interfaceType);
 }
 
 export function audioVoiceOptionsForConfig(config: AiConfig) {

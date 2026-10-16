@@ -201,7 +201,7 @@ function TheatreWorkEditorForm({ work, userId, initialKind = "video", initialEpi
             if (work) await updateTheatreWork(work.id, details);
             else await createTheatreWork(kind === "short_drama" ? details : { ...details, resourceId: uploaded.current!.id });
             if (!mounted.current || useUserStore.getState().user?.id !== userId) return;
-            message.success(work ? text("作品信息已保存", "Work updated") : text("作品已发布到卓越剧场", "Published to Excellence Theatre"));
+            message.success(work ? text("作品信息已保存", "Work updated") : text("作品已发布到作品展示", "Published to Showcase"));
             onSaved();
         } catch (error) {
             if (mounted.current && useUserStore.getState().user?.id === userId) message.error(localizedErrorMessage(error, "作品保存失败，请重试", "Could not save the work. Please retry.", locale));

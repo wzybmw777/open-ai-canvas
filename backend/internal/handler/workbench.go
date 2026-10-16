@@ -107,7 +107,7 @@ func RegisterWorkbenchRoutes(r *gin.RouterGroup, svc *service.Service) {
 			fail(c, http.StatusBadRequest, err)
 			return
 		}
-		tasks, err := svc.WorkbenchTasks(user.ID, c.Query("kind"), c.Query("activeOnly") == "true", limit)
+		tasks, err := svc.WorkbenchTasks(user.ID, c.Query("kind"), c.Query("projectId"), c.Query("activeOnly") == "true", limit)
 		if err != nil {
 			failService(c, err)
 			return

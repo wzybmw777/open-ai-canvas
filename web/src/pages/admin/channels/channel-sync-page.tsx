@@ -18,8 +18,8 @@ export function describeChannelSyncRun(run: ChannelSyncRun) {
     if (run.status === "running") return "正在读取上游并核对本地配置…";
     if (run.status === "failed") return run.summary;
     try {
-        const result = JSON.parse(run.summary) as { authorized: number; added: number; disabled: number; prices: number; descriptions: number; warnings: string[] };
-        return `授权 ${result.authorized} 个 · 新增 ${result.added} 个 · 停用 ${result.disabled} 个 · 更新 ${result.prices} 个价格档、${result.descriptions} 个简介${result.warnings?.length ? `；${result.warnings.join("；")}` : ""}`;
+        const result = JSON.parse(run.summary) as { authorized: number; added: number; enabled?: number; disabled: number; prices: number; descriptions: number; warnings: string[] };
+        return `授权 ${result.authorized} 个 · 新增 ${result.added} 个 · 启用 ${result.enabled ?? 0} 个 · 停用 ${result.disabled} 个 · 更新 ${result.prices} 个价格档、${result.descriptions} 个简介${result.warnings?.length ? `；${result.warnings.join("；")}` : ""}`;
     } catch { return run.summary; }
 }
 
@@ -58,16 +58,16 @@ export default function ChannelSyncPage() {
         } catch (error) { message.error(error instanceof Error ? error.message : "保存失败"); }
         finally { setSaving(false); }
     };
-    return <AdminPageFrame title="渠道同步" description="每天北京时间 00:00 同步上游 · 执行记录保存在服务端" actions={<Button icon={<RefreshCw className="size-4" />} onClick={() => void refresh()}>刷新</Button>} scroll>
+    return <AdminPageFrame title="渠道同步" description="每 30 分钟同步上游 · 北京时间整点和半点执行" actions={<Button icon={<RefreshCw className="size-4" />} onClick={() => void refresh()}>刷新</Button>} scroll>
         <div className="channel-sync-page">
-            <div className="channel-sync-notice">同步已有模型的授权与简介，按原成本／售价比例更新价格。新发现的模型先保持停用；手动停用的模型不会自动启用。网络异常、空目录和报价歧义均保留原配置。</div>
+            <div className="channel-sync-notice">同步已有模型的授权与简介，按原成本／售价比例更新价格。已配置完整的模型在上游授权与报价恢复后自动启用；上游授权、价格分组或对应规格报价缺失时停用。新发现且尚未配置完整的模型保持停用；网络异常和报价歧义保留原配置。</div>
             {jobs.isPending ? <Spin /> : jobs.isError ? <div role="alert">{jobs.error.message}<Button onClick={() => void refresh()}>重试</Button></div> : null}
             <div className="channel-sync-grid">
                 {jobs.data?.jobs.map(row => {
                     const running = row.lastRun?.status === "running";
                     return <section className="channel-sync-card" key={row.channelId}>
-                        <div className="channel-sync-card-heading"><Link to={`/admin/channels?channel=${encodeURIComponent(row.channelId)}`}>{row.channelName}</Link><Switch checked={row.job.enabled} disabled={!row.configured || running} loading={busy === row.channelId} aria-label={`${row.channelName}每日同步`} onChange={enabled => void toggle(row, enabled)} /></div>
-                        <div className="channel-sync-card-meta"><AdminStatusBadge label={!row.configured ? "待配置" : row.job.enabled ? "每日同步" : "已暂停"} tone={row.job.enabled ? "success" : "neutral"} /><span>{scriptLabels[row.job.script]}</span></div>
+                        <div className="channel-sync-card-heading"><Link to={`/admin/channels?channel=${encodeURIComponent(row.channelId)}`}>{row.channelName}</Link><Switch checked={row.job.enabled} disabled={!row.configured || running} loading={busy === row.channelId} aria-label={`${row.channelName}每30分钟同步`} onChange={enabled => void toggle(row, enabled)} /></div>
+                        <div className="channel-sync-card-meta"><AdminStatusBadge label={!row.configured ? "待配置" : row.job.enabled ? "每30分钟" : "已暂停"} tone={row.job.enabled ? "success" : "neutral"} /><span>{scriptLabels[row.job.script]}</span></div>
                         <dl><dt>下次执行</dt><dd>{date(row.job.nextRunAt)}</dd><dt>最近执行</dt><dd>{date(row.lastRun?.startedAt)}</dd></dl>
                         <div className="channel-sync-result">{row.lastRun ? <><AdminStatusBadge label={running ? "执行中" : row.lastRun.status === "success" ? "成功" : "失败"} tone={running ? "info" : row.lastRun.status === "success" ? "success" : "error"} /><p>{describeChannelSyncRun(row.lastRun)}</p></> : <p>尚无执行记录</p>}</div>
                         <div className="channel-sync-card-actions"><Button icon={<Pencil className="size-3.5" />} disabled={running} onClick={() => setEditing(row)}>配置脚本</Button><Button icon={<Play className="size-3.5" />} disabled={!row.configured || running} loading={busy === row.channelId} onClick={() => void handleRun(row)}>立即同步</Button><Button icon={<History className="size-3.5" />} onClick={() => setHistory(row)}>记录</Button></div>
@@ -80,12 +80,12 @@ export default function ChannelSyncPage() {
                 <Form.Item name="script" label="同步脚本" rules={[{ required: true }]}><Select options={Object.entries(scriptLabels).map(([value, label]) => ({ value, label }))} /></Form.Item>
                 {script === "model-plaza" ? <><Form.Item name="sourceUrl" label="公开价格目录地址" rules={[{ required: true, message: "请填写公开价格目录的 HTTPS 地址" }]}><Input placeholder="https://供应商域名/api/v1/model-plaza" /></Form.Item><Form.Item name="groupId" label="上游价格分组 ID" rules={[{ required: true }]}><InputNumber min={1} precision={0} /></Form.Item><Form.Item name="syncPrices" valuePropName="checked"><Checkbox>同步成本与售价，保留各价格档现有利润比例</Checkbox></Form.Item></> : null}
                 <Form.Item name="importNew" valuePropName="checked"><Checkbox>导入新发现的型号（保持停用，待人工配置）</Checkbox></Form.Item>
-                <Form.Item name="enabled" label="每日北京时间 00:00 自动执行" valuePropName="checked"><Switch /></Form.Item>
+                <Form.Item name="enabled" label="每 30 分钟自动执行（北京时间整点和半点）" valuePropName="checked"><Switch /></Form.Item>
                 <p className="channel-sync-form-note">授权目录使用渠道已保存的凭证。脚本无需填写密钥；暂停自动执行后仍可立即同步。</p>
             </Form>
         </AdminModal>
         <AdminModal title={`${history?.channelName || "渠道"} · 执行记录`} open={Boolean(history)} onCancel={() => setHistory(null)} footer={null} width={760}>
-            <div className="channel-sync-history">{runs.isPending ? <Spin /> : runs.isError ? <p role="alert">{runs.error.message}</p> : runs.data?.runs.length ? runs.data.runs.map(run => <article key={run.id}><div><strong>{date(run.startedAt)}</strong><span>{run.trigger === "manual" ? "手动同步" : "每日同步"}</span><AdminStatusBadge label={run.status === "success" ? "成功" : run.status === "failed" ? "失败" : "执行中"} tone={run.status === "failed" ? "error" : run.status === "success" ? "success" : "info"} /></div><p>{describeChannelSyncRun(run)}</p></article>) : <p>尚无执行记录</p>}</div>
+            <div className="channel-sync-history">{runs.isPending ? <Spin /> : runs.isError ? <p role="alert">{runs.error.message}</p> : runs.data?.runs.length ? runs.data.runs.map(run => <article key={run.id}><div><strong>{date(run.startedAt)}</strong><span>{run.trigger === "manual" ? "手动同步" : "定时同步"}</span><AdminStatusBadge label={run.status === "success" ? "成功" : run.status === "failed" ? "失败" : "执行中"} tone={run.status === "failed" ? "error" : run.status === "success" ? "success" : "info"} /></div><p>{describeChannelSyncRun(run)}</p></article>) : <p>尚无执行记录</p>}</div>
         </AdminModal>
     </AdminPageFrame>;
 }

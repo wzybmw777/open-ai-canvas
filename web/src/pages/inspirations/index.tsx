@@ -9,7 +9,7 @@ import { Select } from "@/components/ui/base/select";
 import { Tooltip } from "@/components/ui/base/tooltip";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { catalogIdOf, inspirationSourceOf, inspirationSources, type CreationInspiration, type InspirationSourceId } from "@/lib/inspirations/catalog";
-import { isCustomInspiration, resolveInspirations } from "@/lib/inspirations/resolve";
+import { fillablePrompt, isCustomInspiration, resolveInspirations } from "@/lib/inspirations/resolve";
 import { loadInspirationCatalog, type InspirationCatalog } from "@/services/inspiration-catalog";
 import { useInspirationStore } from "@/stores/use-inspiration-store";
 import { useUserStore } from "@/stores/use-user-store";
@@ -50,7 +50,7 @@ function downloadText(text: string, fileName: string) {
     URL.revokeObjectURL(url);
 }
 
-export function InspirationHall({ onUse }: { onUse: (item: CreationInspiration) => void }) {
+export function InspirationHall({ onUse }: { onUse?: (item: CreationInspiration) => void }) {
     const { message, modal } = App.useApp();
     const inspirationSourcesVisible = useUserStore((state) => state.features.inspirationSourcesVisible);
 
@@ -254,9 +254,17 @@ export function InspirationHall({ onUse }: { onUse: (item: CreationInspiration) 
     const handleUse = useCallback(
         (item: CreationInspiration) => {
             setDetail(null);
-            onUse(item);
+            if (onUse) {
+                onUse(item);
+                return;
+            }
+            const prompt = fillablePrompt(item);
+            void navigator.clipboard.writeText(prompt).then(
+                () => message.success("提示词已复制，请前往创作工作台使用"),
+                () => message.error("复制失败，请手动选中提示词"),
+            );
         },
-        [onUse],
+        [message, onUse],
     );
 
     const handleCopy = useCallback(
@@ -346,8 +354,8 @@ export function InspirationHall({ onUse }: { onUse: (item: CreationInspiration) 
         <section ref={sectionRef} id="creation-inspirations" className="inspiration-hall" aria-labelledby="inspiration-hall-title">
             <header className="inspiration-hall-header">
                 <div>
-                    <h2 id="inspiration-hall-title">灵感大厅</h2>
-                    <p>点开查看完整提示词，用喜欢的创意继续创作。</p>
+                    <h2 id="inspiration-hall-title">灵感库</h2>
+                    <p>浏览可复用的创意提示词，选择一个起点继续创作。</p>
                 </div>
                 <div className="inspiration-hall-actions">
                     <Button

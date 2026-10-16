@@ -8,6 +8,11 @@
 
 @custom-variant dark (&:is(.dark *));
 
+html,
+body {
+    font-family: var(--font-sans);
+}
+
 /* =========================================================================
    Design Token System — 三层架构 (Primitive → Semantic → Component)
    详见 Wayfinder #96: https://github.com/ddcat-ai/open-ai-canvas/issues/96
@@ -5683,7 +5688,7 @@ html:not(.dark) .creation-studio-control[aria-expanded="true"] { background: #e7
     .model-default-option.is-selected { background: var(--workspace-accent-soft); }
     .model-default-option-icon { background: color-mix(in srgb, var(--foreground) 5%, transparent); }
     .model-default-option.is-selected .model-default-option-icon { background: color-mix(in srgb, var(--workspace-surface-strong) 72%, transparent); }
-    .model-default-option-scope, .model-default-price { color: color-mix(in srgb, var(--foreground) 48%, transparent); font-size: var(--fs-micro); font-variant-numeric: tabular-nums; }
+    .model-default-option-scope, .model-default-price { color: var(--muted-foreground); font-size: var(--fs-tiny); font-variant-numeric: tabular-nums; }
     .model-default-option-check { background: color-mix(in srgb, var(--foreground) 7%, transparent); }
     .model-default-option-check.is-selected { background: var(--control-check-bg); color: var(--control-check-fg); }
 
@@ -12325,10 +12330,9 @@ html:not(.dark) .creation-custom-value { background: rgba(28, 32, 37, .055) !imp
 
 /* 历史对话是按更新时间倒序排列的普通记录列表，不使用时间轴视觉。 */
 .creation-top-actions {
-    position: absolute;
-    z-index: 30;
-    top: 24px;
-    right: 28px;
+    align-self: flex-end;
+    flex-shrink: 0;
+    padding-inline: var(--space-6);
     display: flex;
     align-items: center;
     gap: var(--space-1);
@@ -12336,6 +12340,7 @@ html:not(.dark) .creation-custom-value { background: rgba(28, 32, 37, .055) !imp
 
 .creation-top-action {
     display: inline-flex;
+    gap: var(--space-2);
     min-height: var(--space-8);
     align-items: center;
     justify-content: center;
@@ -12455,8 +12460,8 @@ html:not(.dark) .creation-history-drawer-root {
 }
 
 @media (max-width: 640px) {
-    .creation-top-actions { top: 14px; right: 14px; }
-    .creation-top-action { width: 40px; height: 40px; }
+    .creation-top-actions { padding-inline: var(--space-3); }
+    .creation-top-action { min-height: 40px; }
     .creation-history-drawer { width: 100vw !important; max-width: 100vw; }
     .creation-history-drawer-root .ant-drawer-content-wrapper { width: 100vw !important; max-width: 100vw; }
     .creation-history-drawer .ant-drawer-header { min-height: 62px; padding: 14px 14px 12px 16px; }
@@ -13379,17 +13384,6 @@ html:not(.dark) .creation-history-drawer-root {
     color: var(--foreground) !important;
 }
 
-.app-story-generating-meta {
-    display: inline-flex;
-    margin-top: 6px;
-    border-radius: var(--r-xs);
-    background: color-mix(in srgb, var(--workspace-accent) 9%, transparent);
-    padding: 3px 7px;
-    color: var(--workspace-accent);
-    font-size: var(--fs-tiny);
-    font-weight: 520;
-}
-
 .app-story-source {
     display: flex;
     min-width: 0;
@@ -13462,251 +13456,14 @@ html:not(.dark) .creation-history-drawer-root {
     font-style: normal;
 }
 
-.app-story-generating {
-    display: flex;
-    min-height: 120px;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 14px;
-}
-
-.app-story-generating-head {
-    display: flex;
-    width: 100%;
-    align-items: center;
-    gap: 10px;
-}
-
-.app-story-generating-model {
-    margin-left: auto;
-    flex: 0 0 auto;
-    max-width: 220px;
-    overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent);
-    border-radius: var(--r-full);
-    background: color-mix(in srgb, var(--foreground) 4%, transparent);
-    padding: 4px 10px;
-    color: color-mix(in srgb, var(--foreground) 58%, transparent);
-    font-size: var(--fs-tiny);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.app-story-generating-mark {
-    display: grid;
-    width: 34px;
-    height: 34px;
-    flex: 0 0 auto;
-    place-items: center;
-    border-radius: var(--r-md);
-    background: var(--workspace-accent-soft);
-    color: var(--workspace-accent);
-}
-
-.app-story-generating-progress {
-    position: relative;
-    width: 100%;
-    height: 3px;
-    overflow: hidden;
-    border-radius: var(--r-full);
-    background: color-mix(in srgb, var(--foreground) 8%, transparent);
-}
-
-.app-story-generating-progress::after {
-    content: "";
-    position: absolute;
-    inset: 0 auto 0 0;
-    width: 38%;
-    border-radius: inherit;
-    background: linear-gradient(90deg, color-mix(in srgb, var(--workspace-accent) 55%, transparent), var(--workspace-accent));
-    animation: story-generating-slide 1.4s var(--motion-ease-out) infinite;
-}
-
-.app-story-generating-grid {
-    display: grid;
-    width: 100%;
-    grid-template-columns: minmax(0, 1fr) minmax(200px, 0.72fr);
-    gap: 12px;
-}
-
-.app-story-generating-story,
-.app-story-generating-steps,
-.app-story-generating-preview {
-    border: 1px solid color-mix(in srgb, var(--foreground) 8%, transparent);
-    border-radius: var(--r-md);
-    background: color-mix(in srgb, var(--foreground) 2%, transparent);
-}
-
-.app-story-generating-story {
-    min-width: 0;
-    padding: 10px 12px;
-}
-
-.app-story-generating-caption {
-    display: block;
-    color: color-mix(in srgb, var(--foreground) 38%, transparent);
-    font-size: var(--fs-tiny);
-    font-weight: 560;
-}
-
-.app-story-generating-story p {
-    margin-top: 5px;
-    color: color-mix(in srgb, var(--foreground) 72%, transparent);
-    font-size: var(--fs-caption);
-    line-height: 1.6;
-    font-weight: 450;
-}
-
-.app-story-generating-style {
-    display: inline-flex;
-    max-width: 100%;
-    align-items: center;
-    gap: 6px;
-    margin-top: 7px;
-    overflow: hidden;
-    color: color-mix(in srgb, var(--foreground) 48%, transparent);
-    font-size: var(--fs-tiny);
-}
-
-.app-story-generating-style img {
-    width: 20px;
-    height: 20px;
-    flex: 0 0 auto;
-    border-radius: var(--r-full);
-    object-fit: cover;
-}
-
-.app-story-generating-style span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.app-story-generating-steps {
-    min-width: 0;
-    margin: 0;
-    padding: 8px 10px;
-    list-style: none;
-}
-
-.app-story-generating-steps li {
-    display: flex;
-    min-height: 30px;
-    align-items: center;
-    gap: 8px;
-    color: color-mix(in srgb, var(--foreground) 42%, transparent);
-    font-size: var(--fs-caption);
-}
-
-.app-story-generating-steps li em {
-    margin-left: auto;
-    color: color-mix(in srgb, var(--foreground) 28%, transparent);
-    font-size: var(--fs-tiny);
-    font-style: normal;
-}
-
-.app-story-generating-steps li.is-done { color: color-mix(in srgb, var(--foreground) 62%, transparent); }
-.app-story-generating-steps li.is-done em { color: var(--palette-status-success, var(--green, #22c55e)); }
-.app-story-generating-steps li.is-active { color: var(--foreground); font-weight: 560; }
-.app-story-generating-steps li.is-active em { color: var(--workspace-accent); }
-
-.app-story-generating-step-dot {
-    width: 8px;
-    height: 8px;
-    flex: 0 0 auto;
-    border-radius: var(--r-full);
-    background: color-mix(in srgb, var(--foreground) 18%, transparent);
-}
-
-.app-story-generating-steps li.is-done .app-story-generating-step-dot { background: var(--palette-status-success, #22c55e); }
-.app-story-generating-steps li.is-active .app-story-generating-step-dot { background: var(--workspace-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--workspace-accent) 14%, transparent); }
-
-.app-story-generating-preview {
-    width: 100%;
-    overflow: hidden;
-}
-
-.app-story-generating-preview-head {
-    display: flex;
-    height: 34px;
-    align-items: center;
-    gap: 7px;
-    border-bottom: 1px solid color-mix(in srgb, var(--foreground) 7%, transparent);
-    padding: 0 12px;
-    color: color-mix(in srgb, var(--foreground) 42%, transparent);
-    font-size: var(--fs-tiny);
-    font-weight: 560;
-}
-
-.app-story-generating-preview-head em {
-    margin-left: auto;
-    color: color-mix(in srgb, var(--foreground) 28%, transparent);
-    font-size: var(--fs-tiny);
-    font-style: normal;
-    font-weight: 450;
-}
-
-.app-story-generating-live {
-    width: 7px;
-    height: 7px;
-    border-radius: var(--r-full);
-    background: var(--workspace-accent);
-    animation: story-generating-pulse 1.2s ease-in-out infinite;
-}
-
 @keyframes story-generating-pulse {
     0%, 100% { opacity: 0.35; }
     50% { opacity: 1; }
 }
 
-.app-story-generating-preview pre {
-    max-height: 240px;
-    min-height: 96px;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-}
-
 @keyframes story-generating-slide {
     0% { transform: translateX(-110%); }
     100% { transform: translateX(320%); }
-}
-
-.app-story-generating p {
-    margin: 0;
-    color: var(--foreground);
-        font-size: var(--fs-caption);
-    font-weight: 560;
-}
-
-.app-story-generating pre {
-    max-height: 220px;
-    min-height: 72px;
-    width: 100%;
-    overflow: auto;
-    margin: 0;
-    border: 1px solid color-mix(in srgb, var(--foreground) 8%, transparent);
-    border-radius: var(--r-md);
-    background:
-        linear-gradient(180deg, color-mix(in srgb, var(--foreground) 3%, transparent), color-mix(in srgb, var(--foreground) 1.5%, transparent));
-    padding: 10px 12px;
-    color: color-mix(in srgb, var(--foreground) 56%, transparent);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 11px;
-    line-height: 1.6;
-    white-space: pre-wrap;
-}
-
-.app-story-generating-actions {
-    display: flex;
-    justify-content: flex-end;
-    width: 100%;
-}
-
-@media (max-width: 640px) {
-    .app-story-generating-grid {
-        grid-template-columns: 1fr;
-    }
 }
 
 @media (max-width: 640px) {
@@ -15487,11 +15244,11 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 
 /* ===== 2026-09 user workspace alignment =====
    这一组规则只作用于真实用户端壳层和首页，后台与画布编辑器保持原有职责和交互。
-   几何基准：侧栏 200px、顶部 56px、导航行 40px、首页内容最大宽度 1180px。 */
+   几何基准：侧栏 200px、顶部 52px、导航行 40px、首页内容最大宽度 1180px。 */
 .app-user-workspace {
     --workspace-reference-sidebar: 200px;
     --workspace-reference-collapsed: 64px;
-    --workspace-reference-topbar: 56px;
+    --workspace-reference-topbar: 52px;
     --workspace-reference-row: 40px;
     --workspace-reference-page-bg: #ffffff;
     background: var(--workspace-reference-page-bg);
@@ -16443,16 +16200,6 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     padding: 42px 0 64px;
 }
 
-.app-user-workspace .creation-home-heading {
-    display: flex;
-    width: 100%;
-    align-items: center;
-    flex-direction: column;
-    gap: 8px;
-    margin: 18px auto 22px;
-    text-align: center;
-}
-
 .app-user-workspace .creation-home-heading-mark {
     display: grid;
     width: 30px;
@@ -16466,21 +16213,6 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 .app-user-workspace .creation-home-heading-mark svg {
     width: 16px;
     height: 16px;
-}
-
-.app-user-workspace .creation-home-heading h1 {
-    margin: 0;
-    color: #151515;
-    font-size: clamp(24px, 2.4vw, 32px);
-    font-weight: 650;
-    letter-spacing: -.04em;
-    line-height: 1.2;
-}
-
-.app-user-workspace .creation-home-heading p {
-    margin: 0;
-    color: rgba(0, 0, 0, .42);
-    font-size: 13px;
 }
 
 .app-user-workspace .creation-empty-workspace > .creation-mode-capsule {
@@ -16707,10 +16439,6 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 .app-user-workspace .creation-empty-suggest {
     width: min(860px, 100%);
     margin-inline: auto;
-}
-
-.app-user-workspace .creation-home-heading {
-    margin-bottom: 20px;
 }
 
 .app-user-workspace .creation-empty-suggest {
@@ -18188,7 +17916,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 }
 
 .app-user-workspace.settings-page .settings-nav-item {
-    margin: 3px 8px;
+    margin: 3px 0;
     border-radius: 10px;
     color: #6b6b73;
 }
@@ -18316,7 +18044,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     width: var(--workspace-reference-collapsed) !important;
     flex-basis: var(--workspace-reference-collapsed) !important;
 }
-.app-user-workspace .app-workspace-sidebar-scroll-area { padding: 22px 12px 12px !important; gap: 24px !important; }
+.app-user-workspace .app-workspace-sidebar-scroll-area { padding: 16px 12px 12px !important; gap: 20px !important; }
 .app-user-workspace .app-workspace-sidebar-footer { padding: 12px 12px 14px !important; border-top: 0 !important; }
 .app-user-workspace .app-workspace-nav-link {
     min-height: var(--workspace-reference-row) !important;
@@ -18378,13 +18106,14 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     overflow-y: auto !important;
     overflow-x: hidden !important;
     overscroll-behavior: contain;
-    scrollbar-width: none;
     padding: 28px 0 56px !important;
 }
-.app-user-workspace .creation-home > .creation-empty-workspace::-webkit-scrollbar { display: none; width: 0; }
 
 /* Reference page order: title → mode tabs → large composer → quick actions → works. */
 .app-user-workspace .creation-home-heading {
+    display: flex;
+    align-items: center;
+    flex-direction: column;
     width: 100% !important;
     margin: 0 auto 24px !important;
     text-align: center !important;
@@ -18401,7 +18130,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 .app-user-workspace .creation-home-heading h1 {
     margin: 0 !important;
     color: var(--user-ink) !important;
-    font-size: clamp(28px, 3vw, 44px) !important;
+    font-size: clamp(var(--fs-title), 2.4vw, var(--fs-display)) !important;
     font-weight: 700 !important;
     letter-spacing: -.04em !important;
     line-height: 1.3 !important;
@@ -18667,7 +18396,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     padding: 0 14px;
 }
 .app-user-workspace .creation-home .creation-user-message { width: min(676px, 82%); margin-bottom: 28px; gap: 8px; }
-.app-user-workspace .creation-user-message-copy-wrap { border: 1px solid color-mix(in srgb, var(--user-accent) 12%, var(--user-border)); border-radius: 18px 18px 5px 18px; padding: 11px 14px; background: color-mix(in srgb, var(--user-accent) 7%, var(--user-surface)); box-shadow: 0 8px 24px color-mix(in srgb, var(--user-ink) 5%, transparent); }
+.app-user-workspace .creation-user-message-copy-wrap { border: 1px solid var(--user-border); border-radius: 18px 18px 5px 18px; padding: 11px 14px; background: var(--user-surface-raised); box-shadow: none; }
 .app-user-workspace .creation-assistant-message { width: min(910px, 100%); margin-bottom: 28px; }
 .app-user-workspace .creation-message-content,
 .app-user-workspace .creation-message-error,

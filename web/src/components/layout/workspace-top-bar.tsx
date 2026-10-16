@@ -2,7 +2,6 @@ import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Link, useLocation } from "react-router";
 
 import { SystemAnnouncementCenter } from "@/components/layout/system-announcement-center";
-import { WorkspaceAccountMenu } from "@/components/layout/workspace-account-menu";
 import { WorkspaceCreditGiftMark } from "@/components/layout/workspace-credit-gift-mark";
 import { WorkspaceTopBarExtensionSlot } from "@/components/layout/workspace-top-bar-extension";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
@@ -16,12 +15,12 @@ import { useLocaleText } from "@/lib/i18n";
 const PAGE_TITLES: Record<string, string> = {
     home: "创作",
     create: "创作",
-    inspirations: "灵感",
-    projects: "短剧制作",
-    canvas: "自由画布",
-    tasks: "创作历史",
-    assets: "资产",
-    theatre: "卓越剧场",
+    inspirations: "灵感库",
+    projects: "项目",
+    canvas: "画布",
+    tasks: "生成任务",
+    assets: "素材库",
+    theatre: "作品与发布",
     skills: "技能",
     plugins: "插件",
     settings: "设置",
@@ -37,7 +36,7 @@ export function WorkspaceTopBar({ sidebarOpen, onToggleSidebar }: { sidebarOpen:
     const { availableMicrocredits } = useWalletBalance(user?.id, creditsEnabled);
     const { pathname } = useLocation();
     const slug = pathname.split("/").filter(Boolean)[0];
-    const englishTitles: Record<string, string> = { home: "Create", create: "Create", projects: "Projects", canvas: "Canvas", theatre: "Excellence Theatre", tasks: "History", assets: "Assets", skills: "Skills", plugins: "Plugins", settings: "Settings" };
+    const englishTitles: Record<string, string> = { home: "Create", create: "Create", inspirations: "Inspiration library", projects: "Projects", canvas: "Canvas", theatre: "Showcase", tasks: "Generation tasks", assets: "Asset library", skills: "Skills", plugins: "Plugins", settings: "Settings" };
     const pageTitle = slug ? (locale === "en-US" ? englishTitles[slug] : PAGE_TITLES[slug]) || brandName : text(PAGE_TITLES.home, englishTitles.home);
     const balance = availableMicrocredits === null ? "--" : (availableMicrocredits / 1_000_000).toLocaleString(locale, { maximumFractionDigits: 2 });
 
@@ -60,7 +59,6 @@ export function WorkspaceTopBar({ sidebarOpen, onToggleSidebar }: { sidebarOpen:
                 </button> : null}
                 {user ? <SystemAnnouncementCenter userId={user.id} className="app-workspace-topbar-icon-button" autoOpen /> : null}
                 <AnimatedThemeToggler className="app-workspace-topbar-icon-button" theme={theme} onThemeChange={setTheme} aria-label={text("切换主题", "Toggle theme")} />
-                <WorkspaceAccountMenu />
             </div>
         </header>
     );

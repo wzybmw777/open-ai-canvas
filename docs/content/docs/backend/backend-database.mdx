@@ -67,6 +67,10 @@ Schema 45 新增 `upload_reservations`：`id`、`user_id`、`size`、`day`、`ex
 
 升级前备份，按既有流程执行 `migrate-schema up` 和 `verify` 后再启动新后端。旧版本二进制不支持版本 50，回退需恢复匹配的数据库备份，并评估备份之后的新写入；不能只切回旧镜像。关闭自动迁移的生产环境必须运行正式迁移；手工改表不能更新 `schema_migrations` 的版本与校验和记录。
 
+### 生成任务派发世代
+
+`tasks.route_run` 对所有新生成任务从 1 开始，用户主动重试时递增，worker 租约恢复保持原值。`tasks.attempts` 仅表示累计领取次数，不能作为已调用供应商的证据。当前世代的提交事实由 `route_attempts` 保存，沿用 `(task_id, route_run, attempt_number)` 唯一约束及 `dispatch_state` 状态；调用上游前先从 `not_sent` 原子转为 `submission_unknown`。无派发记录的新世代可首次提交，已派发但缺少上游 ID 的世代不得自动重发。历史 `route_run=0` 保留原值与保守保护；本次不新增列、不执行迁移，不改写历史任务及账单。
+
 ### 生成成功后的作品保存恢复
 
 - 使用原任务主键、计费订单及现有 worker 租约，不新增执行批次或第二套队列。`media_stage` 为 `download | upload | local_save | register | checkpoint | completed`，表示当前结果的保存阶段，不改变上游生成日志的成功状态。

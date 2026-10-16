@@ -44,6 +44,7 @@ const StoryboardPromptsPage = lazy(() => import("@/pages/admin/storyboard-prompt
 const UsersPage = lazy(() => import("@/pages/admin/users/users-page"));
 const AssetsPage = lazy(loadAssetsPage);
 const TheatrePage = lazy(loadTheatrePage);
+const InspirationsPage = lazy(() => import("@/pages/inspirations"));
 const LoginPage = lazy(() => import("@/pages/auth/login"));
 const RegisterPage = lazy(() => import("@/pages/auth/register"));
 const ForgotPasswordPage = lazy(() => import("@/pages/auth/forgot-password"));
@@ -151,6 +152,7 @@ export const router = createBrowserRouter([
                 ),
             },
             { path: "/assets", element: <RequireAuth>{deferred(<AssetsPage />)}</RequireAuth> },
+            { path: "/inspirations", element: <RequireAuth>{deferred(<InspirationsPage />)}</RequireAuth> },
             { path: "/theatre", element: <RequireAuth>{deferred(<TheatrePage />)}</RequireAuth> },
             { path: "/skills", element: <RequireAuth>{deferred(<SkillsPage />)}</RequireAuth> },
             {

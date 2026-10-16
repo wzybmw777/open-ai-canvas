@@ -1,6 +1,6 @@
 // 创作页空态的纵深图片画廊：卡片沿 Z 轴前后排队，当前一张在最前、最大，
 // 其余依次后退缩小，像展厅里一排挂在纵深上的画。
-// 滚轮、左右按钮或自动轮播切换，切换靠 CSS transition 平滑过渡。
+// 拖动、滚轮或自动轮播切换，切换靠 CSS transition 平滑过渡。
 // 卡片是带玻璃质感边框的实体面板，不做弧形、也不压成薄片。
 // 展示内容跟随下方输入框的创作类型：选视频就只排队视频灵感，选图片就只排队图片灵感。
 //
@@ -10,13 +10,14 @@
 // 池子不打包，走 public/inspirations/gallery-pool.json：几百条连提示词正文一起
 // 就是几百 KB，压进首屏 JS 是白背的，而这份数据只服务这一处。
 //
-// 先保留画廊和卡片位置，再让封面淡入；主图与两张邻图优先，侧翼随后补齐。
+// 先保留画廊和卡片位置，再让封面淡入；首屏直接加载中心及左右三张，共七张，
+// 更远的两张在短暂延迟后补齐，切换时不会出现空白。
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
-import { ArrowUp, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowUp } from "lucide-react";
 import { useReducedMotion } from "motion/react";
 
-import { catalogIdOf, type CreationInspiration } from "@/lib/inspirations/catalog";
+import { catalogIdOf, curatedInspirations, type CreationInspiration } from "@/lib/inspirations/catalog";
 import { fillablePrompt } from "@/lib/inspirations/resolve";
 import { loadGalleryPool } from "@/services/inspiration-catalog";
 import type { CreationMode } from "./creation-types";
@@ -30,7 +31,7 @@ const STEP_Z = 150;
 /** 虚拟焦距，只用来算出"后退一层缩多少"，不再是 CSS perspective。 */
 const PERSPECTIVE = 1200;
 /** 最多同时可见的层数，再远就隐掉。 */
-const MAX_DEPTH = 4;
+const MAX_DEPTH = 3;
 /** 每一层的透明度，越靠后越淡，做出空气透视。 */
 const DEPTH_OPACITY = [1, 0.98, 0.95, 0.91, 0.86];
 /** 自动轮播间隔。悬停、聚焦或系统开了"减少动效"时暂停。 */
@@ -99,17 +100,18 @@ function pickBatch(pool: CreationInspiration[], size: number, mode: CreationMode
  */
 export function CreationInspirationTunnel({ mode, onStartPrompt, composing = false }: { mode: CreationMode; onStartPrompt: (mode: CreationMode, prompt: string) => void; composing?: boolean }) {
     /**
-     * 池子来自 gallery-pool.json，是单独一份静态 JSON，不打包。
-     * 它没到之前保留相同尺寸的占位，不先摆一批再重排，也不推移输入区。
+     * 外部 gallery-pool.json 是单独一份静态 JSON，不打包；首屏先使用打包的本地精选图，
+     * 等浏览器空闲后再扩充随机池，避免 JSON 请求挡住第一张图片。
      */
-    const [pool, setPool] = useState<CreationInspiration[]>([]);
-    const [poolReady, setPoolReady] = useState(false);
+    const [pool, setPool] = useState<CreationInspiration[]>(() => curatedInspirations);
+    const poolReady = true;
     const [shots, setShots] = useState<CreationInspiration[]>([]);
     const [active, setActive] = useState(0);
     const [paused, setPaused] = useState(false);
     const [readyIds, setReadyIds] = useState<ReadonlySet<string>>(() => new Set());
     const [failedIds, setFailedIds] = useState<ReadonlySet<string>>(() => new Set());
-    const [loadDepth, setLoadDepth] = useState(1);
+    // 首屏直接准备中心及左右各三张，共七张，避免先显示三张空壳再延迟补图。
+    const [loadDepth, setLoadDepth] = useState(3);
     const reducedMotion = useReducedMotion();
     const stageRef = useRef<HTMLDivElement>(null);
     const activeRef = useRef(0);
@@ -123,31 +125,36 @@ export function CreationInspirationTunnel({ mode, onStartPrompt, composing = fal
     modePoolRef.current = modePool;
 
     useEffect(() => {
+        if (composing) return;
         let alive = true;
-        // 加载器不会 reject：拉不到就退回打包的原创条目，画廊宁可少几张也不该空着。
-        loadGalleryPool().then((entries) => {
-            if (!alive) return;
-            setPool(entries);
-            setPoolReady(true);
-        });
+        // 加载器不会 reject：拉不到就保留打包的原创条目，画廊宁可少几张也不该空着。
+        const load = () => {
+            void loadGalleryPool().then((entries) => {
+                if (!alive) return;
+                setPool(entries);
+            });
+        };
+        let timer: number | undefined;
+        let idleHandle: number | undefined;
+        if (typeof window.requestIdleCallback === "function") {
+            idleHandle = window.requestIdleCallback(load, { timeout: 1200 });
+        } else {
+            timer = window.setTimeout(load, 350);
+        }
         return () => {
             alive = false;
+            if (idleHandle !== undefined && typeof window.cancelIdleCallback === "function") window.cancelIdleCallback(idleHandle);
+            if (timer !== undefined) window.clearTimeout(timer);
         };
-    }, []);
+    }, [composing]);
 
     // 抽一批的时机只有两个：池子到货（含进场），以及换创作类型。
     useEffect(() => {
         if (!poolReady) return;
         setShots(pickBatch(modePool, GALLERY_SIZE, mode));
         setActive(0);
-        setLoadDepth(1);
+        setLoadDepth(3);
     }, [mode, modePool, poolReady]);
-
-    useEffect(() => {
-        if (!shots.length) return;
-        const timer = window.setTimeout(() => setLoadDepth(MAX_DEPTH), 1600);
-        return () => window.clearTimeout(timer);
-    }, [shots]);
 
     /** 封面就绪（含加载失败）后放行这张卡。失败的也要放行，否则卡片永远不出现。 */
     const markReady = useCallback((id: string) => {
@@ -255,7 +262,18 @@ export function CreationInspirationTunnel({ mode, onStartPrompt, composing = fal
     if (!shots.length) return <div className="creation-inspiration-tunnel is-loading" aria-busy="true"><div className="creation-gallery-stage"><span className="creation-gallery-placeholder" aria-hidden /></div></div>;
 
     return (
-        <div className="creation-inspiration-tunnel" onPointerEnter={() => setPaused(true)} onPointerLeave={() => setPaused(false)} onFocusCapture={() => setPaused(true)} onBlurCapture={() => setPaused(false)}>
+        <div className="creation-inspiration-tunnel" role="region" aria-label="灵感轮播，左右滑动或使用方向键切换，回车使用当前创意" tabIndex={0}
+            onKeyDown={(event) => {
+                if (event.target !== event.currentTarget) return;
+                if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                    event.preventDefault();
+                    step(event.key === "ArrowLeft" ? -1 : 1);
+                } else if (event.key === "Enter" && current) {
+                    event.preventDefault();
+                    onStartPrompt(current.mode, fillablePrompt(current));
+                }
+            }}
+            onPointerEnter={() => setPaused(true)} onPointerLeave={() => setPaused(false)} onFocusCapture={() => setPaused(true)} onBlurCapture={() => setPaused(false)}>
             <div
                 ref={stageRef}
                 className="creation-gallery-stage"
@@ -301,6 +319,7 @@ export function CreationInspirationTunnel({ mode, onStartPrompt, composing = fal
                                 alt=""
                                 draggable={false}
                                 decoding="async"
+                                loading={depth === 0 ? "eager" : "lazy"}
                                 fetchPriority={depth === 0 ? "high" : "low"}
                                 onLoad={() => markReady(id)}
                                 onError={() => { setFailedIds((current) => new Set(current).add(id)); markReady(id); }}
@@ -323,21 +342,6 @@ export function CreationInspirationTunnel({ mode, onStartPrompt, composing = fal
                     );
                 })}
             </div>
-
-            {/* 图标外面套一层 span 是必须的：workspace-product.css 里有一条
-                `button:has(> svg):not(:has(> span)):not(:disabled):hover` 会认领"纯图标按钮"，
-                用 !important 改写 color / background 并把 transform 顶成 translateY(-1px)，
-                按钮会当场掉半个身位。带 span 的按钮不在那条规则的射程内。 */}
-            <button type="button" className="creation-gallery-arrow is-prev" aria-label="上一张灵感" onClick={() => step(-1)}>
-                <span className="creation-gallery-arrow-icon">
-                    <ChevronLeft aria-hidden="true" />
-                </span>
-            </button>
-            <button type="button" className="creation-gallery-arrow is-next" aria-label="下一张灵感" onClick={() => step(1)}>
-                <span className="creation-gallery-arrow-icon">
-                    <ChevronRight aria-hidden="true" />
-                </span>
-            </button>
 
             {/* 卡片本身对辅助技术隐藏，切换结果靠这条播报传达。 */}
             <p className="creation-gallery-announce" aria-live="polite">

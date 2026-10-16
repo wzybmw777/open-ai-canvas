@@ -1190,7 +1190,7 @@ paths:
   /admin/channel-sync:
     get:
       tags: [admin]
-      summary: 管理员查看所有渠道的每日同步配置和最近执行记录
+      summary: 管理员查看所有渠道的每30分钟同步配置和最近执行记录
       responses:
         "200":
           $ref: "#/components/responses/Envelope"
@@ -1204,7 +1204,7 @@ paths:
         schema: { type: string }
     put:
       tags: [admin]
-      summary: 保存受管同步脚本配置，每日北京时间零点执行
+      summary: 保存受管同步脚本配置，每30分钟执行（北京时间整点和半点）
       requestBody:
         required: true
         content:
@@ -1852,6 +1852,10 @@ paths:
       summary: 查询当前用户的工作台任务
       parameters:
         - in: query
+          name: projectId
+          description: 按所属项目筛选；提供时校验当前用户的项目访问权限。
+          schema: { type: string }
+        - in: query
           name: kind
           required: true
           schema: { type: string, enum: [image, video] }
@@ -1879,8 +1883,9 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [kind, prompt, model, modelChoice, parameters, references]
+              required: [projectId, kind, prompt, model, modelChoice, parameters, references]
               properties:
+                projectId: { type: string, minLength: 1, description: 当前用户拥有的进行中项目 ID }
                 kind: { type: string, enum: [image, video] }
                 toolId: { type: string }
                 presetId: { type: string }

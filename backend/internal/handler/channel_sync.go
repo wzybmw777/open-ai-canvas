@@ -18,7 +18,7 @@ func registerAdminChannelSyncRoutes(r *gin.RouterGroup, svc *service.Service) {
 			failService(c, err)
 			return
 		}
-		ok(c, gin.H{"jobs": jobs, "timezone": "Asia/Shanghai", "schedule": "00:00"})
+		ok(c, gin.H{"jobs": jobs, "timezone": "Asia/Shanghai", "schedule": "*/30 * * * *"})
 	})
 	r.PUT("/admin/channel-sync/:id", func(c *gin.Context) {
 		user, err := currentUser(c, svc)

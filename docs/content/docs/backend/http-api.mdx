@@ -5,6 +5,12 @@ description: 信封、错误码与 OpenAPI
 
 # HTTP API 合同
 
+## 图片与视频工作台的项目归属
+
+`POST /api/workbench/tasks` 必须提供 `projectId`，服务端在模型解析和计费之前检查项目属于当前账号且处于进行中状态。空项目返回 400，不存在或越权返回 404，归档项目返回 400。自定义渠道经 `/api/tasks` 提交且 `input.metadata.source=workbench` 时执行同样校验；重试也重新检查项目状态。
+
+`GET /api/workbench/tasks?kind=image|video&projectId=<ID>` 按项目筛选记录并检查项目访问权限；归档项目可以查看历史。省略筛选时仍返回当前用户对应工具的记录，供素材处理工具使用。
+
 ## 图片去水印
 
 需要登录并开启图片工作台。`GET /api/workbench/image-cleanup` 返回 `{ available, maxBytes, maxPixels, maxDimension }`。`POST /api/workbench/image-cleanup/tasks` 接受 `{ resourceId, maskResourceId?, model, channelId?, logicalModelId?, parameters?: { size?, quality?, imageResolution? } }`，返回标准图片任务；校验资源归属、限制、透明非空遮罩和模型图片编辑能力，沿用现有平台模型、积分计费、任务限流和存储配额。
@@ -518,9 +524,9 @@ CSV 使用中文表头、UTF-8 BOM、CRLF；金额按整数分精确转换为两
 
 | 方法 | 路径 | 行为 |
 | --- | --- | --- |
-| GET | `/api/admin/channel-sync` | 返回所有系统渠道及同步配置、最近执行记录；同时返回 `timezone: Asia/Shanghai`、`schedule: 00:00` |
-| PUT | `/api/admin/channel-sync/:id` | 保存 `enabled/script/sourceUrl/groupId/syncPrices/importNew`；脚本为 `authorized-models` 或 `model-plaza`；启用后从下一零点开始 |
+| GET | `/api/admin/channel-sync` | 返回所有系统渠道及同步配置、最近执行记录；同时返回 `timezone: Asia/Shanghai`、`schedule: */30 * * * *`，表示每 30 分钟在整点和半点执行 |
+| PUT | `/api/admin/channel-sync/:id` | 保存 `enabled/script/sourceUrl/groupId/syncPrices/importNew`；脚本为 `authorized-models` 或 `model-plaza`；启用后从下一整点或半点开始 |
 | POST | `/api/admin/channel-sync/:id/run` | 异步启动已配置渠道，返回 `run`；同渠道已有执行租约时返回 HTTP 409 |
-| GET | `/api/admin/channel-sync/:id/runs` | 返回最近 30 条执行记录，包含状态、摘要、来源和起止时间 |
+| GET | `/api/admin/channel-sync/:id/runs` | 返回最近 30 条执行记录，包含状态、摘要、来源和起止时间；成功摘要为 JSON，含 `authorized/added/enabled/disabled/prices/descriptions/warnings`，`enabled` 是本次恢复启用数量 |
 
 公开价格目录只能使用不带凭证、查询参数或片段的 HTTPS URL，仍受服务端 SSRF 与代理策略约束。授权目录使用渠道保存在服务端的密钥。行为边界与失败处理见 [上游渠道同步管理](./channel-sync)。

@@ -9,6 +9,7 @@ export type ChannelScene = "image" | "video" | "audio";
 export type ChannelTransportConfig = Parameters<typeof channelRequest>[0] & {
     apiKey?: string;
     baseUrl?: string;
+    authHeader?: string;
 };
 
 export type ChannelCallOptions = {

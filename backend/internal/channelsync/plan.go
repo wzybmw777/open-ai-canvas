@@ -3,6 +3,7 @@ package channelsync
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -11,10 +12,11 @@ import (
 	"yingce/backend/internal/model"
 )
 
-func NextMidnight(now time.Time) time.Time {
-	zone := time.FixedZone("Asia/Shanghai", 8*60*60)
-	local := now.In(zone)
-	return time.Date(local.Year(), local.Month(), local.Day()+1, 0, 0, 0, 0, zone).UTC()
+var ErrPriceGroupUnavailable = errors.New("上游价格分组不存在或为空")
+var ErrPriceUnavailable = errors.New("上游未提供价格")
+
+func NextRunAt(now time.Time) time.Time {
+	return now.UTC().Truncate(30 * time.Minute).Add(30 * time.Minute)
 }
 
 type Catalog struct {
@@ -57,6 +59,7 @@ type Plan struct {
 type Summary struct {
 	Authorized   int      `json:"authorized"`
 	Added        int      `json:"added"`
+	Enabled      int      `json:"enabled"`
 	Disabled     int      `json:"disabled"`
 	Prices       int      `json:"prices"`
 	Descriptions int      `json:"descriptions"`
@@ -77,7 +80,7 @@ func SelectGroup(catalog Catalog, id int) (*Group, error) {
 		}
 	}
 	if selected == nil || len(selected.Models) == 0 {
-		return nil, fmt.Errorf("上游价格分组不存在或为空")
+		return nil, ErrPriceGroupUnavailable
 	}
 	if selected.RateMultiplier != "1" || selected.PeakRateEnabled ||
 		(selected.ImageRateIndependent && selected.ImageRateMultiplier != "1") ||
@@ -113,6 +116,15 @@ func Build(existing []model.ChannelModel, authorized []string, retired map[strin
 	}
 	plan := &Plan{Summary: Summary{Authorized: len(available), Warnings: []string{}}}
 	known := map[string]bool{}
+	providerOptions := map[string]int{}
+	for _, item := range existing {
+		key := item.ProviderModelKey
+		if key == "" {
+			key = item.ModelKey
+		}
+		providerOptions[key]++
+	}
+models:
 	for _, original := range existing {
 		item := original
 		item.PriceTiers = append([]model.ChannelModelPriceTier(nil), original.PriceTiers...)
@@ -125,28 +137,74 @@ func Build(existing []model.ChannelModel, authorized []string, retired map[strin
 				known[tier.ProviderModelKey] = true
 			}
 		}
-		// A disabled record is an explicit curation decision. Do not update its
-		// description or prices, and never re-enable it from upstream authorization.
-		if !item.Enabled {
-			continue
-		}
 		key := item.ProviderModelKey
 		if key == "" {
 			key = item.ModelKey
 		}
 		usable := available[key]
+		hasTier := false
 		for _, tier := range item.PriceTiers {
-			if available[tier.ProviderModelKey] {
+			if !tier.Enabled || !tier.PriceConfigured {
+				continue
+			}
+			if !hasTier {
 				usable = true
 			}
+			hasTier = true
+			sku := tier.ProviderModelKey
+			if sku == "" {
+				sku = key
+			}
+			usable = usable && available[sku]
 		}
 		changed := false
-		if !usable && item.Enabled {
-			item.Enabled = false
-			plan.Summary.Disabled++
-			changed = true
+		if !usable {
+			if item.Enabled {
+				item.Enabled = false
+				plan.Summary.Disabled++
+				plan.Models = append(plan.Models, item)
+			}
+			continue
 		}
-		if source, ok := upstream[key]; ok && source.Description != "" {
+		// Validate every active SKU before changing prices, descriptions or status.
+		// New imports without configured tiers cannot become callable by discovery.
+		if !item.Enabled && !hasTier {
+			continue
+		}
+		costs := make([]int64, len(item.PriceTiers))
+		if group != nil || prices {
+			for i, tier := range item.PriceTiers {
+				if !tier.Enabled || !tier.PriceConfigured {
+					continue
+				}
+				sku := tier.ProviderModelKey
+				if sku == "" {
+					sku = key
+				}
+				source, ok := upstream[sku]
+				cost, err := int64(0), ErrPriceUnavailable
+				if ok {
+					cost, err = TierCost(source, tier)
+				}
+				if errors.Is(err, ErrPriceUnavailable) {
+					if item.Enabled {
+						item.Enabled = false
+						plan.Summary.Disabled++
+						plan.Models = append(plan.Models, item)
+					}
+					plan.Summary.Warnings = append(plan.Summary.Warnings, sku+"：上游未提供价格，相关模型已停用")
+					continue models
+				}
+				if err != nil {
+					return nil, fmt.Errorf("%s：%w", sku, err)
+				}
+				costs[i] = cost
+			}
+		}
+		// Split local options have narrower capabilities than the shared upstream
+		// SKU. Keep their curated descriptions instead of copying all SKU limits.
+		preserveDescription := providerOptions[key] > 1 && strings.TrimSpace(item.Description) != ""
+		if source, ok := upstream[key]; ok && source.Description != "" && !preserveDescription {
 			description := []rune(source.Description)
 			if len(description) > 500 {
 				description = description[:500]
@@ -168,15 +226,7 @@ func Build(existing []model.ChannelModel, authorized []string, retired map[strin
 				if sku == "" {
 					sku = key
 				}
-				source, ok := upstream[sku]
-				if !ok {
-					plan.Summary.Warnings = append(plan.Summary.Warnings, sku+"：上游未提供价格，保留原价")
-					continue
-				}
-				cost, err := TierCost(source, *tier)
-				if err != nil {
-					return nil, fmt.Errorf("%s：%w", sku, err)
-				}
+				cost := costs[i]
 				sale, err := PreserveRatio(cost, tier.CostPricing.UnitPriceMicrocredits, tier.UnitPriceMicrocredits, tier.CostPricing.Configured)
 				if err != nil {
 					return nil, fmt.Errorf("%s：%w", sku, err)
@@ -192,6 +242,11 @@ func Build(existing []model.ChannelModel, authorized []string, retired map[strin
 			if modelPricesChanged && len(item.PriceTiers) > 0 {
 				item.UnitPriceMicrocredits = item.PriceTiers[0].UnitPriceMicrocredits
 			}
+		}
+		if !item.Enabled && hasTier {
+			item.Enabled = true
+			plan.Summary.Enabled++
+			changed = true
 		}
 		if changed {
 			plan.Models = append(plan.Models, item)
@@ -215,6 +270,9 @@ func Build(existing []model.ChannelModel, authorized []string, retired map[strin
 }
 
 func Microcredits(value json.Number) (int64, error) {
+	if value == "" || value == "null" {
+		return 0, ErrPriceUnavailable
+	}
 	amount, ok := new(big.Rat).SetString(string(value))
 	if !ok || amount.Sign() < 0 {
 		return 0, fmt.Errorf("上游成本缺失或无效")
@@ -246,6 +304,9 @@ func PreserveRatio(cost, oldCost, oldSale int64, configured bool) (int64, error)
 }
 
 func TierCost(source UpstreamModel, tier model.ChannelModelPriceTier) (int64, error) {
+	if source.Pricing.BillingMode == "" && len(source.Pricing.Intervals) == 0 && (source.Pricing.PerRequestPrice == "" || source.Pricing.PerRequestPrice == "null") {
+		return 0, ErrPriceUnavailable
+	}
 	mode := map[string]string{"image": "fixed_request", "per_request": "fixed_request", "video": "per_second"}[source.Pricing.BillingMode]
 	if mode == "" || tier.BillingMode != mode || len(source.TimePricing) > 0 && string(source.TimePricing) != "null" && string(source.TimePricing) != "false" {
 		return 0, fmt.Errorf("计费方式已变化或包含动态计费，需要人工复核")
@@ -291,7 +352,7 @@ func TierCost(source UpstreamModel, tier model.ChannelModelPriceTier) (int64, er
 		found = &cost
 	}
 	if found == nil {
-		return 0, fmt.Errorf("上游缺少对应规格报价")
+		return 0, ErrPriceUnavailable
 	}
 	return *found, nil
 }

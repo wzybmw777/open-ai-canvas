@@ -567,7 +567,7 @@ export default function PluginsPage() {
                                     ) : settingsPlugin.manifest.id === PROMPT_OPTIMIZER_PLUGIN_ID ? (
                                         <div className="rounded-[var(--r-md)] border border-border/60 bg-muted/25 px-3 py-3 text-[var(--fs-body)] leading-6 text-foreground/70">
                                             <p>{text("在创作页或图片、视频节点的提示词编辑器中使用“优化”按钮，即可让当前文本模型整理提示词。", "Use Optimize in the creation page or an image/video prompt editor to refine prompts with your text model.")}</p>
-                                            <p className="mt-2 text-[var(--fs-micro)] text-foreground/50">{text("插件不会自动覆盖原提示词，只有点击“采用”后才会回填到当前输入框。", "The original prompt changes only when you accept the suggestion.")}</p>
+                                            <p className="mt-2 text-[var(--fs-caption)] text-muted-foreground">{text("插件不会自动覆盖原提示词，只有点击“采用”后才会回填到当前输入框。", "The original prompt changes only when you accept the suggestion.")}</p>
                                         </div>
                                     ) : settingsPlugin.manifest.id === RUNNINGHUB_PLUGIN_ID ? (
                                         <div className="plugin-settings-empty">

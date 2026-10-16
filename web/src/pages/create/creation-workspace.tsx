@@ -88,6 +88,7 @@ type ComposerProps = {
     mode: CreationMode;
     prompt: string;
     setPrompt: (value: string) => void;
+    projectRequired: boolean;
     busy: boolean;
     generationActive: boolean;
     referenceReplacementBusy: boolean;
@@ -143,6 +144,7 @@ export function CreationComposer(props: ComposerProps) {
     const [previewUrl, setPreviewUrl] = useState("");
     const [previewType, setPreviewType] = useState<"image" | "video">("image");
     const [promptOptimizerOpen, setPromptOptimizerOpen] = useState(false);
+    const [textSettingsOpen, setTextSettingsOpen] = useState(false);
     const [referenceFilter, setReferenceFilter] = useState<CreationReferenceFilter>("all");
     const [canDragReferences, setCanDragReferences] = useState(false);
     const [dropTargetReferenceId, setDropTargetReferenceId] = useState<string | null>(null);
@@ -152,12 +154,14 @@ export function CreationComposer(props: ComposerProps) {
     const [trackState, setTrackState] = useState({ canScrollLeft: false, canScrollRight: false, isExpanded: true, isDragging: false });
     const previousAttachmentCountRef = useRef(0);
     const interactionBusy = props.busy || props.referenceReplacementBusy;
-    const canSubmit = Boolean(props.prompt.trim()) && !interactionBusy;
+    const inputDisabled = interactionBusy || props.projectRequired;
+    const projectHint = text("请先选择创作项目", "Choose a project first");
+    const canSubmit = Boolean(props.prompt.trim()) && !inputDisabled;
     const creditsEnabled = useUserStore((state) => state.features.creditsEnabled);
     const priceChannel = resolveModelChannel(props.config, props.model);
     const quoteRequest = useMemo(() => modelQuoteRequest(props.config, props.model, props.mode, props.modelRequirements), [props.config, props.mode, props.model, props.modelRequirements]);
     const [routeQuote, setRouteQuote] = useState<LogicalModelQuote | null>(null);
-    const canOptimizePrompt = Boolean(props.promptOptimizerProvider) && (props.mode === "image" || props.mode === "video");
+    const canOptimizePrompt = !props.projectRequired && Boolean(props.promptOptimizerProvider) && (props.mode === "image" || props.mode === "video");
     const optimizerReferences = props.references.filter((reference) => reference.active && reference.kind !== "skill");
     const credits = requestCreditCost({
         channelMode: priceChannel.scope === "system" ? "remote" : "local",
@@ -202,7 +206,7 @@ export function CreationComposer(props: ComposerProps) {
     const imageReferencesSupported = props.imageProfile.references.maxImages > 0;
     const referencesSupported = props.mode !== "image" || imageReferencesSupported;
     const canAddMoreReferences = referencesSupported && (props.maxReferences === null || props.attachments.length < props.maxReferences);
-    const addReferenceLabel = interactionBusy ? (props.referenceReplacementBusy ? text("正在替换参考图", "Replacing reference image") : text("生成中暂不能添加参考内容", "Wait for generation to finish")) : canAddMoreReferences ? text("添加更多参考内容", "Add references") : text(`已达到当前模型的参考内容上限（${props.maxReferences} 个）`, `Reference limit reached (${props.maxReferences})`);
+    const addReferenceLabel = props.projectRequired ? projectHint : interactionBusy ? (props.referenceReplacementBusy ? text("正在替换参考图", "Replacing reference image") : text("生成中暂不能添加参考内容", "Wait for generation to finish")) : canAddMoreReferences ? text("添加更多参考内容", "Add references") : text(`已达到当前模型的参考内容上限（${props.maxReferences} 个）`, `Reference limit reached (${props.maxReferences})`);
     const referenceCounts = useMemo(() => props.attachments.reduce((counts, attachment) => {
         const kind = creationAttachmentKind(attachment);
         counts[kind] += 1;
@@ -244,7 +248,7 @@ export function CreationComposer(props: ComposerProps) {
         return () => window.cancelAnimationFrame(frame);
     }, [referenceFilter, trackState.isExpanded, updateTrackScrollState, visibleAttachments.length]);
     const beginCardDrag = (event: PointerEvent<HTMLElement>) => {
-        if (event.button !== 0 || interactionBusy || !trackState.isExpanded) return;
+        if (event.button !== 0 || inputDisabled || !trackState.isExpanded) return;
         if ((event.target as HTMLElement).closest(".creation-reference-card-remove")) return;
         cardDragRef.current = { startX: event.clientX, startY: event.clientY, moved: false };
     };
@@ -308,8 +312,7 @@ export function CreationComposer(props: ComposerProps) {
         >
         <div className="creation-chat-writing-surface">
             <div className="creation-chat-editor">
-                <CanvasResourceMentionTextarea ref={props.composerFocusRef} value={props.prompt} references={props.references} mentionMenuWidth={400} sendOnEnter onFocus={props.onPromptFocus} onChange={props.setPrompt} onSubmit={props.onSubmit} containerClassName="creation-chat-mention-container" className="creation-chat-mention-editor creation-scrollbar" style={{ color: "var(--creation-text)" }} placeholder={props.placeholderOverride || (props.variant === "empty" ? emptyPlaceholder : placeholder)} aria-label={text("创作提示词，可使用 @ 引用当前参考内容或技能；回车发送，Shift+回车换行", "Creation prompt. Use @ for references or skills.")} spellCheck disabled={interactionBusy} activeDropReferenceId={dropTargetReferenceId} onReferenceFilesDrop={(reference, files) => { const target = props.references.find((item) => item.id === reference.id); if (target?.attachmentId) props.onReplaceReferenceFiles(target.attachmentId, files); }} />
-                <CanvasResourceMentionTextarea ref={props.composerFocusRef} value={props.prompt} references={props.references} mentionMenuWidth={400} sendOnEnter onFocus={props.onPromptFocus} onChange={props.setPrompt} onSubmit={props.onSubmit} containerClassName="creation-chat-mention-container" className="creation-chat-mention-editor creation-scrollbar" style={{ color: "var(--creation-text)" }} placeholder={props.placeholderOverride || (props.variant === "empty" ? emptyPlaceholder : placeholder)} aria-label={text("创作提示词，可使用 @ 引用当前参考内容或技能；回车发送，Shift+回车换行", "Creation prompt. Use @ for references or skills.")} spellCheck disabled={interactionBusy} activeDropReferenceId={dropTargetReferenceId} onReferenceFilesDrop={(reference, files) => { const target = props.references.find((item) => item.id === reference.id); if (target?.attachmentId) props.onReplaceReferenceFiles(target.attachmentId, files); }} />
+                <CanvasResourceMentionTextarea ref={props.composerFocusRef} value={props.prompt} references={props.references} mentionMenuWidth={400} sendOnEnter onFocus={props.onPromptFocus} onChange={props.setPrompt} onSubmit={props.onSubmit} containerClassName="creation-chat-mention-container" className="creation-chat-mention-editor creation-scrollbar" style={{ color: "var(--creation-text)" }} placeholder={props.projectRequired ? projectHint : props.placeholderOverride || (props.variant === "empty" ? emptyPlaceholder : placeholder)} aria-label={text("创作提示词，可使用 @ 引用当前参考内容或技能；回车发送，Shift+回车换行", "Creation prompt. Use @ for references or skills.")} spellCheck disabled={inputDisabled} activeDropReferenceId={dropTargetReferenceId} onReferenceFilesDrop={(reference, files) => { const target = props.references.find((item) => item.id === reference.id); if (target?.attachmentId) props.onReplaceReferenceFiles(target.attachmentId, files); }} />
                 {props.attachments.length || referencesSupported ? <div className={`creation-reference-panel${trackState.isExpanded ? " is-expanded" : ""}`} aria-busy={interactionBusy}>
                     {trackState.isExpanded ? <div className="creation-reference-panel-header">
                         <div className="creation-reference-filter-tabs" role="group" aria-label={text("筛选参考内容", "Filter references")}>
@@ -345,7 +348,7 @@ export function CreationComposer(props: ComposerProps) {
                                     key={item.id}
                                     value={item}
                                     layout="position"
-                                    drag={trackState.isExpanded && canDragReferences && !interactionBusy}
+                                    drag={trackState.isExpanded && canDragReferences && !inputDisabled}
                                     className="creation-reference-stack-card"
                                     onPointerDown={beginCardDrag}
                                     onPointerMove={moveCardDrag}
@@ -367,7 +370,7 @@ export function CreationComposer(props: ComposerProps) {
                                     <CreationAttachmentThumbnail item={item} onPreview={previewAttachment} onRemove={props.onRemoveAttachment} />
                                 </Reorder.Item>)}
                                 {!visibleAttachments.length && props.attachments.length ? <li className="creation-reference-filter-empty">{text("该类型暂无参考内容", "No references of this type")}</li> : null}
-                                {referencesSupported ? <li className="creation-reference-add-slot"><Tooltip title={addReferenceLabel}><button type="button" className="creation-reference-add-button" onClick={props.onOpenLibrary} disabled={interactionBusy || !canAddMoreReferences} aria-label={addReferenceLabel}><Plus aria-hidden="true" /><span>{text("参考内容", "References")}</span></button></Tooltip></li> : null}
+                                {referencesSupported ? <li className="creation-reference-add-slot"><Tooltip title={addReferenceLabel}><button type="button" className="creation-reference-add-button" onClick={props.onOpenLibrary} disabled={inputDisabled || !canAddMoreReferences} aria-label={addReferenceLabel}><Plus aria-hidden="true" /><span>{text("参考内容", "References")}</span></button></Tooltip></li> : null}
                             </Reorder.Group>
                             {trackState.canScrollRight ? <button type="button" className="creation-reference-track-button is-right" onClick={() => scrollAttachmentTrack(1)} aria-label={text("向右浏览参考内容", "Scroll references right")} title={text("向右浏览参考内容", "Scroll references right")}><ChevronRight aria-hidden="true" /></button> : null}
                             {!trackState.isExpanded && props.attachments.length ? <Tooltip title={text("查看全部", "Show all")}><button type="button" className="creation-reference-panel-expand" onClick={() => setReferencePanelExpanded(true)} aria-label={text(`查看全部 ${props.attachments.length} 个参考内容`, `Show all ${props.attachments.length} references`)} aria-expanded="false"><Maximize2 aria-hidden="true" /></button></Tooltip> : null}
@@ -380,10 +383,9 @@ export function CreationComposer(props: ComposerProps) {
         <footer className="creation-chat-dock">
             <div className="creation-chat-controls">
                 {props.variant === "thread" ? <ModePicker mode={props.mode} onModeChange={props.onModeChange} /> : null}
-                {referencesSupported && !props.attachments.length ? <Tooltip title={addReferenceLabel}><button type="button" className="creation-chat-control" onClick={props.onOpenLibrary} disabled={interactionBusy || !canAddMoreReferences} aria-label={addReferenceLabel}><Plus aria-hidden="true" /><span>参考内容</span></button></Tooltip> : null}
                 <VoiceRecordingButton
                     className="creation-voice-trigger"
-                    disabled={interactionBusy}
+                    disabled={inputDisabled}
                     onTranscribed={(text) => props.setPrompt(props.prompt.trim() ? `${props.prompt} ${text}` : text)}
                 />
                 {canOptimizePrompt ? <Tooltip title={text("用 AI 优化提示词", "Improve prompt with AI")}>
@@ -402,10 +404,11 @@ export function CreationComposer(props: ComposerProps) {
 				<ModelPicker config={props.config} value={props.model} onChange={props.onModelChange} capability={props.mode} requirements={props.modelRequirements} className="creation-model-picker" placeholder={text(`选择${modeLabels[props.mode]}模型`, `Select ${creationModeLabel(props.mode, locale).toLowerCase()} model`)} showSelectedPrice={false} showOptionPrices variant="creation" />
                 {props.mode === "video" || (props.mode === "image" && imageSettingsSupported) ? <GenerationSettingsMenu {...props} /> : null}
                 {props.mode === "video" ? <DurationMenu profile={videoCapabilityForReferenceVideos(props.videoProfile, props.modelRequirements?.input?.videoCount || 0)} seconds={props.seconds} onChange={props.setSeconds} /> : null}
-                {props.mode === "text" ? <>
+                {props.mode === "text" ? <Popover trigger="click" placement="topLeft" arrow={false} open={textSettingsOpen} onOpenChange={setTextSettingsOpen} classNames={{ root: "creation-control-popover", container: "creation-control-popover-surface", content: "creation-control-popover-content" }} content={<div className="creation-parameter-menu">
+                    <p className="text-[var(--fs-caption)] text-muted-foreground">{text("设置会自动记住，并用于之后的生成。思考能力取决于所选模型。", "Settings are remembered for future requests. Reasoning depends on the selected model.")}</p>
                     <Tooltip title={interactionBusy ? text("生成中，此开关将在下次发送时生效", "This change will apply to the next prompt") : (props.textStreaming ? text("流式输出已开启", "Streaming on") : text("流式输出已关闭", "Streaming off"))}><button type="button" className="creation-chat-control" aria-pressed={props.textStreaming} disabled={interactionBusy} onClick={() => props.setTextStreaming(!props.textStreaming)}><Waves /><span>{text("流式", "Stream")}</span></button></Tooltip>
                     <Tooltip title={interactionBusy ? text("生成中，此开关将在下次发送时生效", "This change will apply to the next prompt") : (props.textThinking ? text("思考已开启，会展示模型返回的推理摘要", "Reasoning summary on") : text("开启模型思考", "Enable reasoning"))}><button type="button" className="creation-chat-control" aria-pressed={props.textThinking} disabled={interactionBusy} onClick={() => props.setTextThinking(!props.textThinking)}><Brain /><span>{text("思考", "Think")}</span></button></Tooltip>
-                </> : null}
+                </div>}><button type="button" className="creation-chat-control" aria-expanded={textSettingsOpen} aria-haspopup="dialog"><SlidersHorizontal /><span>{text("高级设置", "Advanced")}</span><ChevronDown /></button></Popover> : null}
                 {props.prompt.trim() || props.attachments.length || props.references.some((reference) => reference.active) ? <Tooltip title={text("清空提示词和参考内容", "Clear prompt and references")}><button type="button" className="creation-chat-control is-clear" onClick={props.onClearComposer} disabled={interactionBusy} aria-label={text("清空提示词和参考内容", "Clear prompt and references")}><Trash2 /><span>{text("清空", "Clear")}</span></button></Tooltip> : null}
             </div>
             <Button
@@ -418,7 +421,7 @@ export function CreationComposer(props: ComposerProps) {
                 } as CSSProperties}
                 onClick={interactionBusy ? undefined : props.onSubmit}
                 aria-label={actionLabel}
-                title={!canSubmit && !interactionBusy ? text("输入创作想法后即可生成", "Enter a prompt to create") : actionLabel}
+                title={props.projectRequired ? projectHint : !canSubmit && !interactionBusy ? text("输入创作想法后即可生成", "Enter a prompt to create") : actionLabel}
             >
                 {showWorkingGlow ? <WorkingGlow active color="var(--creation-text)" radius="999px" /> : null}
                 {showCost ? <span className="creation-submit-cost" title={routeQuote ? modelQuoteDescription(routeQuote) : undefined}><CreditSymbol /><span>{routeQuote?.estimated ? text(`预估:${formattedCredits}`, `Est. ${formattedCredits}`) : formattedCredits}</span></span> : null}

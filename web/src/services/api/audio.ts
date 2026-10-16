@@ -1,4 +1,5 @@
-import { audioMimeType, normalizeAudioFormatValue, normalizeAudioSpeedValue, normalizeAudioVoiceValue } from "@/lib/audio-generation";
+import { audioMimeType, normalizeAudioFormatForConfig, normalizeAudioFormatValue, normalizeAudioSpeedValue, normalizeAudioVoiceForConfig, normalizeAudioVoiceValue } from "@/lib/audio-generation";
+import { isSeedAudioProtocol } from "@/lib/model-protocols";
 import { createChannelTransport } from "@/services/api/channel-transport";
 import { uploadMediaFile, type UploadedFile } from "@/services/file-storage";
 import { buildApiUrl, resolveModelRequestConfig, type AiConfig } from "@/stores/use-config-store";
@@ -10,14 +11,16 @@ function aiApiUrl(config: AiConfig, path: string) {
 }
 
 function audioTransport(config: AiConfig) {
-    return createChannelTransport(config, "audio");
+    const requestConfig = resolveModelRequestConfig(config, config.model || config.audioModel);
+    return createChannelTransport({ ...config, authHeader: isSeedAudioProtocol(requestConfig.interfaceType) ? "X-Api-Key" : undefined }, "audio");
 }
 
 export async function requestAudioGeneration(config: AiConfig, prompt: string, options?: RequestOptions): Promise<Blob> {
     const requestConfig = resolveModelRequestConfig(config, config.model || config.audioModel);
     const model = requestConfig.model.trim();
     assertAudioConfig(requestConfig, model);
-    const format = normalizeAudioFormatValue(config.audioFormat);
+    const format = isSeedAudioProtocol(requestConfig.interfaceType) ? normalizeAudioFormatForConfig(requestConfig, config.audioFormat) : normalizeAudioFormatValue(config.audioFormat);
+    const voice = isSeedAudioProtocol(requestConfig.interfaceType) ? normalizeAudioVoiceForConfig(requestConfig, config.audioVoice) : config.audioVoice;
     const instructions = config.audioInstructions.trim();
     const payload = {
         model,
@@ -29,6 +32,9 @@ export async function requestAudioGeneration(config: AiConfig, prompt: string, o
     };
 
     try {
+        if (isSeedAudioProtocol(requestConfig.interfaceType)) {
+            return await requestSeedAudioGeneration(requestConfig, prompt, format, voice, config.audioSpeed, options);
+        }
         if (requestConfig.interfaceType === "async-audio") {
             return await requestAsyncAudioGeneration(requestConfig, payload, format, options);
         }
@@ -38,6 +44,46 @@ export async function requestAudioGeneration(config: AiConfig, prompt: string, o
     } catch (error) {
         throw new Error(readAxiosError(error, "音频生成失败"));
     }
+}
+
+async function requestSeedAudioGeneration(config: AiConfig, prompt: string, format: string, voice: string, speed: string, options?: RequestOptions) {
+    const normalizedSpeed = Number(normalizeAudioSpeedValue(speed));
+    const payload = {
+        model: config.model,
+        text_prompt: prompt,
+        ...(voice.trim() ? { references: [{ speaker: voice.trim() }] } : {}),
+        audio_config: { format, speech_rate: Math.round((normalizedSpeed - 1) * 100) },
+    };
+    const response = await audioTransport(config).postJson<Record<string, unknown>>(aiApiUrl(config, "/api/v3/tts/create"), payload, options);
+    const code = response.code;
+    if (typeof code === "number" && code !== 0) throw new Error(String(response.message || response.msg || "Seed Audio 音频生成失败"));
+    const audio = typeof response.audio === "string" ? response.audio.trim() : "";
+    if (audio) return decodeSeedAudio(audio, format);
+    const url = typeof response.url === "string" ? response.url.trim() : "";
+    if (url) {
+        const blob = await audioTransport(config).getExternalBlob(url, undefined, options);
+        return blob.type.startsWith("audio/") ? blob : new Blob([blob], { type: seedAudioMimeType(format) });
+    }
+    throw new Error("Seed Audio 接口没有返回 audio 或 url");
+}
+
+async function decodeSeedAudio(value: string, format: string) {
+    const encoded = value.replace(/^data:[^,]+,/, "");
+    let binary: string;
+    try {
+        binary = atob(encoded);
+    } catch {
+        throw new Error("Seed Audio 音频响应不是有效的 Base64");
+    }
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    return new Blob([bytes], { type: seedAudioMimeType(format) });
+}
+
+function seedAudioMimeType(format: string) {
+    if (format === "wav") return "audio/wav";
+    if (format === "ogg_opus") return "audio/ogg";
+    if (format === "pcm") return "audio/pcm";
+    return "audio/mpeg";
 }
 
 async function requestAsyncAudioGeneration(config: AiConfig, payload: Record<string, unknown>, format: string, options?: RequestOptions) {

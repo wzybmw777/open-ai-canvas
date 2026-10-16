@@ -15,6 +15,8 @@ description: 复用平台视频编辑模型、任务与计费的去水印 MVP
 
 后端生产镜像包含 `ffmpeg` / `ffprobe`。宿主机运行需自行提供 `ffprobe`，缺失时状态接口返回不可用，创建任务返回 503。探测进程有超时限制，只允许本地文件与管道协议；临时文件受大小限制并在结束后删除。原视频独立保留，结果按现有资源服务存储。
 
+若自定义补丁镜像只替换后端程序，须确认它继承的运行镜像仍包含这两个组件。发布前应以运行用户执行 `ffprobe -version` 并探测一段真实 MP4；发布后以登录态检查 `GET /api/workbench/video-cleanup` 的 `available`。仅替换业务程序或健康检查通过，不能证明视频探测依赖齐全。
+
 ## 平台模型配置
 
 支持通过视频输入和提示词编辑原视频的现有 Seedance 2.0 渠道，可以在模型能力配置中保留原有操作，并添加 `video_edit`，无需另建模型或部署推理服务。现有 `lxmone-seedance-videos` 和 `yuxibox-video` 协议分别将源视频传入 `reference_videos` 和 `videos`，编辑任务仍沿用已配置的 SKU、分辨率和价格档。参考 [Seedance 2.0 官方提示词指南](https://docs.volcengine.com/docs/ark/seedance-2-0-prompt-guide?lang=zh)，建议使用“严格编辑视频1，去掉水印，保持其余内容不变”的要求。只有视频输入并不足以证明任意模型能编辑，新增能力前需核对模型及中转协议。

@@ -56,6 +56,14 @@ func (r *Repository) DueChannelSyncJobs(now time.Time) ([]model.ChannelSyncJob, 
 	return jobs, err
 }
 
+// BringForwardChannelSyncJobs bounds enabled schedules by the next interval
+// without delaying overdue work or modifying a running job's lease.
+func (r *Repository) BringForwardChannelSyncJobs(now, next time.Time) error {
+	return r.db.Model(&model.ChannelSyncJob{}).
+		Where("enabled = ? AND (next_run_at IS NULL OR next_run_at > ?) AND (lease_expires_at IS NULL OR lease_expires_at <= ?)", true, next, now).
+		Update("next_run_at", next).Error
+}
+
 func (r *Repository) RecoverExpiredChannelSync(now time.Time) error {
 	var jobs []model.ChannelSyncJob
 	if err := r.db.Where("lease_expires_at IS NOT NULL AND lease_expires_at <= ?", now).Find(&jobs).Error; err != nil {

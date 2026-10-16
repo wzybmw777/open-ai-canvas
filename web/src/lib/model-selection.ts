@@ -2,6 +2,7 @@ import { defaultImageCapabilityConfig, modelCapabilityConfigFor, normalizeImageV
 import { videoResolutionComparisonKey } from "@/lib/video-generation-options";
 import { imageParameterRequest, imageParameterDefaults, imageParameterAccepts } from "./image-parameters";
 import { imageSizePresets } from "@/lib/image-size-presets";
+import { isSeedAudioProtocol } from "@/lib/model-protocols";
 import { modelOptionName, PUBLIC_MODEL_CATALOG_ID, resolveModelChannel, selectableModelsByCapability, type AiConfig, type ModelCapability } from "@/stores/use-config-store";
 
 export type ModelInputSummary = {
@@ -38,12 +39,12 @@ export type ModelReferenceLimits = {
  * 或 1 张参考图片，两者不能同时使用。
  */
 export function audioReferenceCapacity(config: AiConfig, model: string) {
-    return audioProtocol(config, model) === "doubao-streaming-tts" ? 3 : 0;
+    return isSeedAudioProtocol(audioProtocol(config, model)) ? 3 : 0;
 }
 
 export function isDoubaoAudioModel(config: AiConfig, model: string) {
     if (!String(model || "").trim()) return false;
-    if (audioProtocol(config, model) === "doubao-streaming-tts") return true;
+    if (isSeedAudioProtocol(audioProtocol(config, model))) return true;
     // seed-audio-1.0 与 seed-audio-1.0-multilingual 共用同一套 references 合同。
     return modelOptionName(model).toLowerCase().startsWith("seed-audio");
 }

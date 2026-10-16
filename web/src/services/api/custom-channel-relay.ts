@@ -1,7 +1,7 @@
 import { apiBaseURL } from "@/services/api/request";
 import { isSystemProxyBaseUrl, type AiConfig, type ChannelHeader } from "@/stores/use-config-store";
 
-type RelayConfig = Pick<AiConfig, "baseUrl" | "apiKey" | "apiFormat"> & { headers?: ChannelHeader[] };
+type RelayConfig = Pick<AiConfig, "baseUrl" | "apiKey" | "apiFormat"> & { headers?: ChannelHeader[]; authHeader?: string };
 
 export type ChannelRequest = {
     url: string;
@@ -24,7 +24,12 @@ export function channelRequest(config: RelayConfig, upstreamUrl: string, headers
     normalizedHeaders.set("X-Canvas-Upstream-URL", normalizedUpstreamUrl);
     normalizedHeaders.set("X-Canvas-Upstream-Format", config.apiFormat === "gemini" ? "gemini" : config.apiFormat === "claude" ? "claude" : "openai");
     normalizedHeaders.set("X-Canvas-Upstream-Base-URL", normalizedBaseUrl);
-    if (config.headers?.length) normalizedHeaders.set("X-Canvas-Upstream-Headers", encodeChannelHeaders(config.headers));
+    const relayHeaders = [...(config.headers || [])];
+    const authHeader = String(config.authHeader || "").trim();
+    if (authHeader && config.apiKey && !relayHeaders.some((header) => header.name.toLowerCase() === authHeader.toLowerCase())) {
+        relayHeaders.push({ name: authHeader, value: config.apiKey });
+    }
+    if (relayHeaders.length) normalizedHeaders.set("X-Canvas-Upstream-Headers", encodeChannelHeaders(relayHeaders));
     return {
         url: `${apiBaseURL.replace(/\/+$/u, "")}/ai/custom`,
         headers: Object.fromEntries(normalizedHeaders.entries()),

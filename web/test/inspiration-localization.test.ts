@@ -43,6 +43,11 @@ describe("Chinese inspiration catalogs", () => {
             }
         }
         const gallery = JSON.parse(readFileSync(new URL("../public/inspirations/gallery-pool.json", import.meta.url), "utf8"));
-        for (const item of gallery.entries) expect(item.prompt).toBe(all.get(item.id));
+        const counts = new Map<string, number>();
+        for (const item of gallery.entries) {
+            expect(item.prompt).toBe(all.get(item.id));
+            counts.set(item.mode, (counts.get(item.mode) || 0) + 1);
+        }
+        for (const count of counts.values()) expect(count).toBeLessThanOrEqual(48);
     });
 });

@@ -21,7 +21,10 @@ func withProviderSubmissionKey(ctx context.Context, attempt *model.RouteAttempt)
 }
 
 func (s *Service) createDirectTaskAttempt(task *model.Task) (*model.RouteAttempt, error) {
-	if task.Attempts > 1 && task.ProviderRequestID == "" {
+	// Positive runs use persisted dispatch records before every provider call.
+	// Claim attempts alone do not prove submission: a claim can time out before
+	// execution starts. Only legacy tasks lack that guarantee.
+	if task.RouteRun <= 0 && task.Attempts > 1 && task.ProviderRequestID == "" {
 		return nil, routeDispatchUncertainError{"旧任务已尝试执行但缺少提交记录，为避免重复扣费已停止自动重发"}
 	}
 	id, err := s.repo.NextPrefixedID("ATTEMPT")

@@ -76,6 +76,7 @@ export type WorkbenchToolDirectory = {
 };
 
 export type CreateWorkbenchTaskInput = {
+    projectId: string;
     kind: WorkbenchKind;
     toolId?: string;
     presetId?: string;
@@ -94,10 +95,10 @@ export type CreateWorkbenchTaskInput = {
     }>;
 };
 
-export async function listWorkbenchTasks(kind: WorkbenchKind, limit = 100, activeOnly = false, signal?: AbortSignal) {
+export async function listWorkbenchTasks(kind: WorkbenchKind, limit = 100, activeOnly = false, signal?: AbortSignal, projectId?: string) {
     const pageSize = Number.isFinite(limit) ? Math.max(1, Math.min(100, Math.trunc(limit))) : 100;
     return http.get<GenerationTask[]>("/workbench/tasks", {
-        params: { kind, pageSize, activeOnly: activeOnly || undefined },
+        params: { kind, pageSize, activeOnly: activeOnly || undefined, projectId: projectId || undefined },
         signal,
     });
 }
@@ -217,8 +218,8 @@ export function setAdminWorkbenchToolEnabled(id: string, enabled: boolean) {
 
 export type WorkbenchTaskIntent = CreateWorkbenchTaskInput;
 
-export async function createWorkbenchTask(input: WorkbenchTaskIntent) {
-    const result = await http.post<WorkbenchTaskReceipt | WorkbenchTaskReceipt["task"]>("/workbench/tasks", input);
+export async function createWorkbenchTask(input: WorkbenchTaskIntent, signal?: AbortSignal) {
+    const result = await http.post<WorkbenchTaskReceipt | WorkbenchTaskReceipt["task"]>("/workbench/tasks", input, { signal });
     const task = result && "task" in result ? result.task : result;
     if (!task?.id) throw new Error("任务已提交，但没有返回任务编号");
     return task;

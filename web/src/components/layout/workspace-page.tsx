@@ -24,7 +24,7 @@ export function PageHeader({ title, description, meta, actions }: { title: strin
                         <h1 className="app-page-header-title truncate font-semibold leading-7">{title}</h1>
                         {meta}
                     </div>
-                    {description ? <p className="mt-1 text-xs leading-5 text-foreground/58">{description}</p> : null}
+                    {description ? <p className="mt-1 text-[var(--fs-caption)] leading-5 text-muted-foreground">{description}</p> : null}
                 </div>
             </div>
             {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}

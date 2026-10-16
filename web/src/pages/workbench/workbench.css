@@ -164,7 +164,7 @@
 }
 .workbench-tool-choice-copy small {
     color: var(--wb-text-muted);
-    font-size: 11px;
+    font-size: var(--fs-tiny);
 }
 .workbench-tool-choice-copy strong {
     overflow: hidden;
@@ -403,7 +403,7 @@
     border: 1px solid var(--wb-edge);
     border-radius: 4px;
     color: var(--wb-text-muted);
-    font-size: 10px;
+    font-size: var(--fs-tiny);
     font-weight: 550;
     line-height: 16px;
 }
@@ -414,7 +414,7 @@
 }
 .workbench-reference-slot-meta {
     color: var(--wb-text-muted);
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     line-height: 16px;
 }
 .workbench-reference-slot-meta > span + span::before {
@@ -515,7 +515,7 @@
 }
 .workbench-reference-slot-empty-copy small {
     color: var(--wb-text-muted);
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     line-height: 15px;
 }
 .workbench-reference-add,
@@ -536,7 +536,7 @@
     align-content: center;
     gap: 6px;
     border-style: dashed;
-    font-size: 11px;
+    font-size: var(--fs-tiny);
 }
 .workbench-reference-add svg {
     width: 21px;
@@ -589,7 +589,7 @@
     background: #b42318;
     color: white;
     text-align: center;
-    font-size: 10px;
+    font-size: var(--fs-tiny);
 }
 .workbench-audio-reference {
     display: grid;
@@ -615,7 +615,7 @@
     display: block;
     margin-bottom: 6px;
     color: var(--wb-text-soft);
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -683,7 +683,7 @@
     border-top: 1px solid color-mix(in srgb, var(--wb-edge) 50%, transparent);
     min-height: 28px;
     color: var(--wb-text-muted);
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     font-variant-numeric: tabular-nums;
 }
 .workbench-prompt-meta > span:last-of-type {
@@ -739,7 +739,7 @@
     gap: 6px;
     min-width: 0;
     color: var(--wb-text-muted);
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     line-height: 1.4;
     white-space: nowrap;
 }
@@ -838,7 +838,7 @@
 }
 .workbench-config-tile small {
     color: var(--wb-text-muted);
-    font-size: 11px;
+    font-size: var(--fs-tiny);
 }
 .workbench-config-tile strong {
     overflow: hidden;
@@ -876,7 +876,7 @@
 .workbench-model-empty a {
     justify-self: start;
     color: inherit;
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     text-decoration: underline;
     text-underline-offset: 2px;
 }
@@ -922,7 +922,7 @@
 .workbench-section-heading span {
     overflow: hidden;
     color: var(--wb-text-muted);
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -946,7 +946,7 @@
 }
 .workbench-empty-result > span:last-child {
     max-width: 250px;
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     line-height: 1.6;
 }
 .workbench-empty-mark {
@@ -977,7 +977,7 @@
 .workbench-generating > span {
     max-width: 250px;
     color: var(--wb-text-muted);
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     line-height: 1.55;
 }
 .workbench-generating .ant-progress {
@@ -1035,7 +1035,7 @@
     gap: 8px;
     padding: 7px 9px;
     color: white;
-    font-size: 11px;
+    font-size: var(--fs-tiny);
 }
 .workbench-guide-description {
     margin: 10px 0 5px;
@@ -1047,7 +1047,7 @@
     min-height: 0;
     overflow: auto;
     color: var(--wb-text-muted);
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     line-height: 1.7;
 }
 .workbench-guide-copy p {
@@ -1060,7 +1060,7 @@
     margin-top: auto;
     padding-top: 8px;
     color: var(--wb-text-muted);
-    font-size: 10px;
+    font-size: var(--fs-tiny);
 }
 .workbench-example-thumb {
     display: grid;
@@ -1157,12 +1157,12 @@
     white-space: nowrap;
 }
 .workbench-task-copy strong {
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     font-weight: 600;
 }
 .workbench-task-copy small {
     color: var(--wb-text-muted);
-    font-size: 10px;
+    font-size: var(--fs-tiny);
 }
 .workbench-task-copy em {
     color: var(--wb-text-soft);
@@ -1177,7 +1177,7 @@
 .workbench-list-empty {
     margin: 8px 4px 0;
     color: var(--wb-text-muted);
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     line-height: 1.5;
 }
 .workbench-picker-modal {
@@ -1332,7 +1332,7 @@
     display: -webkit-box;
     overflow: hidden;
     color: color-mix(in srgb, var(--foreground) 56%, transparent);
-    font-size: 10px;
+    font-size: var(--fs-tiny);
     line-height: 1.5;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
@@ -1417,7 +1417,7 @@
 }
 .workbench-detail-info > label {
     color: color-mix(in srgb, var(--foreground) 50%, transparent);
-    font-size: 11px;
+    font-size: var(--fs-tiny);
 }
 .workbench-detail-prompt {
     max-height: 130px;
@@ -1437,7 +1437,7 @@
     padding: 8px;
     border-radius: 9px;
     background: var(--wb-muted);
-    font-size: 10px;
+    font-size: var(--fs-tiny);
 }
 .workbench-detail-info dl {
     display: grid;
@@ -1448,7 +1448,7 @@
     display: flex;
     justify-content: space-between;
     gap: 10px;
-    font-size: 11px;
+    font-size: var(--fs-tiny);
 }
 .workbench-detail-info dt {
     color: color-mix(in srgb, var(--foreground) 52%, transparent);
@@ -1469,7 +1469,7 @@
     padding: 4px 8px;
     border-radius: 99px;
     background: var(--wb-muted);
-    font-size: 10px;
+    font-size: var(--fs-tiny);
 }
 .workbench-status.is-succeeded {
     color: #287a58;
@@ -1548,7 +1548,7 @@
     }
     .workbench-tool-copy small {
         max-width: 190px;
-        font-size: 10px;
+        font-size: var(--fs-tiny);
     }
     .workbench-page-title {
         display: none;
@@ -1807,6 +1807,7 @@
 
 .workbench-flow-steps {
     display: flex;
+    overflow-x: auto;
     align-items: center;
     gap: 14px;
     flex: 0 0 auto;
@@ -1829,7 +1830,7 @@
     background: color-mix(in srgb, var(--user-primary, var(--wb-accent-creative)) 10%, var(--wb-surface));
     color: var(--user-primary, var(--wb-accent-creative));
     font: inherit;
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     font-weight: 620;
     cursor: pointer;
     transition: background-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
@@ -1853,11 +1854,12 @@
 
 .workbench-flow-step {
     display: flex;
+    flex: 0 0 auto;
     align-items: center;
     gap: 8px;
     min-width: 0;
     color: var(--wb-text-soft);
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     font-weight: 600;
     white-space: nowrap;
 }
@@ -1879,7 +1881,7 @@
     border-radius: 8px;
     background: var(--wb-muted);
     color: var(--wb-text-muted);
-    font-size: 10px;
+    font-size: var(--fs-tiny);
     font-variant-numeric: tabular-nums;
 }
 
@@ -1981,7 +1983,7 @@
     border-radius: 8px;
     background: color-mix(in srgb, var(--user-primary, var(--wb-accent-creative)) 11%, var(--wb-surface));
     color: var(--user-primary, var(--wb-accent-creative));
-    font-size: 10px;
+    font-size: var(--fs-tiny);
     font-weight: 750;
     font-variant-numeric: tabular-nums;
 }
@@ -1997,7 +1999,7 @@
 .workbench-block-label span:not(.workbench-section-index) {
     overflow: hidden;
     color: var(--wb-text-muted);
-    font-size: 10px;
+    font-size: var(--fs-tiny);
     line-height: 1.4;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -2150,7 +2152,7 @@
 
 .workbench-goal-copy small {
     color: var(--wb-text-muted);
-    font-size: 10px;
+    font-size: var(--fs-tiny);
 }
 
 .workbench-goal-arrow {
@@ -2209,7 +2211,7 @@
 }
 
 .workbench-block-label span:not(.workbench-section-index) {
-    font-size: 10px;
+    font-size: var(--fs-tiny);
 }
 
 .workbench-prompt-surface {
@@ -2321,11 +2323,11 @@
 }
 
 .workbench-history-panel .workbench-task-copy small {
-    font-size: 11px;
+    font-size: var(--fs-tiny);
 }
 
 .workbench-history-panel .workbench-task-copy em {
-    font-size: 10px;
+    font-size: var(--fs-tiny);
 }
 
 @media (max-width: 1439px) {
@@ -2400,7 +2402,6 @@
 
 @media (max-width: 767px) {
     .workbench-flow-steps {
-        overflow-x: auto;
         min-height: 44px;
         padding-inline: 10px;
         gap: 10px;
@@ -2409,7 +2410,7 @@
     .workbench-flow-reset {
         min-height: 26px;
         padding: 0 9px;
-        font-size: 10px;
+        font-size: var(--fs-tiny);
     }
 
     .workbench-flow-reset svg {
@@ -2418,7 +2419,7 @@
     }
 
     .workbench-flow-step {
-        font-size: 10px;
+        font-size: var(--fs-tiny);
     }
 
     .workbench-flow-line {
@@ -2428,6 +2429,10 @@
 
     .workbench-goal-grid {
         grid-template-columns: 1fr;
+    }
+
+    .workbench-goal-picker {
+        display: none;
     }
 
     .workbench-goal-card {

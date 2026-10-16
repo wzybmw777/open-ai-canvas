@@ -37,7 +37,7 @@ export type CreationMessage = {
     generationStage?: string;
     generationEffectKeys?: string[];
 };
-export type CreationConversation = { id: string; title: string; updatedAt: string; canvasId?: string; messages: CreationMessage[] };
+export type CreationConversation = { id: string; title: string; updatedAt: string; projectId?: string; canvasId?: string; messages: CreationMessage[] };
 
 export const modeLabels: Record<CreationMode, string> = { text: "文本", image: "图片", video: "视频" };
 export function creationModeLabel(mode: CreationMode, locale: AppLocale) {

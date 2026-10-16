@@ -1,0 +1,7 @@
+.project-context-bar { flex-shrink: 0; padding: var(--space-3) var(--space-6); border-bottom: 1px solid var(--user-border); color: var(--user-ink); background: var(--user-page-bg); font-size: var(--fs-caption); }
+.project-context-controls { display: flex; align-items: center; gap: var(--space-3); }
+.project-context-controls > span, .project-context-controls a { flex-shrink: 0; }
+.project-context-controls .ant-select { flex: 1; min-width: 0; max-width: 280px; }
+.project-context-controls a { color: var(--user-accent); text-decoration: underline; text-underline-offset: var(--space-1); }
+.project-context-bar p { margin: var(--space-2) 0 0; color: var(--user-ink-muted); }
+@media (max-width: 640px) { .project-context-bar { padding: var(--space-3); } }

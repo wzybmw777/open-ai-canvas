@@ -18,6 +18,10 @@ export function isVolcengineArkVideoProtocol(protocol?: string) {
     return protocol === "volcengine-ark-video" || protocol === "volcengine-ark-agent-plan-video";
 }
 
+export function isSeedAudioProtocol(protocol?: string) {
+    return protocol === "doubao-streaming-tts";
+}
+
 export function modelProtocolSupportsTokenBilling(capability?: string, _protocol?: string) {
     return capability === "text" || capability === "video";
 }

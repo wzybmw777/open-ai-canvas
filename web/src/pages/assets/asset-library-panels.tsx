@@ -3,6 +3,7 @@
 import { Button, Drawer, Tag } from "antd";
 import { Box, CheckCheck, Clapperboard, Copy, Download, FileText, FileUp, Link2, Maximize2, Mic, Plus, RotateCcw, Trash2, ZoomIn, ZoomOut } from "lucide-react";
 import { AudioPlayButton, CharacterAssetCover } from "@/components/assets/asset-rich-cover";
+import { CachedResourceImage } from "@/components/cached-resource-image";
 import { useAppearanceStore } from "@/stores/use-appearance-store";
 import { assetCategoryLabel } from "@/lib/asset-category";
 import { formatBytes } from "@/lib/image-utils";
@@ -194,7 +195,7 @@ function CharacterArchive({ asset }: { asset: Extract<LibraryAsset, { kind: "ent
             <div className="relative aspect-[4/3] overflow-hidden rounded-[var(--r-xl)]">
                 <CharacterAssetCover asset={asset} size="hero" />
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 px-5 pb-4">
-                    <div className="text-[10px] font-medium uppercase tracking-[.24em] text-white/55">Character{asset.data.version ? ` · v${asset.data.version}` : ""}</div>
+                    <div className="text-xs font-medium text-white">角色{asset.data.version ? ` · v${asset.data.version}` : ""}</div>
                     {aliases.length ? <div className="mt-1 truncate text-xs text-white/70">又名 {aliases.join("、")}</div> : null}
                 </div>
             </div>
@@ -207,22 +208,22 @@ function CharacterArchive({ asset }: { asset: Extract<LibraryAsset, { kind: "ent
                     </span>
                 )}
                 <span className="min-w-0">
-                    <span className="block text-[11px] text-foreground/45">声音</span>
+                    <span className="block text-[var(--fs-caption)] text-muted-foreground">声音</span>
                     <span className="block truncate text-sm font-medium">{asset.data.voiceName || "未绑定声音"}</span>
                 </span>
-                <span className={`ml-auto shrink-0 text-xs ${asset.data.visualStatus === "ready" ? "text-emerald-600 dark:text-emerald-400" : "text-foreground/45"}`}>{asset.data.visualStatus === "ready" ? "形象就绪" : "形象待完善"}</span>
+                <span className={`ml-auto shrink-0 text-xs ${asset.data.visualStatus === "ready" ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>{asset.data.visualStatus === "ready" ? "形象就绪" : "形象待完善"}</span>
             </div>
             {rows.length ? (
                 <dl className="divide-y divide-border/60 border-y border-border/60">
                     {rows.map(([label, value]) => (
                         <div key={label} className="grid grid-cols-[84px_minmax(0,1fr)] gap-3 py-3 text-sm leading-6">
-                            <dt className="text-foreground/45">{label}</dt>
+                            <dt className="text-muted-foreground">{label}</dt>
                             <dd className="whitespace-pre-wrap text-foreground/85">{value}</dd>
                         </div>
                     ))}
                 </dl>
             ) : (
-                <p className="text-sm text-foreground/45">还没有填写角色设定，可在画布上打开角色卡补充。</p>
+                <p className="text-sm text-muted-foreground">还没有填写角色设定，可在画布上打开角色卡补充。</p>
             )}
         </div>
     );
@@ -268,7 +269,7 @@ export function AssetDrawer({ asset, onClose, onCopy, onDownload }: { asset: Lib
                             ) : asset.kind === "video" ? (
                                 <video src={asset.data.url} controls className="asset-archive-preview-media" />
                             ) : (
-                                <AssetImageZoom asset={asset} />
+                                <AssetImageZoom key={asset.id} asset={asset} />
                             )}
                         </div>
                     )}
@@ -357,7 +358,30 @@ export function AssetImageZoom({ asset }: { asset: LibraryAsset & { kind: "image
                 dragRef.current = null;
             }}
         >
-            <img src={asset.coverUrl || asset.data.dataUrl} alt={asset.title} loading="lazy" decoding="async" className="asset-archive-preview-media asset-zoom-image" style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})` }} />
+            <CachedResourceImage
+                storageKey={asset.data.storageKey}
+                src={asset.data.dataUrl || asset.coverUrl}
+                alt={asset.title}
+                eager
+                retryable
+                loading="eager"
+                decoding="async"
+                className="asset-archive-preview-media asset-zoom-image"
+                style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})` }}
+                loadingFallback={
+                    <CachedResourceImage
+                        storageKey={asset.data.storageKey}
+                        src={asset.coverUrl || asset.data.dataUrl}
+                        variant="thumbnail"
+                        alt={asset.title}
+                        eager
+                        loading="eager"
+                        decoding="async"
+                        className="asset-archive-preview-media asset-zoom-image"
+                        style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})` }}
+                    />
+                }
+            />
             <div className="asset-zoom-controls" data-canvas-no-zoom>
                 <button type="button" title={text("缩小", "Zoom out")} aria-label={text("缩小", "Zoom out")} onClick={() => setScale((value) => Math.max(0.25, value / 1.25))}>
                     <ZoomOut className="size-4" />
