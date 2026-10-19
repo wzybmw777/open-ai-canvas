@@ -15,6 +15,11 @@ func TestCurrentSchemaVersionMatchesMigrationPlan(t *testing.T) {
 	if len(schemaMigrations) == 0 {
 		t.Fatal("migration plan is empty")
 	}
+	for index, item := range schemaMigrations {
+		if index > 0 && item.version <= schemaMigrations[index-1].version {
+			t.Fatalf("migration versions must be strictly increasing: %d after %d", item.version, schemaMigrations[index-1].version)
+		}
+	}
 	latest := schemaMigrations[len(schemaMigrations)-1].version
 	if CurrentSchemaVersion != latest {
 		t.Fatalf("supported schema version %d does not match latest migration %d", CurrentSchemaVersion, latest)
@@ -143,6 +148,88 @@ func TestMigrateSchemaRecordsAndValidatesVersion(t *testing.T) {
 	}
 }
 
+func TestMigrateSchemaV60UpgradesProviderCatalogV59(t *testing.T) {
+	db, err := Open(Config{Driver: "sqlite", DSN: "file:migration-sql-perf-v56?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := MigrateSchema(db); err != nil {
+		t.Fatal(err)
+	}
+	var catalogMigration schemaMigration
+	if err := db.First(&catalogMigration, "version = ?", 59).Error; err != nil {
+		t.Fatal(err)
+	}
+	if catalogMigration.Name != "provider_catalog_source" || catalogMigration.Checksum != "sha256:provider-catalog-source-v55" {
+		t.Fatalf("provider catalog migration identity changed: %#v", catalogMigration)
+	}
+	for _, item := range []struct {
+		entity any
+		index  string
+	}{
+		{&model.ApiCallLog{}, "idx_api_logs_created_epoch"},
+		{&model.ApiCallLog{}, "idx_api_logs_user_created"},
+		{&model.Task{}, "idx_tasks_created_epoch"},
+		{&model.Task{}, "idx_tasks_user_project_created"},
+		{&model.CreditLedgerEntry{}, "idx_credit_ledger_user_type"},
+	} {
+		if err := db.Migrator().DropIndex(item.entity, item.index); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, entity := range []any{&model.ApiCallLog{}, &model.Task{}} {
+		if err := db.Migrator().DropColumn(entity, "CreatedAtEpoch"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := db.Where("version = ?", 60).Delete(&schemaMigration{}).Error; err != nil {
+		t.Fatal(err)
+	}
+	createdAt := time.Date(2026, 10, 15, 12, 30, 0, 0, time.UTC)
+	for _, table := range []string{"api_call_logs", "tasks"} {
+		if err := db.Table(table).Create(map[string]any{"id": "legacy-" + table, "created_at": createdAt}).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := MigrateSchema(db); err != nil {
+		t.Fatalf("upgrade from provider catalog v55: %v", err)
+	}
+	for _, table := range []string{"api_call_logs", "tasks"} {
+		var epoch int64
+		if err := db.Table(table).Select("created_at_epoch").Where("id = ?", "legacy-"+table).Scan(&epoch).Error; err != nil {
+			t.Fatal(err)
+		}
+		if epoch != createdAt.Unix() {
+			t.Fatalf("%s legacy timestamp = %d, want %d", table, epoch, createdAt.Unix())
+		}
+	}
+	for _, item := range []struct {
+		entity any
+		index  string
+	}{
+		{&model.ApiCallLog{}, "idx_api_logs_user_created"},
+		{&model.Task{}, "idx_tasks_user_project_created"},
+		{&model.CreditLedgerEntry{}, "idx_credit_ledger_user_type"},
+	} {
+		if !db.Migrator().HasIndex(item.entity, item.index) {
+			t.Fatalf("v56 did not restore %s", item.index)
+		}
+	}
+	var after schemaMigration
+	if err := db.First(&after, "version = ?", 59).Error; err != nil {
+		t.Fatal(err)
+	}
+	if after != catalogMigration {
+		t.Fatalf("v56 rewrote provider catalog migration: before=%#v after=%#v", catalogMigration, after)
+	}
+	if !db.Migrator().HasColumn(&model.ModelChannel{}, "CatalogProviderID") || !db.Migrator().HasColumn(&model.ChannelModel{}, "CatalogModelKey") {
+		t.Fatal("provider catalog columns missing after v56 upgrade")
+	}
+	if err := MigrateSchema(db); err != nil {
+		t.Fatalf("v56 upgrade should be idempotent: %v", err)
+	}
+}
+
 func TestMigrateSchemaNormalizesLegacyWorkbenchMigrationV51(t *testing.T) {
 	db, err := Open(Config{Driver: "sqlite", DSN: "file:migration-legacy-workbench-v51?mode=memory&cache=shared"})
 	if err != nil {
@@ -151,7 +238,8 @@ func TestMigrateSchemaNormalizesLegacyWorkbenchMigrationV51(t *testing.T) {
 	if err := MigrateSchema(db); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Where("version IN ?", []int64{51, 52, 53, 54, 55, 56, 57}).Delete(&schemaMigration{}).Error; err != nil {
+	// 旧账本只到工作台迁移（记为 51），不包含之后新增的迁移。
+	if err := db.Where("version >= ? AND version <> ?", 51, workbenchToolsMigrationVersion).Delete(&schemaMigration{}).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Model(&schemaMigration{}).Where("version = ?", workbenchToolsMigrationVersion).Updates(map[string]any{

@@ -18,6 +18,8 @@ export function AssetsBatchBar({
     count,
     isTrash = false,
     allSelected,
+    busy = false,
+    pageLoading = false,
     onSelectAll,
     onClear,
     onExport,
@@ -28,6 +30,8 @@ export function AssetsBatchBar({
     count: number;
     isTrash?: boolean;
     allSelected: boolean;
+    busy?: boolean;
+    pageLoading?: boolean;
     onSelectAll: () => void;
     onClear: () => void;
     onExport: () => void;
@@ -39,33 +43,33 @@ export function AssetsBatchBar({
     return (
         <div className="assets-batch-bar" role="toolbar" aria-label={text("批量操作", "Batch actions")}>
             <span className="assets-batch-count">
-                {text("已选择", "Selected")} <strong>{count}</strong> {text("个素材", "assets")}
+                {text("已选择", "Selected")} <strong>{count}</strong> {text("个素材 · 点击卡片多选，Shift 连选", "assets · click to select, Shift to select a range")}
             </span>
             <div className="assets-batch-actions">
-                <Button size="small" icon={<CheckCheck className="size-3.5" />} disabled={allSelected} onClick={onSelectAll}>
-                    {text("全选", "Select all")}
+                <Button size="small" icon={<CheckCheck className="size-3.5" />} disabled={allSelected || busy || pageLoading} onClick={onSelectAll}>
+                    {text("全选本页", "Select page")}
                 </Button>
-                <Button size="small" onClick={onClear}>
+                <Button size="small" disabled={busy} onClick={onClear}>
                     {text("取消选择", "Clear selection")}
                 </Button>
                 {isTrash ? (
                     <>
-                        <Button size="small" type="primary" icon={<RotateCcw className="size-3.5" />} onClick={onRestore}>
+                        <Button size="small" type="primary" disabled={!count || busy} icon={<RotateCcw className="size-3.5" />} onClick={onRestore}>
                             {text("还原已选", "Restore selected")}
                         </Button>
-                        <Button size="small" danger icon={<Trash2 className="size-3.5" />} onClick={onDelete}>
+                        <Button size="small" danger disabled={!count || busy} icon={<Trash2 className="size-3.5" />} onClick={onDelete}>
                             {text("彻底删除已选", "Delete selected permanently")}
                         </Button>
                     </>
                 ) : (
                     <>
-                        <Button size="small" icon={<Download className="size-3.5" />} onClick={onExport}>
+                        <Button size="small" disabled={!count || busy} icon={<Download className="size-3.5" />} onClick={onExport}>
                             {text("导出", "Export")}
                         </Button>
-                        <Button size="small" icon={<Trash2 className="size-3.5 text-amber-500" />} onClick={onArchive}>
+                        <Button size="small" disabled={!count || busy} icon={<Trash2 className="size-3.5 text-amber-500" />} onClick={onArchive}>
                             {text("移入回收站", "Move to trash")}
                         </Button>
-                        <Button size="small" danger icon={<Trash2 className="size-3.5" />} onClick={onDelete}>
+                        <Button size="small" disabled={!count || busy} danger icon={<Trash2 className="size-3.5" />} onClick={onDelete}>
                             {text("彻底删除", "Delete permanently")}
                         </Button>
                     </>
@@ -249,7 +253,12 @@ export function AssetDrawer({ asset, onClose, onCopy, onDownload }: { asset: Lib
                             </p>
                         </div>
                     </div>
-                    {asset.kind === "entity" ? (
+                    {asset.kind === "entity" && (asset.category === "environment" || asset.category === "prop") ? (
+                        <div className="asset-archive-preview-note">
+                            <p>{String(asset.data.definition.description || "待生成图片")}</p>
+                            <p>{String(asset.data.definition.prompt || "")}</p>
+                        </div>
+                    ) : asset.kind === "entity" ? (
                         <CharacterArchive asset={asset} />
                     ) : (
                         <div className="asset-archive-preview">
@@ -402,7 +411,7 @@ export function AssetImageZoom({ asset }: { asset: LibraryAsset & { kind: "image
 
 export function assetArchiveFacts(asset: LibraryAsset, locale: AppLocale = "zh-CN") {
     const facts: Array<{ label: string; value: string }> = [
-        { label: locale === "en-US" ? "Type" : "类型", value: assetKindLabel(asset.kind, locale) },
+        { label: locale === "en-US" ? "Type" : "类型", value: assetKindLabel(asset.kind, locale, asset.category) },
         { label: locale === "en-US" ? "Category" : "分类", value: assetCategoryLabel(asset.category, locale) },
     ];
     if (asset.kind === "image" || asset.kind === "video") {

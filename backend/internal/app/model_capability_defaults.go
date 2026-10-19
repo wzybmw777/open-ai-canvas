@@ -23,7 +23,7 @@ func DefaultImageCapabilityConfig(protocol string, modelName string) *ImageCapab
 		Size:                  ImageSizeConfig{Parameter: "size", Values: defaultImageSizeValues(), Default: "1:1", AllowCustom: true},
 		Quality:               ImageQualityConfig{Supported: true, Values: []string{"auto", "low", "medium", "high"}, Default: "auto"},
 		TransparentBackground: VideoBooleanConfig{Supported: true, Default: false},
-		ResponseFormat:        ParameterSupport{Supported: true},
+		ResponseFormat:        ParameterSupport{Supported: true, Default: "auto"},
 		OutputFormat:          ParameterSupport{Supported: true},
 		MaxOutputs:            15,
 	}
@@ -41,6 +41,8 @@ func DefaultImageCapabilityConfig(protocol string, modelName string) *ImageCapab
 			values = append(values, preset.Size)
 		}
 		image.Size = ImageSizeConfig{Parameter: "size", Values: values, Default: "2048x2048", AllowCustom: true, Presets: presets}
+		// Seedream 5.0 官方档位为 1K / 1.5K / 2K，不含 4K；1.5K 用于独立计价。
+		image.Resolution = ImageResolutionConfig{Supported: true, Values: []string{"1k", "1.5k", "2k"}, Default: "2k"}
 		image.Quality = ImageQualityConfig{Supported: false, Values: []string{}, Default: "auto"}
 		// 透明背景需要带 alpha 的单张参考图，通过插件命名空间显式配置。
 		image.TransparentBackground = VideoBooleanConfig{Supported: false, Default: false}
@@ -53,7 +55,7 @@ func DefaultImageCapabilityConfig(protocol string, modelName string) *ImageCapab
 		image.Resolution = ImageResolutionConfig{Supported: true, Values: []string{"1k", "2k"}, Default: "2k"}
 		image.Quality = ImageQualityConfig{Supported: false, Default: "auto"}
 		image.TransparentBackground = VideoBooleanConfig{Supported: false, Default: false}
-		image.ResponseFormat = ParameterSupport{Supported: true}
+		image.ResponseFormat = ParameterSupport{Supported: true, Default: "auto"}
 		image.OutputFormat = ParameterSupport{Supported: false}
 		image.MaxOutputs = 1
 	case model.ChannelInterfaceVolcengineArkImage, model.ChannelInterfaceVolcengineArkAgentPlanImage:
@@ -86,7 +88,7 @@ func DefaultImageCapabilityConfig(protocol string, modelName string) *ImageCapab
 		image.Resolution = ImageResolutionConfig{Supported: true, Values: []string{"1k", "2k"}, Default: "2k"}
 		image.Quality = ImageQualityConfig{Supported: false, Default: "auto"}
 		image.TransparentBackground = VideoBooleanConfig{Supported: false, Default: false}
-		image.ResponseFormat = ParameterSupport{Supported: true}
+		image.ResponseFormat = ParameterSupport{Supported: true, Default: "auto"}
 		image.OutputFormat = ParameterSupport{Supported: false}
 		image.MaxOutputs = 1
 	}

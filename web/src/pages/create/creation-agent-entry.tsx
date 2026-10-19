@@ -40,7 +40,7 @@ export function CreationAgentEntry({ projectId }: { projectId?: string }) {
                 created.current = { id: result.id, userId, projectId };
                 if (result.syncError) throw new Error(text("画布已缓存在本机，但云端尚未保存。请重试同步后再启动 Agent。", "Canvas saved locally, but cloud sync is incomplete. Retry before opening Agent."));
             } else {
-                await saveRemoteUserDataNow();
+                await saveRemoteUserDataNow(created.current.id);
             }
             if (useUserStore.getState().user?.id !== userId) return;
             navigate(`/canvas/${encodeURIComponent(created.current.id)}?agent=1`);

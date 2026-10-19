@@ -2,7 +2,9 @@ import { CanvasNodeType, type CanvasConnection, type CanvasNodeData, type Storyb
 
 export function storyboardRowReferenceNodeIds(scriptNode: CanvasNodeData, row: StoryboardRow, nodes: CanvasNodeData[], connections: CanvasConnection[], includeFirstFrame: boolean, targetNodeId?: string) {
     const characterAssetIds = new Set((row.characters || []).map((character) => character.characterAssetId).filter((assetId): assetId is string => Boolean(assetId)));
-    const characterNodeIds = nodes.filter((node) => node.metadata?.workflowKind === "character" && Boolean(node.metadata.characterAssetId) && characterAssetIds.has(node.metadata.characterAssetId!)).map((node) => node.id);
+    const boundNodeIds = new Set((row.assetBindings || []).map((binding) => binding.nodeId));
+    const explicitlyBoundCharacters = new Set(nodes.filter((node) => boundNodeIds.has(node.id)).map((node) => node.metadata?.characterAssetId).filter(Boolean));
+    const characterNodeIds = nodes.filter((node) => node.metadata?.workflowKind === "character" && Boolean(node.metadata.characterAssetId) && characterAssetIds.has(node.metadata.characterAssetId!) && !explicitlyBoundCharacters.has(node.metadata.characterAssetId)).map((node) => node.id);
     const referenceIds = new Set([
         ...(scriptNode.metadata?.storyboard?.referenceNodeIds || []),
         ...(row.assetBindings || []).map((binding) => binding.nodeId),

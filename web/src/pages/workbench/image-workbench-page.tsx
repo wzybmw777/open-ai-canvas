@@ -18,8 +18,8 @@ import { creationVideoConfig } from "@/pages/create/creation-generation-config";
 import { imageQualityLabel } from "@/lib/image-quality";
 import { modelQuoteRequest } from "@/lib/model-pricing";
 import { quoteModel } from "@/services/api/logical-models";
-import { submitBackendGenerationTask } from "@/services/api/generation-task";
-import { cancelGenerationTask, queryGenerationTask, retryGenerationTask, type GenerationTask } from "@/services/api/task-center";
+import { prepareBackendGenerationTask } from "@/services/api/generation-task";
+import { createGenerationTask, cancelGenerationTask, queryGenerationTask, retryGenerationTask, type GenerationTask } from "@/services/api/task-center";
 import { capabilitySupportedModes, createWorkbenchTask, listWorkbenchTasks, listWorkbenchTools, normalizeWorkbenchGuide, resolveWorkbenchResourceURL, type WorkbenchKind, type WorkbenchPromptPreset, type WorkbenchTool } from "@/services/api/workbench";
 import { resourceStorageKey, resolveResourceUrl, uploadResourceFile } from "@/services/api/resources";
 import { formatCredits, requestCreditCost } from "@/constant/credits";
@@ -28,7 +28,7 @@ import { logicalModelIDForConfig, modelDisplayName, modelOptionName, resolveMode
 import { useUserStore } from "@/stores/use-user-store";
 
 import { workbenchCategoryLabel, workbenchCategories } from "./workbench-catalog";
-import { missingWorkbenchInput, workbenchPromptRequired } from "./workbench-input";
+import { missingWorkbenchInput, workbenchPromptRequired, workbenchVideoOperation } from "./workbench-input";
 import "./workbench.css";
 import "./workbench-count-picker.css";
 
@@ -354,6 +354,7 @@ function ProjectWorkbench({ kind, projectId, userId, onProjectChange }: { kind: 
             input: {
                 textCount: prompt.trim() ? 1 : 0,
                 imageCount: references.filter((reference) => reference.kind === "image").length,
+                referenceImageCount: references.filter((reference) => reference.kind === "image" && reference.role !== "first_frame" && reference.role !== "last_frame").length,
                 videoCount: references.filter((reference) => reference.kind === "video").length,
                 audioCount: references.filter((reference) => reference.kind === "audio").length,
                 characterCount: 0,
@@ -637,6 +638,7 @@ function ProjectWorkbench({ kind, projectId, userId, onProjectChange }: { kind: 
                 ...(videoRequest ? { videoModel: selectedModel, size: videoRequest.ratio, videoSeconds: videoRequest.seconds, vquality: videoRequest.resolution.replace(/p$/i, "") } : {}),
             };
             const readyReferences = references.filter((reference) => reference.resourceId);
+            const videoOperation = kind === "video" ? workbenchVideoOperation(readyReferences) : undefined;
             const referenceSnapshot = readyReferences.map((reference) => ({ resourceId: reference.resourceId!, kind: reference.kind, role: reference.role, ...(reference.slotKey ? { slotKey: reference.slotKey } : {}) }));
             const createdTask =
                 logicalModelId || channel?.scope === "system"
@@ -651,7 +653,7 @@ function ProjectWorkbench({ kind, projectId, userId, onProjectChange }: { kind: 
                           parameters,
                           references: readyReferences.map((reference) => ({ resourceId: reference.resourceId!, kind: reference.kind, role: reference.role, ...(reference.slotKey ? { slotKey: reference.slotKey } : {}) })),
                       }, lifecycle.current?.signal)
-                    : await submitBackendGenerationTask({
+                    : await prepareBackendGenerationTask({
                           projectId,
                           signal: lifecycle.current?.signal,
                           mode: kind,
@@ -693,11 +695,17 @@ function ProjectWorkbench({ kind, projectId, userId, onProjectChange }: { kind: 
                           metadata: {
                               source: "workbench",
                               workbenchKind: kind,
+                              ...(videoOperation ? { videoEditOperation: videoOperation } : {}),
+                              ...Object.fromEntries(
+                                  readyReferences
+                                      .filter((reference) => reference.role === "first_frame" || reference.role === "last_frame")
+                                      .map((reference) => [reference.role === "first_frame" ? "videoStartFrameNodeId" : "videoEndFrameNodeId", reference.id]),
+                              ),
                               ...(tool ? { workbenchToolId: tool.id, workbenchToolName: tool.name } : {}),
                               ...(tool && preset ? { workbenchPresetId: preset.id } : {}),
                               workbench: { kind, ...(tool ? { toolId: tool.id } : {}), ...(tool && preset ? { presetId: preset.id } : {}), parameters, references: referenceSnapshot },
                           },
-                      });
+                      }).then((taskInput) => createGenerationTask({ ...taskInput, ...(videoOperation ? { operation: videoOperation } : {}) }));
             submittedTaskId = createdTask.id;
             if (!currentScope()) return;
             const task = await queryGenerationTask(createdTask.id, { signal: lifecycle.current?.signal });
@@ -1271,6 +1279,7 @@ function ProjectWorkbench({ kind, projectId, userId, onProjectChange }: { kind: 
                                             input: {
                                                 textCount: prompt.trim() ? 1 : 0,
                                                 imageCount: references.filter((reference) => reference.kind === "image").length,
+                                                referenceImageCount: references.filter((reference) => reference.kind === "image" && reference.role !== "first_frame" && reference.role !== "last_frame").length,
                                                 videoCount: references.filter((reference) => reference.kind === "video").length,
                                                 audioCount: references.filter((reference) => reference.kind === "audio").length,
                                                 characterCount: 0,

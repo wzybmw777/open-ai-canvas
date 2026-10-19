@@ -46,7 +46,7 @@ func (s *Service) CreateTask(userID string, req CreateTaskRequest) (*model.Task,
 	if err != nil {
 		return nil, err
 	}
-	if metadata, ok := normalizedInput["metadata"].(map[string]any); ok && metadata["source"] == "workbench" {
+	if workbenchTaskRequiresProject(normalizedInput, req.ProjectID, req.workbenchKind, req.Operation) {
 		project, err := s.requireWorkbenchProject(userID, req.ProjectID)
 		if err != nil {
 			return nil, err

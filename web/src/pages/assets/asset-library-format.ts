@@ -23,7 +23,7 @@ export const assetKindIcons: Record<LibraryAsset["kind"], LucideIcon> = {
 };
 
 export function assetSummary(asset: LibraryAsset, locale: AppLocale = "zh-CN") {
-    if (asset.kind === "entity") return characterAssetSummary(asset);
+    if (asset.kind === "entity") return asset.category === "environment" || asset.category === "prop" ? String(asset.data.definition.description || (locale === "en-US" ? "Image pending" : "待生成图片")) : characterAssetSummary(asset);
     if (asset.kind === "text") return asset.data.content;
     if (asset.kind === "audio") return `${formatAssetDuration(asset.data.durationMs, locale)} · ${formatBytes(asset.data.bytes)} · ${asset.data.mimeType}`;
     if (asset.kind === "model") return `${asset.data.fileName} · ${formatBytes(asset.data.bytes)} · ${asset.data.mimeType}`;
@@ -45,7 +45,8 @@ export function assetProjectLabel(asset: LibraryAsset, locale: AppLocale = "zh-C
     return Array.isArray(asset.metadata?.projectIds) && asset.metadata.projectIds.length ? (locale === "en-US" ? "Linked project" : "已关联项目") : locale === "en-US" ? "No linked project" : "未关联项目";
 }
 
-export function assetKindLabel(kind: AssetKind, locale: AppLocale = "zh-CN") {
+export function assetKindLabel(kind: AssetKind, locale: AppLocale = "zh-CN", category?: string) {
+    if (kind === "entity" && (category === "environment" || category === "prop")) return locale === "en-US" ? `${assetCategoryLabel(category, locale)} concept` : `${assetCategoryLabel(category, locale)}设定`;
     return locale === "en-US"
         ? kind === "image"
             ? "Image"

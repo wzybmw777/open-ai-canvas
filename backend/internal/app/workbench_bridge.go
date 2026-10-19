@@ -127,7 +127,7 @@ func (s *Service) CreateWorkbenchTask(userID string, req WorkbenchTaskInput, tra
 	if err != nil {
 		return nil, err
 	}
-	providerConfig, err := s.resolveWorkbenchProviderConfig(req.Kind, resolved.Model, resolved.LogicalModelID, resolved.ChannelID, resolved.Parameters, resolved.Input)
+	providerConfig, err := s.resolveWorkbenchProviderConfig(req.Kind, resolved.Operation, resolved.Model, resolved.LogicalModelID, resolved.ChannelID, resolved.Parameters, resolved.Input)
 	if err != nil {
 		return nil, err
 	}
@@ -164,6 +164,20 @@ func (s *Service) WorkbenchTasks(userID, kind, projectID string, activeOnly bool
 	return s.TasksWithOptions(userID, TaskListOptions{Limit: limit, ProjectID: projectID, ActiveOnly: activeOnly, WorkbenchKind: kind})
 }
 
+func workbenchTaskRequiresProject(input map[string]any, projectID, trustedKind, operation string) bool {
+	metadata, _ := input["metadata"].(map[string]any)
+	if metadata["source"] != "workbench" {
+		return false
+	}
+	if strings.TrimSpace(projectID) != "" {
+		return true
+	}
+	// Only server-admitted resource cleanup may omit a project. Creation passes
+	// the private request kind; retries use the already persisted task identity.
+	cleanup := metadata["edit"] == "remove_watermark" && ((trustedKind == WorkbenchKindImage && operation == "image") || (trustedKind == WorkbenchKindVideo && operation == "video_edit"))
+	return !cleanup
+}
+
 // 独立工作台始终归属业务项目，不接受本地画布 ID 或未关联任务作为兜底。
 func (s *Service) requireWorkbenchProject(userID, projectID string) (*model.Project, error) {
 	projectID = strings.TrimSpace(projectID)
@@ -183,7 +197,7 @@ func (s *Service) requireWorkbenchProject(userID, projectID string) (*model.Proj
 	return project, nil
 }
 
-func (s *Service) resolveWorkbenchProviderConfig(kind, modelName, logicalModelID, channelID string, parameters map[string]any, input map[string]any) (map[string]any, error) {
+func (s *Service) resolveWorkbenchProviderConfig(kind, operation, modelName, logicalModelID, channelID string, parameters map[string]any, input map[string]any) (map[string]any, error) {
 	config := map[string]any{"mode": kind}
 	if kind == WorkbenchKindImage {
 		for _, key := range []string{"size", "quality", "imageResolution", "count"} {
@@ -215,7 +229,12 @@ func (s *Service) resolveWorkbenchProviderConfig(kind, modelName, logicalModelID
 	config["channelId"] = channelID
 	config["model"] = modelName
 	input["config"] = config
-	resolved, err := s.resolveSystemChannelModelSelection(input, "canvas_"+kind, "")
+	// Match CreateTask's JSON shape so reference counts affect admission and pricing.
+	normalizedInput, err := normalizeTaskInput(input)
+	if err != nil {
+		return nil, err
+	}
+	resolved, err := s.resolveSystemChannelModelSelection(normalizedInput, "canvas_"+kind, operation)
 	if err != nil {
 		return nil, err
 	}

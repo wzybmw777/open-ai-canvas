@@ -13,6 +13,14 @@ Schema 50 新增 `theatre_episodes`：`id`（主键）、`work_id`、`resource_i
 
 发布或编辑分集时按 ID 顺序锁定作者的视频与封面资源，并在事务中登记引用；更换封面时锁定新图片资源，防止与后台无引用资源清理竞态。下架事务删除作品和分集条目，保留资源；已发布视频、所有分集及当前封面参与素材删除、管理员资源删除与后台清理的引用保护。前后端一起发布，关闭自动迁移的部署需先执行正式迁移至 schema 50。
 
+## 画布多端协作（Schema 61）
+
+迁移 `canvas_multi_session_sync` 新增 `canvas_edit_leases`，以 `(user_id, canvas_id, node_id)` 为主键，记录浏览器会话、随机租约凭据与到期时间。服务端在画布事务锁内裁决占用和写入，租约有效期 30 秒；读取状态不返回凭据，浏览器计时不能代替服务端授权。
+
+`tasks.agent_execution_ready` 标记 Agent 执行记录已建立。迁移按任务 ID 和用户归属回填，保留任务内容与状态；`EnsureCloudAgent` 在创建执行的事务内更新标记，普通任务更新不能回写该字段。增加 `idx_cloud_agent_canvas_active` 和 `idx_tasks_canvas_agent_reservation` 两个部分索引，使占用查询只检查活动执行及未建立执行的根任务，不反复遍历终态历史。
+
+新增迁移不改写 Schema 1–58 的名称或校验和。必须先执行迁移再启动新后端；历史回填与建索引需要升级窗口。执行记录不独立删除；未来新增删除路径时必须同步维护标记。
+
 ## 用户登录日志
 
 Schema 57 新增 `login_logs`，新库初始化、既有库升级和 SQLite → PostgreSQL 迁移共用此表。字段：`id`、可空 `user_id`、用户快照 `username/display_name/account`、`event`（login/logout）、`method`（password/email/sms/linuxdo/verification/unknown）、`source`（login/registration/logout）、`result`（success/failed）、`ip`、`user_agent`、`session_ref`、`reason/message`、`created_at`。用户、事件、方式、结果、IP、关联会话和时间有查询索引。
@@ -57,7 +65,9 @@ Schema 45 新增 `upload_reservations`：`id`、`user_id`、`size`、`day`、`ex
 
 版本 58 `workbench_tools_and_presets` 新增 `workbench_tools` 与 `workbench_presets`：工具记录生图/视频类型、分类、名称、说明、资源 ID、排序、能力/指南 JSON、启用状态、版本和操作人；预设记录工具外键、名称、说明、提示词模板、默认参数 JSON、排序、启用状态、版本和操作人。普通用户目录只返回启用工具与预设；管理写入均做管理员校验和审计。工具图标/封面必须引用管理员名下就绪图片资源，发布后的引用进入资源删除保护；用户目录通过服务端授权的短期 display 资源地址展示，不放宽资源所有者访问边界。工作台任务使用专属 DTO，由服务端确认工具/预设仍启用、参考资源归属与媒体类型，并从逻辑模型目录解析执行配置后复用现有任务 admission、计费和队列。`imageWorkbenchEnabled` 与 `videoWorkbenchEnabled` 位于 `feature_availability` JSON，默认关闭；分别保护目录读取和新任务提交。
 
-当前结构版本为 58。版本 58 新增工作台工具、预设及任务工作台参数，保留既有 1–57 迁移记录。个人信息、系统头像预设和登录日志依次新增于版本 55–57，接续本地已部署的 1–54 迁移，不改写历史记录。版本 53 `channel_sync_jobs` 增加渠道同步任务和执行记录；版本 54 `canvas_mutation_receipts` 按 `(user_id, canvas_id, mutation_id)` 唯一保存画布 operations 请求摘要、确定性结果和提交 revision，receipt 与画布内容在同一事务提交，用于响应丢失后的幂等重放。版本 41 和 42 已有三种历史路径：本地路径依次为 `auth_phone_unique_index`、`resource_thumbnail`；远端路径依次为 `resource_thumbnail`、`cloud_agent_pi_sessions`；此前合并路径依次为 `resource_thumbnail`、`auth_phone_unique_index`。升级时按原名称与校验和验证已有记录，不改写历史；版本 43 和 44 补齐各路径缺少的手机号唯一索引、Pi 会话表或充值商品发售策略。上游已在版本 43 应用 `topup_sale_strategies` 的数据库，版本 44 补手机号索引；本地版本 43 为 Pi 会话表的数据库，版本 44 补发售策略。`resource_thumbnail` 为 `resources` 增加缩略图状态、MIME、大小和宽高字段；手机号索引仅覆盖非空手机号，若已有重复值，升级会失败，需先核查数据。`cloud_agent_pi_sessions` 按运行 ID 保存 Pi 原生 JSONL 会话快照、用户 ID、乐观并发 revision 和更新时间；Go 将会话正文作为不透明快照读写，不替代控制检查点、事件日志或任务记录。`topup_sale_strategies` 为充值商品及订单增加发售时间、库存和周期限购配置与快照。
+当前结构版本为 61；版本 60 `sql_perf_indexes` 为 `api_call_logs` 与 `tasks` 增加 `created_at_epoch`（Unix 秒），回填既有 `created_at` 并分别创建 `idx_api_logs_created_epoch`、`idx_tasks_created_epoch`，SQLite 时间范围查询使用裸列以命中索引；新记录通过 `BeforeCreate` 从 `created_at` 派生该值。另增加 `api_call_logs(request_kind, status, created_at)` 与 `credit_ledger_entries(user_id, type)` 复合索引。版本 59 `provider_catalog_source` 为 `model_channels` 增加 `catalog_provider_id`（最长 64 字、非空、默认空字符串、带索引），为 `channel_models` 增加 `catalog_model_key`（最长 120 字、非空、默认空字符串），记录一键接入的目录服务商与推荐模型，仅用于来源展示和“已接入”计数，不参与路由、启停或计费。
+
+版本 58 新增工作台工具、预设及任务工作台参数，保留既有 1–57 迁移记录。个人信息、系统头像预设和登录日志依次新增于版本 55–57，接续本地已部署的 1–54 迁移，不改写历史记录。版本 53 `channel_sync_jobs` 增加渠道同步任务和执行记录；版本 54 `canvas_mutation_receipts` 按 `(user_id, canvas_id, mutation_id)` 唯一保存画布 operations 请求摘要、确定性结果和提交 revision，receipt 与画布内容在同一事务提交，用于响应丢失后的幂等重放。版本 41 和 42 已有三种历史路径：本地路径依次为 `auth_phone_unique_index`、`resource_thumbnail`；远端路径依次为 `resource_thumbnail`、`cloud_agent_pi_sessions`；此前合并路径依次为 `resource_thumbnail`、`auth_phone_unique_index`。升级时按原名称与校验和验证已有记录，不改写历史；版本 43 和 44 补齐各路径缺少的手机号唯一索引、Pi 会话表或充值商品发售策略。上游已在版本 43 应用 `topup_sale_strategies` 的数据库，版本 44 补手机号索引；本地版本 43 为 Pi 会话表的数据库，版本 44 补发售策略。`resource_thumbnail` 为 `resources` 增加缩略图状态、MIME、大小和宽高字段；手机号索引仅覆盖非空手机号，若已有重复值，升级会失败，需先核查数据。`cloud_agent_pi_sessions` 按运行 ID 保存 Pi 原生 JSONL 会话快照、用户 ID、乐观并发 revision 和更新时间；Go 将会话正文作为不透明快照读写，不替代控制检查点、事件日志或任务记录。`topup_sale_strategies` 为充值商品及订单增加发售时间、库存和周期限购配置与快照。
 
 版本 40 `builtin_skill_tombstones` 新增内置技能删除记录，管理员删除平台技能后，后续启动同步不会重新创建该技能；版本 39 `skill_library_categories` 新增 `skill_library_categories` 表，并为 `user_skill_states` 增加 `library_category_id`，保存个人技能库分类及每个用户对技能的归类；分类不改变 `skills.tag` 的技能广场共享分类。版本 38 `prefixed_id_sequence_reconcile` 创建（若缺失）并校准 `id_sequences`：`CHANNEL`、`MODEL`、`PTIER`、`ATTEMPT`、`LMODEL`、`REVISION`、`ROUTE` 按对应业务表的最大有效 ID 前移，包含软删除记录，不回退已有序列、不重写业务 ID。分配新 ID 时再次校准并检查冲突；SQLite → PostgreSQL 迁移完成后也校准序列。
 
@@ -250,6 +260,8 @@ docker compose -f docker-compose.deploy.yml up -d backend web
 | `GET /api/projects/:id/canvases` | 项目画布与当前页章节关联，使用 `page`、`pageSize` |
 | `GET /api/projects/:id/assets` | 项目资产分页、分类/目录计数，支持分类、媒体类型、目录和关键词筛选 |
 | `GET /api/projects/:id/asset-candidates` | 资产候选分页，支持章节、状态、分类和名称关键词筛选 |
+
+场景/道具提取设定复用 `assets.kind=entity` 与 `asset_versions.definition_json`。绑定真实图片后，同一资产转为 `image`，新版本通过 `asset_representations` 的 `primary` 角色关联资源，旧表现记录不删除。画布引用可匹配该资产的服务端历史图片；不通过客户端 metadata 授权历史资源。此流程不增加表或字段。
 
 旧 `GET /api/projects/:id` 暂时保留给尚未迁移的调用方；短剧工作台页面不得重新依赖该整包接口。
 

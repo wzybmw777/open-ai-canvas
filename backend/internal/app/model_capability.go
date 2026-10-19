@@ -90,7 +90,8 @@ type ImageResolutionConfig struct {
 }
 
 type ParameterSupport struct {
-	Supported bool `json:"supported"`
+	Supported bool   `json:"supported"`
+	Default   string `json:"default,omitempty"`
 }
 
 type VideoCapabilityConfig struct {
@@ -299,6 +300,8 @@ func legacyImageResolutionTiers(protocol string) map[string]bool {
 		return map[string]bool{"1k": true, "2k": true}
 	case "agnes-image":
 		return map[string]bool{"1k": true, "2k": true, "4k": true}
+	case "km-kemei-seedream":
+		return map[string]bool{"1k": true, "1.5k": true, "2k": true}
 	default:
 		return nil
 	}
@@ -310,7 +313,7 @@ func normalizeLegacyImageResolutionRequest(protocol string, capability *ModelCap
 	if capability == nil || capability.Image == nil || !capability.Image.Resolution.Supported || capability.Image.Quality.Supported {
 		return ""
 	}
-	imageResolutionProtocol := strings.TrimSpace(protocol) == string(model.ChannelInterfaceGrokImage) || strings.TrimSpace(protocol) == "agnes-image"
+	imageResolutionProtocol := strings.TrimSpace(protocol) == string(model.ChannelInterfaceGrokImage) || strings.TrimSpace(protocol) == "agnes-image" || strings.Contains(strings.TrimSpace(protocol), "seedream")
 	if !imageResolutionProtocol {
 		return ""
 	}

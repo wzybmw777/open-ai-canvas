@@ -10,8 +10,9 @@ import { isStoryboardPreviewAsset, MAX_STORYBOARD_ROW_ASSETS, setStoryboardAsset
 import { useLocaleText } from "@/lib/i18n";
 import { resolveMediaUrl } from "@/services/file-storage";
 import { CanvasNodeType, type CanvasNodeData, type StoryboardAssetBinding } from "@/types/canvas";
+import "./storyboard-assets-cell.css";
 
-const ROLE_LABELS: Record<StoryboardAssetBinding["role"], string> = {
+export const STORYBOARD_ASSET_ROLE_LABELS: Record<StoryboardAssetBinding["role"], string> = {
     character: "角色",
     environment: "场景",
     wardrobe: "服装",
@@ -32,14 +33,14 @@ const ROLE_LABELS_EN: Record<StoryboardAssetBinding["role"], string> = {
     audio: "Audio",
 };
 
-export function StoryboardAssetsCell({ bindings, nodes, limit = 4, onChange, onOpenProjectAssets }: { bindings: StoryboardAssetBinding[]; nodes: CanvasNodeData[]; limit?: number; onChange?: (bindings: StoryboardAssetBinding[]) => void; onOpenProjectAssets?: () => void }) {
+export function StoryboardAssetsCell({ bindings, nodes, limit = 4, onChange, onOpenProjectAssets, onEdit, disabled = false }: { bindings: StoryboardAssetBinding[]; nodes: CanvasNodeData[]; limit?: number; onChange?: (bindings: StoryboardAssetBinding[]) => void; onEdit?: () => void; disabled?: boolean; onOpenProjectAssets?: () => void }) {
     const { text } = useLocaleText();
     const [previewNode, setPreviewNode] = useState<CanvasNodeData | null>(null);
     const [pickerOpen, setPickerOpen] = useState(false);
     const [query, setQuery] = useState("");
     const nodeById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
     const assets = bindings.map((binding) => ({ binding, node: nodeById.get(binding.nodeId) })).filter((item) => !item.node || isStoryboardPreviewAsset(item.node));
-    const visible = assets.slice(0, limit);
+    const visible = assets.slice(0, onEdit ? Math.min(limit, 2) : limit);
     const hiddenCount = Math.max(0, assets.length - visible.length);
     const selectableNodes = pickerOpen ? nodes.filter((node) => isStoryboardBindableAsset(node) || bindings.some((binding) => binding.nodeId === node.id)) : [];
     const matchingNodes = selectableNodes.filter((node) => node.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
@@ -47,15 +48,15 @@ export function StoryboardAssetsCell({ bindings, nodes, limit = 4, onChange, onO
 
     return (
         <>
-            <div className="flex min-w-0 items-center gap-1.5" aria-label={text(`已关联 ${assets.length} 个资产`, `${assets.length} linked assets`)}>
+            <div className="storyboard-assets-cell flex max-w-full min-w-0 items-center gap-1.5" aria-label={text(`已关联 ${assets.length} 个资产`, `${assets.length} linked assets`)}>
                 {!assets.length ? <span className="truncate text-[var(--fs-caption)] text-foreground/35">{text("未关联", "None")}</span> : null}
                 {visible.map(({ binding, node }) => (
-                    <Tooltip key={binding.nodeId} title={`${node?.title || text("资产已失效", "Missing asset")} · ${text(ROLE_LABELS[binding.role], ROLE_LABELS_EN[binding.role])}`}>
+                    <Tooltip key={binding.nodeId} title={`${node?.title || text("资产已失效", "Missing asset")} · ${text(STORYBOARD_ASSET_ROLE_LABELS[binding.role], ROLE_LABELS_EN[binding.role])}`}>
                         <button
                             type="button"
                             data-icon-only
                             disabled={!node}
-                            className="relative grid size-9 shrink-0 place-items-center overflow-hidden rounded-md border border-foreground/10 bg-foreground/[0.035] text-foreground/45 outline-none transition enabled:hover:border-foreground/30 enabled:hover:text-foreground/70 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:cursor-not-allowed"
+                            className="storyboard-assets-cell-preview relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-md border border-foreground/10 bg-foreground/[0.035] text-foreground/45 outline-none transition enabled:hover:border-foreground/30 enabled:hover:text-foreground/70 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:cursor-not-allowed"
                             aria-label={text(`预览${node?.title || "失效资产"}`, `Preview ${node?.title || "missing asset"}`)}
                             onMouseDown={(event) => event.stopPropagation()}
                             onPointerDown={(event) => event.stopPropagation()}
@@ -65,12 +66,12 @@ export function StoryboardAssetsCell({ bindings, nodes, limit = 4, onChange, onO
                             }}
                         >
                             {node ? <AssetThumbnail node={node} /> : <ImageIcon className="size-4" />}
-                            <span className="absolute bottom-0.5 right-0.5 rounded bg-black/65 px-1 text-[8px] leading-3 text-white">{text(ROLE_LABELS[binding.role], ROLE_LABELS_EN[binding.role]).slice(0, 1)}</span>
+                            <span className="absolute bottom-0.5 right-0.5 rounded bg-black/65 px-1 text-[8px] leading-3 text-white">{text(STORYBOARD_ASSET_ROLE_LABELS[binding.role], ROLE_LABELS_EN[binding.role]).slice(0, 1)}</span>
                         </button>
                     </Tooltip>
                 ))}
                 {hiddenCount ? <span className="shrink-0 text-[var(--fs-caption)] font-medium text-foreground/45">+{hiddenCount}</span> : null}
-                {onChange ? (
+                {onChange && !disabled ? (
                     <Popover
                         trigger="click"
                         placement="bottomRight"
@@ -104,7 +105,7 @@ export function StoryboardAssetsCell({ bindings, nodes, limit = 4, onChange, onO
                                                 >
                                                     <span className="block truncate" title={candidate.title}>{candidate.title || text("未命名资产", "Untitled asset")}</span>
                                                 </Checkbox>
-                                                {role ? <span className="shrink-0 text-foreground/45">{text(ROLE_LABELS[role], ROLE_LABELS_EN[role])}</span> : null}
+                                                {role ? <span className="shrink-0 text-foreground/45">{text(STORYBOARD_ASSET_ROLE_LABELS[role], ROLE_LABELS_EN[role])}</span> : null}
                                             </div>
                                         );
                                     })}
@@ -117,6 +118,15 @@ export function StoryboardAssetsCell({ bindings, nodes, limit = 4, onChange, onO
                                     ))}
                                     {!matchingNodes.length && !missingBindings.length ? <div className="py-3 text-center text-xs text-foreground/45">{text("没有匹配的画布资产", "No matching canvas assets")}</div> : null}
                                 </div>
+                                {onEdit ? (
+                                    <button
+                                        type="button"
+                                        className="mt-2 flex h-8 w-full items-center border-t px-1.5 pt-1 text-xs hover:text-[var(--color-primary)]"
+                                        onClick={() => { setPickerOpen(false); onEdit(); }}
+                                    >
+                                        {text("管理关联资产", "Manage linked assets")}
+                                    </button>
+                                ) : null}
                                 {onOpenProjectAssets ? (
                                     <button
                                         type="button"
@@ -145,13 +155,39 @@ export function StoryboardAssetsCell({ bindings, nodes, limit = 4, onChange, onO
                         </button>
                     </Popover>
                 ) : null}
+                {onEdit && !onChange ? (
+                    <button
+                        type="button"
+                        aria-label={assets.length ? text("管理关联资产", "Manage linked assets") : text("选择关联资产", "Select linked assets")}
+                        disabled={disabled}
+                        data-icon-only={assets.length ? true : undefined}
+                        className={`inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-md border border-dashed border-foreground/20 text-xs text-foreground/60 outline-none transition hover:border-foreground/40 hover:text-foreground focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-40 ${assets.length ? "w-8 p-0" : "px-2"}`}
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onEdit();
+                        }}
+                    >
+                        <Plus className="size-3.5" />
+                        {assets.length ? null : text("选择资产", "Select assets")}
+                    </button>
+                ) : null}
             </div>
             <AssetPreviewModal node={previewNode} onClose={() => setPreviewNode(null)} />
         </>
     );
 }
 
-function AssetThumbnail({ node }: { node: CanvasNodeData }) {
+export function AssetThumbnail({ node }: { node: CanvasNodeData }) {
+    return (
+        <span className="storyboard-asset-thumbnail">
+            <AssetThumbnailContent node={node} />
+        </span>
+    );
+}
+
+function AssetThumbnailContent({ node }: { node: CanvasNodeData }) {
     const source = useNodeMediaSource(node.type === CanvasNodeType.Video ? null : node);
     if (node.type === CanvasNodeType.Audio) return <Music2 className="size-4" />;
     if (node.metadata?.workflowKind === "character" && !source) return <UserRound className="size-4" />;
@@ -159,7 +195,9 @@ function AssetThumbnail({ node }: { node: CanvasNodeData }) {
         return (
             <>
                 <CanvasVideoPreviewImage node={node} alt="" loading="lazy" decoding="async" draggable={false} className="size-full object-cover" fallback={<Play className="size-4" />} />
-                <span className="absolute inset-0 grid place-items-center bg-black/15"><Play className="size-3.5 fill-white text-white" /></span>
+                <span className="absolute inset-0 grid place-items-center bg-black/15">
+                    <Play className="size-3.5 fill-white text-white" />
+                </span>
             </>
         );
     }
@@ -172,10 +210,15 @@ function AssetPreviewModal({ node, onClose }: { node: CanvasNodeData | null; onC
         <Modal title={node?.title || "资产预览"} open={Boolean(node)} onCancel={onClose} footer={null} width={880} centered destroyOnHidden>
             {node ? (
                 <div className="grid min-h-56 place-items-center overflow-hidden rounded-lg bg-black/[0.035] p-3 dark:bg-white/[0.035]" data-canvas-no-zoom>
-                    {node.type === CanvasNodeType.Video && source ? <video src={source} controls autoPlay playsInline className="max-h-[68vh] max-w-full rounded-md" />
-                        : node.type === CanvasNodeType.Audio && source ? <audio src={source} controls autoPlay className="w-full max-w-xl" />
-                            : source ? <img src={source} alt={node.title || "资产预览"} className="max-h-[68vh] max-w-full object-contain" />
-                                : <span className="text-sm text-foreground/45">当前资产没有可预览的媒体内容</span>}
+                    {node.type === CanvasNodeType.Video && source ? (
+                        <video src={source} controls autoPlay playsInline className="max-h-[68vh] max-w-full rounded-md" />
+                    ) : node.type === CanvasNodeType.Audio && source ? (
+                        <audio src={source} controls autoPlay className="w-full max-w-xl" />
+                    ) : source ? (
+                        <img src={source} alt={node.title || "资产预览"} className="max-h-[68vh] max-w-full object-contain" />
+                    ) : (
+                        <span className="text-sm text-foreground/45">当前资产没有可预览的媒体内容</span>
+                    )}
                 </div>
             ) : null}
         </Modal>
@@ -183,22 +226,29 @@ function AssetPreviewModal({ node, onClose }: { node: CanvasNodeData | null; onC
 }
 
 function useNodeMediaSource(node: CanvasNodeData | null) {
-    const fallback = node ? node.metadata?.workflowKind === "character"
-        ? node.metadata.characterCoverUrl || ""
-        : node.type === CanvasNodeType.Drawing
-            ? node.metadata?.drawingPreviewUrl || node.metadata?.content || ""
-            : node.metadata?.content || "" : "";
+    const fallback = node
+        ? node.metadata?.workflowKind === "character"
+            ? node.metadata.characterCoverUrl || ""
+            : node.type === CanvasNodeType.Drawing
+              ? node.metadata?.drawingPreviewUrl || node.metadata?.content || ""
+              : node.metadata?.content || ""
+        : "";
     const storageKey = node?.metadata?.storageKey;
     const [source, setSource] = useState(fallback);
     useEffect(() => {
         let cancelled = false;
         setSource(fallback);
-        if (storageKey) void resolveMediaUrl(storageKey, fallback).then((url) => {
-            if (!cancelled) setSource(url || fallback);
-        }).catch(() => {
-            if (!cancelled) setSource(fallback);
-        });
-        return () => { cancelled = true; };
+        if (storageKey)
+            void resolveMediaUrl(storageKey, fallback)
+                .then((url) => {
+                    if (!cancelled) setSource(url || fallback);
+                })
+                .catch(() => {
+                    if (!cancelled) setSource(fallback);
+                });
+        return () => {
+            cancelled = true;
+        };
     }, [fallback, storageKey]);
     return source;
 }

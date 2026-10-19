@@ -6,6 +6,7 @@ import { useLocation, useNavigate } from "react-router";
 import { PaymentCheckoutCode } from "@/components/payment-checkout-code";
 import { AppModal } from "@/components/ui/product/app-modal";
 import { formatCredits } from "@/constant/credits";
+import { generationErrorMessage } from "@/lib/generation-error";
 import { closePaymentOrder, createPaymentOrder, getExternalTopupShop, getPaymentOrder, listPaymentProviders, listTopupProducts, queryPaymentOrder, refreshPaymentCheckout, type ExternalTopupShop, type PaymentOrder, type PaymentProvider, type TopupProduct } from "@/services/api/payments";
 import { getWallet, redeemCredits, type CreditLedgerEntry, type WalletSummary } from "@/services/api/wallet";
 import { cn } from "@/lib/utils";
@@ -450,8 +451,9 @@ export function EmbeddedTopupShop({ url }: { url: string }) {
 function WalletLedgerRow({ entry }: { entry: CreditLedgerEntry }) {
     const { locale, text } = useLocaleText();
     const positive = entry.amountMicrocredits > 0;
-    const title = entry.type === "consume" ? text("模型调用", "Model usage") : entry.type === "refund" ? text("消费退款", "Refund") : entry.type === "payment_topup" ? text("在线充值", "Online top-up") : entry.type === "redeem" ? text("兑换码充值", "Code redemption") : entry.note || text("积分调整", "Credit adjustment");
-    return <article className="workspace-wallet-ledger-row"><span className={cn("workspace-wallet-ledger-icon", positive ? "is-income" : "is-consume")}>{positive ? <Coins /> : <CreditCard />}</span><div><strong>{title}</strong><span>{[entry.scene, entry.model, entry.note].filter(Boolean).join(" · ") || text("积分账户变动", "Credit balance changed")}</span></div><time>{new Date(entry.createdAt).toLocaleString(locale, { hour12: false })}</time><b className={positive ? "is-income" : "is-consume"}>{positive ? "+" : ""}{formatCredits(entry.amountMicrocredits, 6)}</b></article>;
+    const note = entry.note ? generationErrorMessage(entry.note) : "";
+    const title = entry.type === "consume" ? text("模型调用", "Model usage") : entry.type === "refund" ? text("消费退款", "Refund") : entry.type === "payment_topup" ? text("在线充值", "Online top-up") : entry.type === "redeem" ? text("兑换码充值", "Code redemption") : note || text("积分调整", "Credit adjustment");
+    return <article className="workspace-wallet-ledger-row"><span className={cn("workspace-wallet-ledger-icon", positive ? "is-income" : "is-consume")}>{positive ? <Coins /> : <CreditCard />}</span><div><strong>{title}</strong><span>{[entry.scene, entry.model, note].filter(Boolean).join(" · ") || text("积分账户变动", "Credit balance changed")}</span></div><time>{new Date(entry.createdAt).toLocaleString(locale, { hour12: false })}</time><b className={positive ? "is-income" : "is-consume"}>{positive ? "+" : ""}{formatCredits(entry.amountMicrocredits, 6)}</b></article>;
 }
 
 function PaymentStatus({ order, now }: { order: PaymentOrder; now: number }) {

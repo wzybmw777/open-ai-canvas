@@ -34,7 +34,12 @@ func TestWorkbenchProjectAdmission(t *testing.T) {
 			t.Run(kind+"/"+tc.id, func(t *testing.T) {
 				_, dedicatedErr := s.CreateWorkbenchTask("owner", WorkbenchTaskInput{ProjectID: tc.id, Kind: kind, Prompt: "test"}, "", "")
 				_, genericErr := s.CreateTask("owner", CreateTaskRequest{ProjectID: tc.id, Type: "canvas_" + kind, Prompt: "test", Input: map[string]any{"metadata": map[string]any{"source": "workbench"}}})
-				for path, err := range map[string]error{"dedicated": dedicatedErr, "generic": genericErr} {
+				operation := "image"
+				if kind == WorkbenchKindVideo {
+					operation = "video_edit"
+				}
+				_, spoofedCleanupErr := s.CreateTask("owner", CreateTaskRequest{ProjectID: tc.id, Type: "canvas_" + kind, Operation: operation, Prompt: "test", Input: map[string]any{"metadata": map[string]any{"source": "workbench", "workbenchKind": kind, "edit": "remove_watermark"}}})
+				for path, err := range map[string]error{"dedicated": dedicatedErr, "generic": genericErr, "spoofed-cleanup": spoofedCleanupErr} {
 					var apiErr *AuthError
 					if !errors.As(err, &apiErr) || apiErr.Status != tc.status {
 						t.Fatalf("%s error = %v, want status %d", path, err, tc.status)

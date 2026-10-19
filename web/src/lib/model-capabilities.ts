@@ -58,6 +58,7 @@ export type TextCapabilityConfig = {
 };
 
 export type ImageSizeParameter = "none" | "size" | "aspect_ratio";
+export type ImageResponseFormat = "auto" | "b64_json" | "url";
 
 /**
  * 普通视频模型提示词字符数的默认上限。
@@ -93,7 +94,7 @@ export type ImageCapabilityConfig = {
     /** Protocol-declared mapping where quality values select image resolution. */
     resolutionUsesQuality?: boolean;
     transparentBackground: { supported: boolean; default: boolean };
-    responseFormat: { supported: boolean };
+    responseFormat: { supported: boolean; default?: ImageResponseFormat };
     outputFormat: { supported: boolean };
     maxOutputs: number;
 };
@@ -142,6 +143,16 @@ export function normalizeCapabilityString(value: string) {
     return normalized.startsWith("string:") ? normalized.slice("string:".length) : normalized;
 }
 
+function normalizeImageResponseFormat(value: unknown): ImageResponseFormat {
+    return value === "b64_json" || value === "url" ? value : "auto";
+}
+
+export function imageResponseFormatFor(profile: Pick<ImageCapabilityConfig, "responseFormat">): Exclude<ImageResponseFormat, "auto"> | undefined {
+    if (!profile.responseFormat.supported) return undefined;
+    const value = normalizeImageResponseFormat(profile.responseFormat.default);
+    return value === "auto" ? undefined : value;
+}
+
 function normalizeCapabilityStrings(values: string[]) {
     return Array.from(new Set(values.map(normalizeCapabilityString)));
 }
@@ -170,6 +181,10 @@ export function normalizeModelCapabilityConfig(config: ModelCapabilityConfig): M
                       values: normalizeCapabilityStrings(config.image.quality.values),
                       default: normalizeCapabilityString(config.image.quality.default),
                   },
+                  responseFormat: {
+                      ...config.image.responseFormat,
+                      default: normalizeImageResponseFormat(config.image.responseFormat?.default),
+                  },
               }
             : undefined,
         video: config.video
@@ -191,6 +206,18 @@ export function normalizeModelCapabilityConfig(config: ModelCapabilityConfig): M
 export function normalizeLegacyImageResolutionConfig(protocol: ModelProtocol | undefined, image: ImageCapabilityConfig): ImageCapabilityConfig {
     if (image.parameters) return projectImageParameters(image, image.parameters);
     image = { ...image, resolutionUsesQuality: protocol === "gemini-image" };
+    // Seedream 5.0 的档位是 1K / 1.5K / 2K，既不由 quality 承载，也不含 4K。
+    if (protocol === "km-kemei-seedream") {
+        return {
+            ...image,
+            resolution: {
+                supported: true,
+                values: ["1k", "1.5k", "2k"],
+                default: image.resolution?.supported && ["1k", "1.5k", "2k"].includes(image.resolution.default) ? image.resolution.default : "2k",
+            },
+            quality: { supported: false, values: [], default: "auto" },
+        };
+    }
     if (image.resolution.supported || !image.quality.supported) return image;
     const allowed = protocol === "grok-image" ? new Set(["1k", "2k"]) : protocol === "agnes-image" ? new Set(["1k", "2k", "4k"]) : undefined;
     if (!allowed) return image;
@@ -251,7 +278,7 @@ export function defaultImageCapabilityConfig(protocol?: ModelProtocol, model = "
         resolution: { supported: false, values: [], default: "auto" },
         quality: { supported: true, values: ["auto", "low", "medium", "high"], default: "auto" },
         transparentBackground: { supported: true, default: false },
-        responseFormat: { supported: true },
+        responseFormat: { supported: true, default: "auto" },
         outputFormat: { supported: true },
         maxOutputs: 15,
     };
@@ -259,6 +286,8 @@ export function defaultImageCapabilityConfig(protocol?: ModelProtocol, model = "
         const presets = kemeiSeedreamPresets();
         image.references = { ...image.references, maxImages: 10, maskSupported: false };
         image.size = { parameter: "size", values: presets.map((preset) => preset.size), default: "2048x2048", allowCustom: true, presets };
+        // Seedream 5.0 官方档位为 1K / 1.5K / 2K（不含 4K），1.5K 用于独立计价。
+        image.resolution = { supported: true, values: ["1k", "1.5k", "2k"], default: "2k" };
         image.quality = { supported: false, values: [], default: "auto" };
         // 透明输出要求一张含 alpha 的参考图，宿主通用开关不能保证此条件。
         // 此能力通过插件命名空间的 background + output_format 显式配置。

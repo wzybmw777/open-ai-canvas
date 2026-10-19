@@ -65,7 +65,7 @@ export function AssetBatchUploadModal({ open, defaultFolderId, folders, onClose,
             if (completed > 0) {
                 await flushAssetStorePersistence();
                 try {
-                    await saveRemoteUserDataNow();
+                    await saveRemoteUserDataNow([]);
                 } catch (error) {
                     const chineseWarning = localSavedRemotePendingMessage("部分素材已保存在本地", error);
                     message.warning(locale === "en-US" ? "Uploaded assets were saved locally. Cloud sync is pending; check sync status." : chineseWarning);

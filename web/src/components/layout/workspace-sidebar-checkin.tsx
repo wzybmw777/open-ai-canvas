@@ -1,5 +1,6 @@
 import { App } from "antd";
 import { useState } from "react";
+import { Gift, LoaderCircle } from "lucide-react";
 
 import { formatCredits } from "@/constant/credits";
 import { useWalletBalance } from "@/hooks/use-wallet-balance";
@@ -10,7 +11,6 @@ import { checkinCredits } from "@/services/api/wallet";
 import { useAppearanceStore } from "@/stores/use-appearance-store";
 import { useUserStore } from "@/stores/use-user-store";
 import { localizedErrorMessage, useLocaleText } from "@/lib/i18n";
-import { Coins } from "lucide-react";
 
 export function WorkspaceSidebarCheckin({ collapsed }: { collapsed: boolean }) {
     const { locale, text } = useLocaleText();
@@ -53,8 +53,8 @@ export function WorkspaceSidebarCheckin({ collapsed }: { collapsed: boolean }) {
 
     if (collapsed) {
         return (
-            <button type="button" className="app-workspace-sidebar-checkin is-collapsed" title={summary} aria-label={text(`立即领取今日 ${amount} 积分`, `Claim ${amount} daily credits`)} disabled={claiming} onClick={() => void claim()}>
-                {claiming ? "…" : locale === "en-US" ? <Coins className="size-4" /> : "领"}
+            <button type="button" className="app-workspace-sidebar-checkin is-collapsed" title={summary} aria-label={text(`立即领取今日 ${amount} 积分`, `Claim ${amount} daily credits`)} aria-busy={claiming} disabled={claiming} onClick={() => void claim()}>
+                {claiming ? <LoaderCircle className="size-5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Gift className="size-5" aria-hidden="true" />}
             </button>
         );
     }

@@ -83,7 +83,7 @@ func (s *Service) CreateVideoCleanupTask(userID string, req VideoCleanupRequest,
 		"referenceVideos": []map[string]any{{"resourceId": resource.ID, "storageKey": "resource:" + resource.ID, "width": meta.Width, "height": meta.Height, "durationMs": meta.DurationMs, "bytes": resource.Size}},
 		"metadata":        map[string]any{"source": "workbench", "workbenchKind": "video", "edit": "remove_watermark", "videoEditOperation": "video_edit"}}
 	parameters := map[string]any{"seconds": seconds, "resolution": strings.TrimSpace(req.Resolution), "watermark": false}
-	config, err := s.resolveWorkbenchProviderConfig(WorkbenchKindVideo, strings.TrimSpace(req.Model), strings.TrimSpace(req.LogicalModelID), strings.TrimSpace(req.ChannelID), parameters, input)
+	config, err := s.resolveWorkbenchProviderConfig(WorkbenchKindVideo, "video_edit", strings.TrimSpace(req.Model), strings.TrimSpace(req.LogicalModelID), strings.TrimSpace(req.ChannelID), parameters, input)
 	if err != nil {
 		return nil, err
 	}

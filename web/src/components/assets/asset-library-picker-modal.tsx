@@ -177,7 +177,7 @@ export function AssetLibraryPickerModal({
     const remoteItems = useMemo<AssetLibraryPickerItem[]>(
         () =>
             (remoteQuery.data?.assets || [])
-                .filter((asset) => asset.kind !== "model" && (asset.kind !== "entity" || allowCharacters))
+                .filter((asset) => asset.kind !== "model" && (asset.kind !== "entity" || (allowCharacters && asset.category === "character")))
                 .map((asset) =>
                     remoteAssetToPickerItem(
                         asset,
@@ -346,7 +346,7 @@ export function AssetLibraryPickerModal({
             return;
         }
         try {
-            await saveRemoteUserDataNow();
+            await saveRemoteUserDataNow([]);
             setSelected(new Set());
             message.success(locale === "en-US" ? `Restored ${archivedSelectedIds.length} assets to the library` : `已还原 ${archivedSelectedIds.length} 个素材至素材库`);
             setCategory("all");

@@ -71,7 +71,7 @@ func (w *taskLifecycleCoordinator) retryTask(userID string, id string) (*model.T
 	if err := json.Unmarshal([]byte(decryptedInput), &billingInput); err != nil {
 		return nil, err
 	}
-	if metadata, ok := billingInput["metadata"].(map[string]any); ok && metadata["source"] == "workbench" {
+	if workbenchTaskRequiresProject(billingInput, task.ProjectID, task.WorkbenchKind, task.Operation) {
 		if _, err := s.requireWorkbenchProject(userID, task.ProjectID); err != nil {
 			return nil, err
 		}

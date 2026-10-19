@@ -23,7 +23,7 @@ import {
 import { buildNodeMentionReferences } from "@/lib/canvas/canvas-resource-references";
 import { buildStoryboardAssetCatalog } from "@/lib/canvas/canvas-storyboard-assets";
 import { resolveStoryboardGenerationContext } from "@/lib/canvas/canvas-storyboard-context";
-import { reconcileStoryboardTargetConnections, storyboardComposerContent, storyboardRowReferenceNodeIds } from "@/lib/canvas/canvas-storyboard-materializer";
+import { reconcileStoryboardTargetConnections, replaceStoryboardRowAssets, storyboardComposerContent, storyboardRowReferenceNodeIds } from "@/lib/canvas/canvas-storyboard-materializer";
 import { generationErrorMessage } from "@/lib/generation-error";
 import { navigateToSettings } from "@/lib/settings-navigation";
 import type { Skill } from "@/services/api/skills";
@@ -109,20 +109,39 @@ export function useCanvasStoryboard({
         const storyboardRowIds = new Set(rows.map((row) => row.id));
         const previousRows = new Map((nodesRef.current.find((node) => node.id === nodeId)?.metadata?.storyboard?.rows || []).map((row) => [row.id, row]));
         const nextRows = rows.map((row) => invalidateEditedPromptVariables(previousRows.get(row.id), row));
+        const changedBindings = nextRows.filter((row) => previousRows.has(row.id) && JSON.stringify(row.assetBindings || []) !== JSON.stringify(previousRows.get(row.id)?.assetBindings || []));
+        if (changedBindings.length) {
+            let nextNodes = nodesRef.current.map((node) => node.id === nodeId ? { ...node, metadata: { ...node.metadata, storyboard: { ...node.metadata!.storyboard!, rows: nextRows } } } : node);
+            let nextConnections = connectionsRef.current;
+            for (const row of changedBindings) {
+                const result = replaceStoryboardRowAssets(nextNodes, nextConnections, nodeId, row.id, row.assetBindings || []);
+                nextNodes = result.nodes;
+                nextConnections = result.connections;
+            }
+            nodesRef.current = nextNodes;
+            connectionsRef.current = nextConnections;
+            setNodes(nextNodes);
+            setConnections(nextConnections);
+        }
         setConnections((current) => current
             .filter((connection) => connection.fromNodeId !== nodeId && connection.toNodeId !== nodeId || !connection.storyboardRowId || storyboardRowIds.has(connection.storyboardRowId))
             .filter((connection) => connection.fromNodeId !== nodeId || !connection.fromHandleId?.startsWith("row:") || rowIds.has(connection.fromHandleId))
             .filter((connection) => connection.toNodeId !== nodeId || !connection.toHandleId?.startsWith("row:") || rowIds.has(connection.toHandleId)));
-        updateScriptRows(nodeId, () => nextRows);
-    }, [nodesRef, setConnections, updateScriptRows]);
+        if (!changedBindings.length) updateScriptRows(nodeId, () => nextRows);
+    }, [connectionsRef, nodesRef, setConnections, setNodes, updateScriptRows]);
 
     const addScriptRow = useCallback((nodeId: string) => {
         updateScriptRows(nodeId, (rows) => [...rows, createStoryboardRow(rows.length + 1)]);
     }, [updateScriptRows]);
 
     const updateScriptRow = useCallback((nodeId: string, rowId: string, patch: Partial<StoryboardRow>) => {
+        if (patch.assetBindings) {
+            const rows = nodesRef.current.find((node) => node.id === nodeId)?.metadata?.storyboard?.rows || [];
+            replaceScriptRows(nodeId, rows.map((row) => row.id === rowId ? { ...row, ...patch } : row));
+            return;
+        }
         updateScriptRows(nodeId, (rows) => rows.map((row) => row.id === rowId ? invalidateEditedPromptVariables(row, { ...row, ...patch }) : row));
-    }, [updateScriptRows]);
+    }, [nodesRef, replaceScriptRows, updateScriptRows]);
 
     const removeScriptRow = useCallback((nodeId: string, rowId: string) => {
         const node = nodesRef.current.find((item) => item.id === nodeId);
