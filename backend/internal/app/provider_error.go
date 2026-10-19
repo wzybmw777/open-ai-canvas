@@ -148,5 +148,9 @@ func normalizedProviderErrorCode(value any) string {
 }
 
 func isContentModerationFailure(value string) bool {
-	return strings.Contains(strings.ToLower(value), contentModerationErrorCode)
+	normalized := strings.ToLower(value)
+	return strings.Contains(normalized, contentModerationErrorCode) ||
+		strings.Contains(normalized, "datainspectionfailed") ||
+		strings.Contains(normalized, "datalnspectionfailed") ||
+		strings.Contains(normalized, "green net check rejected")
 }

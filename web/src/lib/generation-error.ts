@@ -136,7 +136,8 @@ export function generationErrorCode(error: unknown) {
 
 export function isContentModerationError(value: unknown) {
     const text = value instanceof Error ? value.message : String(value || "");
-    return text.toLowerCase().includes(CONTENT_MODERATION_ERROR_CODE) || text.includes("内容审核未通过");
+    const normalized = text.toLowerCase();
+    return normalized.includes(CONTENT_MODERATION_ERROR_CODE) || normalized.includes("datainspectionfailed") || normalized.includes("datalnspectionfailed") || normalized.includes("green net check rejected") || text.includes("内容审核未通过");
 }
 
 export function unchangedModeratedPrompt(metadata: { errorDetails?: string; generationErrorCode?: string; failedPromptFingerprint?: string } | undefined, prompt: string) {

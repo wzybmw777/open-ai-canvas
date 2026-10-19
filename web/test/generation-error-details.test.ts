@@ -18,6 +18,11 @@ describe("safe upstream error details", () => {
         expect(metadata.errorDetails).toBe(CONTENT_MODERATION_MESSAGE);
         expect(metadata.generationErrorCode).toBe("sensitive_words_detected");
     });
+    test("recognizes green net input rejection as moderation", () => {
+        const message = "声明式协议任务失败：code: DatalnspectionFailed message: Green net check rejected image (input)";
+        expect(generationErrorMessage(message)).toBe(CONTENT_MODERATION_MESSAGE);
+        expect(generationFailureMetadata(message, "test prompt").generationErrorCode).toBe("sensitive_words_detected");
+    });
     test("gives actionable hints for known upstream failures", () => {
         expect(generationErrorMessage(`模型服务暂时不可用（HTTP 503）；上游：model_not_found request id abc`)).toContain("更换模型");
         expect(generationErrorMessage(`模型服务拒绝请求；上游：image file too large 25MB`)).toContain("压缩图片");

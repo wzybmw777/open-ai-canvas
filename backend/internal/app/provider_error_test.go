@@ -37,9 +37,12 @@ func TestProviderFailureDetailsPrefersNestedBusinessCode(t *testing.T) {
 	}
 }
 
-func TestContentModerationFailureRequiresExactProviderCode(t *testing.T) {
+func TestContentModerationFailureRecognizesProviderSignals(t *testing.T) {
 	if !isContentModerationFailure(`{"code":"sensitive_words_detected"}`) {
 		t.Fatal("expected moderation error to be detected")
+	}
+	if !isContentModerationFailure("声明式协议任务失败：code: DatalnspectionFailed message: Green net check rejected image (input)") {
+		t.Fatal("expected green net input rejection to be detected as moderation")
 	}
 	if isContentModerationFailure("上游 HTTP 400") {
 		t.Fatal("generic HTTP 400 must remain retryable")

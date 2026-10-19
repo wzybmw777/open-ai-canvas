@@ -208,7 +208,7 @@ func providerPayloadErrorCategory(raw string) (string, bool) {
 	// 该类目排在安全审核之前：错误码已经足够具体，比通用审核提示更可行动。
 	case strings.Contains(normalized, "privacyinformation"), strings.Contains(normalized, "sensitivecontentdetected"):
 		return "输入素材疑似包含真人形象，该模型拒绝生成，请更换为非真人素材或改用其他模型", true
-	case strings.Contains(normalized, "safety"), strings.Contains(normalized, "moderation"), strings.Contains(normalized, "content policy"), strings.Contains(normalized, "blocked"):
+	case strings.Contains(normalized, "safety"), strings.Contains(normalized, "moderation"), strings.Contains(normalized, "content policy"), strings.Contains(normalized, "blocked"), strings.Contains(normalized, "datainspectionfailed"), strings.Contains(normalized, "datalnspectionfailed"), strings.Contains(normalized, "green net check rejected"):
 		return "请求内容未通过模型服务安全审核，请调整后重试", true
 	// 工具调用与工具结果不配对：上游要求 assistant 消息声明的每一个 tool_call_id 都在
 	// 紧随其后的 tool 消息里被回应。这是**我们组装请求**的问题——用户改提示词或查额度

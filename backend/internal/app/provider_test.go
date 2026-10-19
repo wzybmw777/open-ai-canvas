@@ -959,6 +959,12 @@ func TestProviderUserFacingErrorMessageClassifiesRejectedRequestBodies(t *testin
 			want:       "安全审核",
 		},
 		{
+			name:       "green net input rejection",
+			statusCode: http.StatusBadRequest,
+			body:       `{"error":{"code":"DatalnspectionFailed","message":"Green net check rejected image (input)"}}`,
+			want:       "安全审核",
+		},
+		{
 			name:       "unprocessable entity is classified too",
 			statusCode: http.StatusUnprocessableEntity,
 			body:       `{"error":{"message":"insufficient balance, secret-trace"}}`,
