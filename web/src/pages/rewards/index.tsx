@@ -51,7 +51,9 @@ export default function RewardsPage() {
         }
     };
 
-    useEffect(() => { void load(); }, []);
+    useEffect(() => {
+        void load();
+    }, []);
 
     const successfulTasks = useMemo(() => tasks.filter((task) => task.status === "succeeded").slice(0, 8), [tasks]);
     const copy = product ? membershipProductCopy(product) : null;
@@ -88,19 +90,114 @@ export default function RewardsPage() {
         }
     };
 
-    return <WorkspacePage className="rewards-page"><PageHeader title={text("成长计划", "Growth plan")} description={text("完成创作、分享作品，持续获得积分和会员权益。", "Create, share, and keep earning credits and membership benefits.")} />
-        {loading && !summary ? <Skeleton active paragraph={{ rows: 12 }} /> : summary ? <div className="rewards-shell">
-            <section className="rewards-overview">
-                <div className="rewards-overview-copy"><span className="rewards-eyebrow"><Sparkles />{text("WORKBENCH REWARDS", "WORKBENCH REWARDS")}</span><h2>{text("让每一次创作都有回报", "Make every creation count")}</h2><p>{text("积分可用于抵扣模型生成费用，会员权益会在支付或兑换成功后立即生效。", "Credits offset generation costs. Membership starts as soon as payment or redemption is confirmed.")}</p></div>
-                <div className="rewards-balance"><span>{text("可用积分", "Available credits")}</span><strong>{formatRewardCredits(summary.account.availableMicrocredits)}</strong><small>{membershipActive ? text(`会员有效期至 ${new Date(summary.membership.expiresAt).toLocaleDateString(locale)}`, `Member until ${new Date(summary.membership.expiresAt).toLocaleDateString(locale)}`) : text("当前未开通会员", "No active membership")}</small></div>
-            </section>
+    return (
+        <WorkspacePage className="rewards-page">
+            <PageHeader title={text("成长计划", "Growth plan")} description={text("完成创作、分享作品，持续获得积分和会员权益。", "Create, share, and keep earning credits and membership benefits.")} />
+            {loading && !summary ? (
+                <Skeleton active paragraph={{ rows: 12 }} />
+            ) : summary ? (
+                <div className="rewards-shell">
+                    <section className="rewards-overview">
+                        <div className="rewards-overview-copy">
+                            <span className="rewards-eyebrow">
+                                <Sparkles />
+                                {text("WORKBENCH REWARDS", "WORKBENCH REWARDS")}
+                            </span>
+                            <h2>{text("让每一次创作都有回报", "Make every creation count")}</h2>
+                            <p>{text("积分可用于抵扣模型生成费用，会员权益会在支付或兑换成功后立即生效。", "Credits offset generation costs. Membership starts as soon as payment or redemption is confirmed.")}</p>
+                        </div>
+                        <div className="rewards-balance">
+                            <span>{text("可用积分", "Available credits")}</span>
+                            <strong>{formatRewardCredits(summary.account.availableMicrocredits)}</strong>
+                            <small>
+                                {membershipActive
+                                    ? text(`会员有效期至 ${new Date(summary.membership.expiresAt).toLocaleDateString(locale)}`, `Member until ${new Date(summary.membership.expiresAt).toLocaleDateString(locale)}`)
+                                    : text("当前未开通会员", "No active membership")}
+                            </small>
+                        </div>
+                    </section>
 
-            <section className="rewards-grid">
-                <article className="rewards-card rewards-card-task"><div className="rewards-card-icon"><Gift /></div><div className="rewards-card-heading"><div><span className="rewards-card-kicker">{text("做任务赚积分", "CREATE TO EARN")}</span><h3>{text("完成创作任务", "Complete a creation task")}</h3></div><strong>+5</strong></div><p>{text("每个成功完成的生成任务都可以领取一次 5 积分。", "Claim 5 credits once for every successful generation task.")}</p>{successfulTasks.length ? <div className="rewards-task-list">{successfulTasks.map((task) => <div className="rewards-task-row" key={task.id}><span><Check />{task.prompt?.trim() || text("已完成任务", "Completed task")}</span><Button size="small" loading={actingId === task.id} onClick={() => void claimTask(task)}>{text("领取", "Claim")}</Button></div>)}</div> : <Button onClick={() => navigate("/tasks")}>{text("去完成任务", "Open task center")}</Button>}</article>
-                <article className="rewards-card rewards-card-share"><div className="rewards-card-icon"><Share2 /></div><div className="rewards-card-heading"><div><span className="rewards-card-kicker">{text("分享赚积分", "SHARE TO EARN")}</span><h3>{text("分享公开作品", "Share a public work")}</h3></div><strong>+2</strong></div><p>{text("每天分享一个公开画布即可获得 2 积分，每个分享记录每天最多领取一次。", "Share a public canvas each day to earn 2 credits. Each share can be claimed once per day.")}</p><Button onClick={() => navigate("/canvas")}>{summary.shareClaimedToday ? text("继续分享作品", "Share another work") : text("去画布分享", "Share from canvas")}</Button></article>
-            </section>
+                    <section className="rewards-grid">
+                        <article className="rewards-card rewards-card-task">
+                            <div className="rewards-card-icon">
+                                <Gift />
+                            </div>
+                            <div className="rewards-card-heading">
+                                <div>
+                                    <span className="rewards-card-kicker">{text("做任务赚积分", "CREATE TO EARN")}</span>
+                                    <h3>{text("完成创作任务", "Complete a creation task")}</h3>
+                                </div>
+                                <strong>+5</strong>
+                            </div>
+                            <p>{text("每个成功完成的生成任务都可以领取一次 5 积分。", "Claim 5 credits once for every successful generation task.")}</p>
+                            {successfulTasks.length ? (
+                                <div className="rewards-task-list">
+                                    {successfulTasks.map((task) => (
+                                        <div className="rewards-task-row" key={task.id}>
+                                            <span>
+                                                <Check />
+                                                {task.prompt?.trim() || text("已完成任务", "Completed task")}
+                                            </span>
+                                            <Button size="small" loading={actingId === task.id} onClick={() => void claimTask(task)}>
+                                                {text("领取", "Claim")}
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <Button onClick={() => navigate("/tasks")}>{text("去完成任务", "Open task center")}</Button>
+                            )}
+                        </article>
+                        <article className="rewards-card rewards-card-share">
+                            <div className="rewards-card-icon">
+                                <Share2 />
+                            </div>
+                            <div className="rewards-card-heading">
+                                <div>
+                                    <span className="rewards-card-kicker">{text("分享赚积分", "SHARE TO EARN")}</span>
+                                    <h3>{text("分享公开作品", "Share a public work")}</h3>
+                                </div>
+                                <strong>+2</strong>
+                            </div>
+                            <p>{text("每天分享一个公开画布即可获得 2 积分，每个分享记录每天最多领取一次。", "Share a public canvas each day to earn 2 credits. Each share can be claimed once per day.")}</p>
+                            <Button onClick={() => navigate("/canvas")}>{summary.shareClaimedToday ? text("继续分享作品", "Share another work") : text("去画布分享", "Share from canvas")}</Button>
+                        </article>
+                    </section>
 
-            <section className="rewards-membership"><div className="rewards-membership-copy"><span className="rewards-card-kicker"><Star />{text("年度会员", "ANNUAL MEMBERSHIP")}</span><h2>{product?.name || text("年会员", "Annual membership")}</h2><p>{product?.description || text("会员权益由平台配置，支付后立即生效。", "Membership benefits are configured by the platform and start immediately after payment.")}</p>{copy ? <div className="rewards-membership-facts"><strong>{copy.price}</strong><span>{copy.duration}</span><span>{copy.bonus}</span></div> : <span className="rewards-muted">{text("当前暂无可购买的会员商品", "No membership product is available")}</span>}</div><div className="rewards-membership-actions">{product ? <Button type="primary" size="large" onClick={() => openWorkspaceWallet({ productId: product.id })}>{text("开通会员", "Get membership")}</Button> : null}<div className="rewards-code-entry"><Input value={code} onChange={(event) => setCode(event.target.value)} onPressEnter={() => void redeem()} prefix={<TicketCheck />} placeholder={text("输入会员兑换码", "Enter membership code")} /><Button loading={redeeming} disabled={!code.trim()} onClick={() => void redeem()}>{text("兑换", "Redeem")}</Button></div></div></section>
-        </div> : null}
-    </WorkspacePage>;
+                    <section className="rewards-membership">
+                        <div className="rewards-membership-copy">
+                            <span className="rewards-card-kicker">
+                                <Star />
+                                {text("年度会员", "ANNUAL MEMBERSHIP")}
+                            </span>
+                            <h2>{product?.name || text("年会员", "Annual membership")}</h2>
+                            <p>{product?.description || text("会员权益由平台配置，支付后立即生效。", "Membership benefits are configured by the platform and start immediately after payment.")}</p>
+                            {copy ? (
+                                <div className="rewards-membership-facts">
+                                    <strong>{copy.price}</strong>
+                                    <span>{copy.duration}</span>
+                                    <span>{copy.bonus}</span>
+                                </div>
+                            ) : (
+                                <span className="rewards-muted">{text("当前暂无可购买的会员商品", "No membership product is available")}</span>
+                            )}
+                        </div>
+                        <div className="rewards-membership-actions">
+                            {product ? (
+                                <Button type="primary" size="large" onClick={() => openWorkspaceWallet({ productId: product.id })}>
+                                    {text("开通会员", "Get membership")}
+                                </Button>
+                            ) : null}
+                            <div className="rewards-code-entry">
+                                <Input value={code} onChange={(event) => setCode(event.target.value)} onPressEnter={() => void redeem()} prefix={<TicketCheck />} placeholder={text("输入会员兑换码", "Enter membership code")} />
+                                <Button loading={redeeming} disabled={!code.trim()} onClick={() => void redeem()}>
+                                    {text("兑换", "Redeem")}
+                                </Button>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            ) : null}
+        </WorkspacePage>
+    );
 }

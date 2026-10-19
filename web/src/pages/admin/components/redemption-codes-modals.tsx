@@ -88,7 +88,12 @@ export function CreateRedeemBatchDrawer({
                         </div>
                         <div className="admin-redemption-form-grid">
                             <Form.Item name="productType" label="兑换码类型">
-                                <Select options={[{ label: "积分兑换码", value: "credits" }, { label: "会员兑换码", value: "membership" }]} />
+                                <Select
+                                    options={[
+                                        { label: "积分兑换码", value: "credits" },
+                                        { label: "会员兑换码", value: "membership" },
+                                    ]}
+                                />
                             </Form.Item>
                             <Form.Item
                                 name="amount"
@@ -107,7 +112,13 @@ export function CreateRedeemBatchDrawer({
                                 <InputNumber className="w-full" min={0.000001} precision={6} placeholder="例如 10" />
                             </Form.Item>
                             <Form.Item noStyle shouldUpdate={(prev, current) => prev.productType !== current.productType}>
-                                {({ getFieldValue }) => getFieldValue("productType") === "membership" ? <Form.Item name="membershipDays" label="会员时长（天）" rules={[{ required: true, type: "number", min: 1, max: 3650 }]}><InputNumber className="w-full" min={1} max={3650} precision={0} /></Form.Item> : null}
+                                {({ getFieldValue }) =>
+                                    getFieldValue("productType") === "membership" ? (
+                                        <Form.Item name="membershipDays" label="会员时长（天）" rules={[{ required: true, type: "number", min: 1, max: 3650 }]}>
+                                            <InputNumber className="w-full" min={1} max={3650} precision={0} />
+                                        </Form.Item>
+                                    ) : null
+                                }
                             </Form.Item>
                             <Form.Item
                                 name="count"
