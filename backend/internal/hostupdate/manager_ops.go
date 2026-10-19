@@ -463,7 +463,7 @@ func (m *Manager) createBackup(version string) (Backup, error) {
 		return Backup{}, err
 	}
 	checksum := "sha256:" + hex.EncodeToString(hasher.Sum(nil))
-	if err := verifyZipBackup(path, checksum); err != nil {
+	if err := verifyZipStructure(path); err != nil {
 		return Backup{}, err
 	}
 	return Backup{ID: id, Path: path, Checksum: checksum, Size: stat.Size(), CreatedAt: now, Version: version}, nil
@@ -495,6 +495,13 @@ func verifyZipBackup(path, expected string) error {
 	if actual != expected {
 		return fmt.Errorf("ZIP 备份校验失败：期望 %s，实际 %s", expected, actual)
 	}
+	if err := verifyZipStructure(path); err != nil {
+		return err
+	}
+	return nil
+}
+
+func verifyZipStructure(path string) error {
 	archive, err := zip.OpenReader(path)
 	if err != nil {
 		return fmt.Errorf("ZIP 备份无法打开：%w", err)

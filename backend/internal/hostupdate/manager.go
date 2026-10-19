@@ -249,11 +249,16 @@ func (m *Manager) runUpdate(fromVersion, targetVersion string) {
 		defer os.Remove(updaterBinary)
 	}
 
-	m.setPhase(PhaseBackingUp, "创建 PostgreSQL 与数据目录 ZIP 备份")
-	backup, err := m.createBackup(fromVersion)
-	if err != nil {
-		m.failWithoutRollback(PhaseFailed, err)
-		return
+	backup, reused := m.reusableBackup(fromVersion)
+	if reused {
+		m.setPhase(PhaseBackingUp, "复用已校验的 PostgreSQL 与数据目录备份")
+	} else {
+		m.setPhase(PhaseBackingUp, "创建 PostgreSQL 与数据目录 ZIP 备份")
+		backup, err = m.createBackup(fromVersion)
+		if err != nil {
+			m.failWithoutRollback(PhaseFailed, err)
+			return
+		}
 	}
 	m.mu.Lock()
 	m.state.LastBackup = &backup
@@ -281,8 +286,8 @@ func (m *Manager) runUpdate(fromVersion, targetVersion string) {
 		return
 	}
 
-	m.setPhase(PhaseDraining, "停止 Web 与 Backend，等待后台任务优雅退出")
-	if err := m.compose(m.composePath(), fromVersion, m.config.StepTimeout, nil, "stop", "web", "backend"); err != nil {
+	m.setPhase(PhaseDraining, "停止 Backend，保留 Web/Nginx 展示系统更新页面")
+	if err := m.drainServices(fromVersion); err != nil {
 		m.failWithRollback(err, fromVersion, backup)
 		return
 	}
@@ -340,6 +345,31 @@ func (m *Manager) runUpdate(fromVersion, targetVersion string) {
 	if updaterBinary != "" && m.config.ServiceName != "" {
 		go m.restartSelf()
 	}
+}
+
+// drainServices stops only the backend so the web container can turn upstream
+// failures into the static maintenance page while an update is in progress.
+func (m *Manager) drainServices(version string) error {
+	return m.compose(m.composePath(), version, m.config.StepTimeout, nil, "stop", "backend")
+}
+
+// reusableBackup avoids re-archiving several gigabytes when a previous update
+// attempt already created and validated a backup for the same running version.
+func (m *Manager) reusableBackup(version string) (Backup, bool) {
+	m.mu.Lock()
+	backup := m.state.LastBackup
+	m.mu.Unlock()
+	if backup == nil || backup.Version != version || backup.Path == "" || backup.Checksum == "" {
+		return Backup{}, false
+	}
+	stat, err := os.Stat(backup.Path)
+	if err != nil || stat.Size() != backup.Size {
+		return Backup{}, false
+	}
+	if err := verifyZipStructure(backup.Path); err != nil {
+		return Backup{}, false
+	}
+	return *backup, true
 }
 
 func (m *Manager) failWithoutRollback(phase Phase, err error) {

@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -184,6 +185,25 @@ func TestWriteComposeEnvOverrideReplacesImageRefs(t *testing.T) {
 	value := string(data)
 	if !strings.Contains(value, "CANVAS_BACKEND_IMAGE=new-backend\n") || !strings.Contains(value, "CANVAS_WEB_IMAGE=new-web\n") || !strings.Contains(value, "CANVAS_YINGCE_AGENT_IMAGE=new-agent\n") || !strings.Contains(value, "POSTGRES_DB=canvas\n") {
 		t.Fatalf("unexpected override env: %q", value)
+	}
+}
+
+func TestDrainServicesKeepsWebAvailableForMaintenancePage(t *testing.T) {
+	runner := &recordingRunner{}
+	manager := &Manager{
+		config: Config{InstallDir: t.TempDir(), ComposeFile: "docker-compose.deploy.yml", EnvFile: ".env"},
+		runner: runner,
+	}
+
+	if err := manager.drainServices("v1.2.2"); err != nil {
+		t.Fatalf("drainServices() error = %v", err)
+	}
+	if len(runner.calls) != 1 {
+		t.Fatalf("runner calls = %d, want 1: %#v", len(runner.calls), runner.calls)
+	}
+	want := []string{"compose", "--project-name", filepath.Base(manager.config.InstallDir), "--env-file", filepath.Join(manager.config.InstallDir, ".env"), "-f", filepath.Join(manager.config.InstallDir, "docker-compose.deploy.yml"), "stop", "backend"}
+	if got := runner.calls[0]; !reflect.DeepEqual(got, want) {
+		t.Fatalf("drain command = %#v, want %#v", got, want)
 	}
 }
 
