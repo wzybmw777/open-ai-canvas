@@ -42,7 +42,7 @@ describe("workspace route loading", () => {
         expect(router).toMatch(/path: "\/canvas\/:id",\s+element: \(\s+<RequireAuth>\s+<CanvasProjectPage \/>\s+<\/RequireAuth>\s+\),/);
         expect(router).not.toContain('path: "/home"');
         expect(router).not.toContain("HomePage");
-        expect(navigation).toContain('{ ...toolItem("create", "/"), id: "home", title: text("创作", "Create") }');
+        expect(navigation).toContain('{ ...toolItem("create", "/"), id: "home", title: text("开始创作", "Start creating") }');
         expect(navigation).not.toContain('to: "/create"');
         expect(navigation).not.toContain('to: "/home"');
     });

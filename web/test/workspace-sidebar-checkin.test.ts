@@ -46,7 +46,9 @@ describe("workspace sidebar checkin card", () => {
         expect(checkinIndex).toBeGreaterThan(-1);
         expect(storageIndex).toBeGreaterThan(checkinIndex);
         expect(card).toContain("立即领取");
-        expect(card).toContain("今日<em>{amount}</em>积分");
+        expect(card).toContain('text("今日可领", "Today ")');
+        expect(card).toContain("<em>{amount}</em>");
+        expect(card).toContain('text("积分", " credits")');
         expect(card).toContain("checkinCredits()");
         expect(block).toContain("background: #fff;");
         expect(block).toContain("background: #171717;");

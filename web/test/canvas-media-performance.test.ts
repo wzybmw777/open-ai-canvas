@@ -95,7 +95,10 @@ describe("large canvas media rendering", () => {
         expect(canvasNodeContentSource).toContain("resolveVideoMediaUrl(node.metadata?.storageKey, fallback)");
         expect(canvasNodeContentSource).toContain("resolveVideoMediaUrl(storageKey, fallback)");
         expect(canvasVideoPreviewSource).toContain('resolveVideoMediaUrl(node.metadata?.storageKey, node.metadata?.content || "")');
-        expect(canvasGenerationTaskSource).toContain('resolveVideoMediaUrl(result.storageKey, result.dataUrl || "")');
+        // Successful tasks retain the resource identity; playback resolves the
+        // compatible variant when the node becomes active.
+        expect(canvasGenerationTaskSource).toContain("storedGeneratedVideo({ ...result.video, storageKey: result.video.storageKey })");
+        expect(canvasGenerationTaskSource).toContain("resolveResourceUrl(result.storageKey, result.dataUrl)");
         expect(canvasProjectGenerationSource).toContain("node.type === CanvasNodeType.Video ? await resolveVideoMediaUrl");
     });
 

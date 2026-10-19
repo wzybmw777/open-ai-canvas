@@ -54,15 +54,15 @@ describe("creation library button", () => {
         expect(source).toContain("个素材已上传到素材库并自动选中");
     });
 
-    test("视频创作先收集参考内容，再由模型能力决定能否发送", () => {
+    test("视频创作按模型各类参考上限收集内容，并在发送前校验兼容性", () => {
         const source = readCreateSource();
         const workspace = readCreateWorkspaceSource();
 
         expect(source).toContain('const maxReferences = mode === "video"');
-        expect(source).toContain("if (maxReferences === null) return candidates;");
-        expect(source).toContain("if (maxReferences === null) return;");
+        expect(source).toContain('modelGroupReferenceLimits(config, preferredModel || selectedModel, "video")');
+        expect(source).toContain("reconcileCreationAttachmentLimits(candidates, [], videoReferenceLimits)");
+        expect(source).toContain("reconcileCreationAttachmentLimits(attachments, mentionReferences, videoReferenceLimits)");
         expect(source).toContain('mode === "video" && modelCompatibilityError(config, selectedModel, modelRequirements)');
-        expect(source).not.toContain("videoReferenceLimits");
         expect(workspace).toContain("props.maxReferences === null || props.attachments.length < props.maxReferences");
         expect(workspace).toContain('props.videoReferenceIssue ? <p className="creation-reference-compatibility"');
     });
@@ -107,7 +107,8 @@ describe("creation library button", () => {
         expect(source).toContain("creation-reference-add-button");
         expect(source).toContain("addReferenceLabel");
         expect(source).toContain("aria-busy={interactionBusy}");
-        expect(source).toContain("disabled={interactionBusy || !canAddMoreReferences}");
+        expect(source).toContain("const inputDisabled = interactionBusy || props.projectRequired;");
+        expect(source).toContain("disabled={inputDisabled || !canAddMoreReferences}");
         expect(source).toContain("creation-reference-track-button");
         expect(source).toContain("imageReferenceAtPoint");
         expect(source).toContain("setDropTargetReferenceId");

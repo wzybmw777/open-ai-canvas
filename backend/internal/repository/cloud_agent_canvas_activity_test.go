@@ -117,7 +117,14 @@ func testCanvasAgentHistoryPlan(t *testing.T, db *gorm.DB) {
 	}
 	var plan string
 	if db.Dialector.Name() == "postgres" {
-		if err := db.Raw("EXPLAIN (ANALYZE, FORMAT JSON) "+canvasAgentActivitySQL, "history", "history-canvas", "history", "history-canvas").Scan(&plan).Error; err != nil {
+		// Small fixtures can legitimately favor a sequential scan. Check that
+		// both partial indexes are usable without changing the semantic reads.
+		if err := db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Exec("SET LOCAL enable_seqscan = off").Error; err != nil {
+				return err
+			}
+			return tx.Raw("EXPLAIN (ANALYZE, FORMAT JSON) "+canvasAgentActivitySQL, "history", "history-canvas", "history", "history-canvas").Scan(&plan).Error
+		}); err != nil {
 			t.Fatal(err)
 		}
 	} else {

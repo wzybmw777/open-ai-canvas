@@ -62,8 +62,9 @@ describe("场景与道具参考图片", () => {
         expect(projectVisualTaskAssetId({})).toBe("");
     });
     test("个人素材库不会把场景设定显示成角色卡", () => {
-        expect(assetKindLabel("entity", "environment")).toBe("场景设定");
-        expect(assetKindLabel("entity", "character")).toBe("角色");
+        expect(assetKindLabel("entity", "zh-CN", "environment")).toBe("场景设定");
+        expect(assetKindLabel("entity", "zh-CN", "character")).toBe("角色");
+        expect(assetKindLabel("entity", "en-US", "environment")).toBe("Scene concept");
         expect(assetSummary({ id: "scene", kind: "entity", category: "environment", title: "阁楼", tags: [], coverUrl: "", createdAt: "", updatedAt: "", data: { definition: { description: "木质书架" } } })).toBe("木质书架");
     });
 });
