@@ -25,6 +25,8 @@ func TestAuthSMSUpgradeFromV34PreservesAccounts(t *testing.T) {
 		`CREATE TABLE email_verification_codes (id TEXT PRIMARY KEY, code_hash TEXT)`,
 		`INSERT INTO email_verification_codes VALUES ('existing-code', 'preserved-code-hash')`,
 		`CREATE TABLE model_channels (id TEXT PRIMARY KEY)`,
+		`CREATE TABLE channel_models (id TEXT PRIMARY KEY)`,
+		`CREATE TABLE cloud_agent_executions (id TEXT PRIMARY KEY, user_id TEXT, status TEXT, cleanup_pending BOOLEAN DEFAULT false)`,
 		`CREATE TABLE banner_announcements (id TEXT PRIMARY KEY)`,
 	} {
 		if err := db.Exec(statement).Error; err != nil {

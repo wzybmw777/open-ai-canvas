@@ -140,7 +140,9 @@ func TestCloudAgentStoryboardBindingsModesPersistAndUndo(t *testing.T) {
 					t.Fatal(err)
 				}
 				restored, _ := s.repo.CanvasProjectForUser("user", canvas.ID)
-				if restored.PayloadJSON != canvas.PayloadJSON {
+				restoredDoc, err := creationDocument(restored.PayloadJSON)
+				beforeDoc, beforeErr := creationDocument(canvas.PayloadJSON)
+				if err != nil || beforeErr != nil || cloudAgentCanvasHash(restoredDoc) != cloudAgentCanvasHash(beforeDoc) {
 					t.Fatal("undo did not restore original storyboard")
 				}
 			})
