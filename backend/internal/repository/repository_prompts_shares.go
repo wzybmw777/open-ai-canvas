@@ -15,6 +15,14 @@ func (r *Repository) CanvasShareForProject(userID string, projectID string) (*mo
 	return &share, nil
 }
 
+func (r *Repository) CanvasShareForUser(userID string, shareID string) (*model.CanvasShare, error) {
+	var share model.CanvasShare
+	if err := r.db.Where("id = ? AND user_id = ?", shareID, userID).First(&share).Error; err != nil {
+		return nil, err
+	}
+	return &share, nil
+}
+
 func (r *Repository) CanvasShareByTokenHash(tokenHash string) (*model.CanvasShare, error) {
 	var share model.CanvasShare
 	if err := r.db.First(&share, "token_hash = ? AND enabled = ?", tokenHash, true).Error; err != nil {

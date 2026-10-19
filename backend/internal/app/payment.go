@@ -53,18 +53,21 @@ type UpdatePaymentProviderConfigRequest struct {
 }
 
 type TopupProductRequest struct {
-	Name                string                  `json:"name"`
-	Description         string                  `json:"description"`
-	AmountFen           int64                   `json:"amountFen"`
-	CreditsMicrocredits int64                   `json:"creditsMicrocredits"`
-	Enabled             bool                    `json:"enabled"`
-	SortOrder           int                     `json:"sortOrder"`
-	SaleStrategy        model.TopupSaleStrategy `json:"saleStrategy"`
-	PeriodDays          int                     `json:"periodDays"`
-	PeriodPurchaseLimit int                     `json:"periodPurchaseLimit"`
-	StockTotal          int64                   `json:"stockTotal"`
-	SaleStartAt         *time.Time              `json:"saleStartAt"`
-	SaleEndAt           *time.Time              `json:"saleEndAt"`
+	Name                     string                  `json:"name"`
+	Description              string                  `json:"description"`
+	AmountFen                int64                   `json:"amountFen"`
+	CreditsMicrocredits      int64                   `json:"creditsMicrocredits"`
+	ProductType              model.ProductType       `json:"productType"`
+	MembershipDays           int                     `json:"membershipDays"`
+	BonusCreditsMicrocredits int64                   `json:"bonusCreditsMicrocredits"`
+	Enabled                  bool                    `json:"enabled"`
+	SortOrder                int                     `json:"sortOrder"`
+	SaleStrategy             model.TopupSaleStrategy `json:"saleStrategy"`
+	PeriodDays               int                     `json:"periodDays"`
+	PeriodPurchaseLimit      int                     `json:"periodPurchaseLimit"`
+	StockTotal               int64                   `json:"stockTotal"`
+	SaleStartAt              *time.Time              `json:"saleStartAt"`
+	SaleEndAt                *time.Time              `json:"saleEndAt"`
 }
 
 type CreatePaymentOrderRequest struct {
@@ -81,25 +84,28 @@ type PaymentCheckoutView struct {
 }
 
 type PaymentOrderView struct {
-	ID                  string                   `json:"id"`
-	UserID              string                   `json:"userId,omitempty"`
-	MerchantOrderNo     string                   `json:"merchantOrderNo"`
-	ProductID           string                   `json:"productId"`
-	ProductName         string                   `json:"productName"`
-	ProviderID          string                   `json:"providerId"`
-	AmountFen           int64                    `json:"amountFen"`
-	Currency            string                   `json:"currency"`
-	CreditsMicrocredits int64                    `json:"creditsMicrocredits"`
-	Status              model.PaymentOrderStatus `json:"status"`
-	ProviderStatus      string                   `json:"providerStatus,omitempty"`
-	ProviderTradeNo     string                   `json:"providerTradeNo,omitempty"`
-	Checkout            PaymentCheckoutView      `json:"checkout"`
-	ExpiresAt           time.Time                `json:"expiresAt"`
-	ProviderPaidAt      *time.Time               `json:"providerPaidAt,omitempty"`
-	CreditedAt          *time.Time               `json:"creditedAt,omitempty"`
-	ClosedAt            *time.Time               `json:"closedAt,omitempty"`
-	CreatedAt           time.Time                `json:"createdAt"`
-	UpdatedAt           time.Time                `json:"updatedAt"`
+	ID                       string                   `json:"id"`
+	UserID                   string                   `json:"userId,omitempty"`
+	MerchantOrderNo          string                   `json:"merchantOrderNo"`
+	ProductID                string                   `json:"productId"`
+	ProductName              string                   `json:"productName"`
+	ProviderID               string                   `json:"providerId"`
+	AmountFen                int64                    `json:"amountFen"`
+	Currency                 string                   `json:"currency"`
+	CreditsMicrocredits      int64                    `json:"creditsMicrocredits"`
+	ProductType              model.ProductType        `json:"productType"`
+	MembershipDays           int                      `json:"membershipDays,omitempty"`
+	BonusCreditsMicrocredits int64                    `json:"bonusCreditsMicrocredits,omitempty"`
+	Status                   model.PaymentOrderStatus `json:"status"`
+	ProviderStatus           string                   `json:"providerStatus,omitempty"`
+	ProviderTradeNo          string                   `json:"providerTradeNo,omitempty"`
+	Checkout                 PaymentCheckoutView      `json:"checkout"`
+	ExpiresAt                time.Time                `json:"expiresAt"`
+	ProviderPaidAt           *time.Time               `json:"providerPaidAt,omitempty"`
+	CreditedAt               *time.Time               `json:"creditedAt,omitempty"`
+	ClosedAt                 *time.Time               `json:"closedAt,omitempty"`
+	CreatedAt                time.Time                `json:"createdAt"`
+	UpdatedAt                time.Time                `json:"updatedAt"`
 }
 
 type AdminPaymentOrderPage struct {
@@ -174,6 +180,7 @@ func (s *Service) CreatePaymentOrder(ctx context.Context, actor *model.User, req
 		ProductID: product.ID, ProductName: product.Name, ProviderID: provider.Descriptor().ID,
 		PluginID: provider.Descriptor().PluginID, PluginVersion: provider.Descriptor().PluginVersion, ProviderConfigID: config.ID, ProviderConfigVersion: config.Version,
 		AmountFen: product.AmountFen, Currency: "CNY", CreditsMicrocredits: product.CreditsMicrocredits,
+		ProductType: product.ProductType, MembershipDays: product.MembershipDays, BonusCreditsMicrocredits: product.BonusCreditsMicrocredits,
 		Status: model.PaymentOrderCreated, CheckoutMode: provider.Descriptor().CheckoutMode,
 		ExpiresAt: now.Add(time.Duration(config.CloseAfterMinutes) * time.Minute),
 	}
@@ -551,7 +558,7 @@ func paymentOrderView(order model.PaymentOrder) PaymentOrderView {
 	return PaymentOrderView{
 		ID: order.ID, UserID: order.UserID, MerchantOrderNo: order.MerchantOrderNo, ProductID: order.ProductID, ProductName: order.ProductName,
 		ProviderID: order.ProviderID, AmountFen: order.AmountFen, Currency: order.Currency,
-		CreditsMicrocredits: order.CreditsMicrocredits, Status: order.Status, ProviderStatus: order.ProviderStatus,
+		CreditsMicrocredits: order.CreditsMicrocredits, ProductType: order.ProductType, MembershipDays: order.MembershipDays, BonusCreditsMicrocredits: order.BonusCreditsMicrocredits, Status: order.Status, ProviderStatus: order.ProviderStatus,
 		ProviderTradeNo: providerTradeNo, Checkout: checkout, ExpiresAt: order.ExpiresAt,
 		ProviderPaidAt: order.ProviderPaidAt, CreditedAt: order.CreditedAt, ClosedAt: order.ClosedAt,
 		CreatedAt: order.CreatedAt, UpdatedAt: order.UpdatedAt,

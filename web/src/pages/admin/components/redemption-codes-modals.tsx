@@ -87,9 +87,12 @@ export function CreateRedeemBatchDrawer({
                             <p>积分最多保留 6 位小数；单批最多生成 5,000 个兑换码。</p>
                         </div>
                         <div className="admin-redemption-form-grid">
+                            <Form.Item name="productType" label="兑换码类型">
+                                <Select options={[{ label: "积分兑换码", value: "credits" }, { label: "会员兑换码", value: "membership" }]} />
+                            </Form.Item>
                             <Form.Item
                                 name="amount"
-                                label="每个兑换码的积分"
+                                label="赠送积分"
                                 rules={[
                                     { required: true, message: "请填写积分面额" },
                                     {
@@ -102,6 +105,9 @@ export function CreateRedeemBatchDrawer({
                                 ]}
                             >
                                 <InputNumber className="w-full" min={0.000001} precision={6} placeholder="例如 10" />
+                            </Form.Item>
+                            <Form.Item noStyle shouldUpdate={(prev, current) => prev.productType !== current.productType}>
+                                {({ getFieldValue }) => getFieldValue("productType") === "membership" ? <Form.Item name="membershipDays" label="会员时长（天）" rules={[{ required: true, type: "number", min: 1, max: 3650 }]}><InputNumber className="w-full" min={1} max={3650} precision={0} /></Form.Item> : null}
                             </Form.Item>
                             <Form.Item
                                 name="count"

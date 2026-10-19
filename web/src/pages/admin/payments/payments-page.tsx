@@ -69,6 +69,8 @@ type ProductFormValues = {
     description?: string;
     amountYuan: number;
     credits: number;
+    productType: "credits" | "membership";
+    membershipDays?: number;
     enabled: boolean;
     sortOrder: number;
     saleStrategy: TopupProduct["saleStrategy"];
@@ -117,6 +119,7 @@ export default function AdminPaymentsPage() {
     const [productSaving, setProductSaving] = useState(false);
     const [productForm] = Form.useForm<ProductFormValues>();
     const selectedProductStrategy = Form.useWatch("saleStrategy", productForm) || "unlimited";
+    const selectedProductType = Form.useWatch("productType", productForm) || "credits";
 
     const [orders, setOrders] = useState<AdminPaymentOrder[]>([]);
     const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -304,6 +307,8 @@ export default function AdminPaymentsPage() {
                       description: product.description,
                       amountYuan: product.amountFen / 100,
                       credits: product.creditsMicrocredits / 1_000_000,
+                      productType: product.productType === "membership" ? "membership" : "credits",
+                      membershipDays: product.membershipDays || 365,
                       enabled: product.enabled,
                       sortOrder: product.sortOrder,
                       saleStrategy: product.saleStrategy || "unlimited",
@@ -313,7 +318,7 @@ export default function AdminPaymentsPage() {
                       saleStartAt: product.saleStartAt ? dayjs(product.saleStartAt) : undefined,
                       saleEndAt: product.saleEndAt ? dayjs(product.saleEndAt) : undefined,
                   }
-                : { enabled: true, sortOrder: products.length * 10, amountYuan: 10, credits: 10, saleStrategy: "unlimited" },
+                : { enabled: true, sortOrder: products.length * 10, amountYuan: 10, credits: 10, productType: "credits", membershipDays: 365, saleStrategy: "unlimited" },
         );
         setProductDrawer(product || null);
     };
@@ -326,6 +331,9 @@ export default function AdminPaymentsPage() {
             description: values.description?.trim(),
             amountFen: Math.round(values.amountYuan * 100),
             creditsMicrocredits: Math.round(values.credits * 1_000_000),
+            productType: values.productType || "credits",
+            membershipDays: values.productType === "membership" ? values.membershipDays || 365 : undefined,
+            bonusCreditsMicrocredits: values.productType === "membership" ? Math.round(values.credits * 1_000_000) : undefined,
             enabled: values.enabled,
             sortOrder: values.sortOrder || 0,
             saleStrategy: values.saleStrategy || "unlimited",
@@ -1023,27 +1031,31 @@ export default function AdminPaymentsPage() {
                     <Form.Item name="description" label="商品说明" rules={[{ max: 500 }]}>
                         <Input.TextArea rows={3} />
                     </Form.Item>
+                    <Form.Item name="productType" label="商品类型" rules={[{ required: true }]}>
+                        <Select options={[{ value: "credits", label: "积分商品" }, { value: "membership", label: "会员商品" }]} />
+                    </Form.Item>
                     <div className="grid grid-cols-2 gap-3">
                         <Form.Item name="amountYuan" label="售价（元）" rules={[{ required: true }, { type: "number", min: 0.01, max: 1_000_000 }]}>
                             <InputNumber min={0.01} max={1_000_000} precision={2} className="w-full" />
                         </Form.Item>
                         <Form.Item
                             name="credits"
-                            label="到账积分"
+                            label={selectedProductType === "membership" ? "赠送积分" : "到账积分"}
                             rules={[
                                 { required: true },
                                 {
                                     validator: (_, value) => {
                                         const credits = Number(value);
                                         const microcredits = Math.round(credits * 1_000_000);
-                                        return Number.isFinite(credits) && credits > 0 && credits <= 1_000_000_000 && Number.isSafeInteger(microcredits) ? Promise.resolve() : Promise.reject(new Error("请输入 0.000001 至 10 亿之间且可安全处理的积分"));
+                                        return Number.isFinite(credits) && credits >= 0 && credits <= 1_000_000_000 && Number.isSafeInteger(microcredits) && (selectedProductType === "membership" || credits > 0) ? Promise.resolve() : Promise.reject(new Error("请输入合法积分值"));
                                     },
                                 },
                             ]}
                         >
-                            <InputNumber min={0.000001} max={1_000_000_000} precision={6} className="w-full" />
+                            <InputNumber min={0} max={1_000_000_000} precision={6} className="w-full" />
                         </Form.Item>
                     </div>
+                    {selectedProductType === "membership" ? <Form.Item name="membershipDays" label="会员时长（天）" rules={[{ required: true }, { type: "number", min: 1, max: 3650 }]}><InputNumber min={1} max={3650} precision={0} className="w-full" /></Form.Item> : null}
                     <Form.Item name="saleStrategy" label="上架策略" rules={[{ required: true }]}>
                         <Select
                             options={[

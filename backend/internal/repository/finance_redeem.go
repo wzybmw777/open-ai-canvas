@@ -83,7 +83,7 @@ func (r *Repository) AdminRedeemBatches(keyword string, validity string, limit i
 		return nil, 0, err
 	}
 	now := time.Now()
-	listQuery := query.Select(`redeem_batches.id, redeem_batches.amount_microcredits, redeem_batches.count,
+	listQuery := query.Select(`redeem_batches.id, redeem_batches.amount_microcredits, redeem_batches.product_type, redeem_batches.membership_days, redeem_batches.bonus_credits_microcredits, redeem_batches.count,
 		redeem_batches.note, redeem_batches.created_by, redeem_batches.expires_at, redeem_batches.created_at,
 		(SELECT COUNT(*) FROM redeem_codes rc WHERE rc.batch_id = redeem_batches.id AND rc.status = 'unused' AND (rc.expires_at IS NULL OR rc.expires_at > ?)) AS available_count,
 		(SELECT COUNT(*) FROM redeem_codes rc WHERE rc.batch_id = redeem_batches.id AND rc.status = 'redeemed') AS redeemed_count,
@@ -142,6 +142,9 @@ func (r *Repository) RedeemCode(userID string, codeHash string, redeemedIP strin
 				return ErrRedeemCodeInvalid
 			}
 			return err
+		}
+		if code.ProductType != "" && code.ProductType != model.ProductTypeCredits {
+			return ErrRedeemCodeInvalid
 		}
 		now := time.Now()
 		query := tx.Model(&model.RedeemCode{}).Where("id = ? AND status = ?", code.ID, model.RedeemCodeUnused)

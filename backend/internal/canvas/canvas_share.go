@@ -25,6 +25,7 @@ type CanvasShareRequest struct {
 }
 
 type CanvasShareStatus struct {
+	ID        string     `json:"id,omitempty"`
 	Enabled   bool       `json:"enabled"`
 	Token     string     `json:"token,omitempty"`
 	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
@@ -201,7 +202,7 @@ func (s *Service) canvasShareStatus(share *model.CanvasShare) (CanvasShareStatus
 		return CanvasShareStatus{}, err
 	}
 	createdAt := share.CreatedAt
-	return CanvasShareStatus{Enabled: true, Token: token, ExpiresAt: share.ExpiresAt, CreatedAt: &createdAt}, nil
+	return CanvasShareStatus{ID: share.ID, Enabled: true, Token: token, ExpiresAt: share.ExpiresAt, CreatedAt: &createdAt}, nil
 }
 
 func newCanvasShareToken() (string, error) {

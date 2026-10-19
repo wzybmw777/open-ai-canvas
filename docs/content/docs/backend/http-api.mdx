@@ -5,6 +5,14 @@ description: 信封、错误码与 OpenAPI
 
 # HTTP API 合同
 
+## 成长计划、积分奖励与会员
+
+需要登录并启用积分功能。`GET /api/rewards` 返回当前积分账户、任务目录、今日分享奖励状态和会员有效期。成功生成的当前用户任务可通过 `POST /api/rewards/tasks/:taskId/claim` 领取一次 5 积分；公开画布分享记录可通过 `POST /api/rewards/shares/:shareId/claim` 按 UTC 日期领取一次 2 积分。服务端校验任务或分享记录归属、状态和幂等键。
+
+`GET /api/payments/products` 返回后台配置的商品。会员商品使用 `productType=membership`、`membershipDays` 和 `bonusCreditsMicrocredits` 描述价格、时长和赠送积分，默认种子商品为 99 元、365 天、50 积分。会员支付订单完成后原子开通或顺延会员并发放赠送积分。
+
+`POST /api/membership/redeem` 接收 `{ code }`，只接受会员兑换码；会员码由后台批次配置时长和赠送积分，成功后立即开通或顺延会员，重复兑换不会重复发放。`GET /api/membership` 返回当前会员记录。后台 `POST /api/admin/redeem-batches` 支持 `productType=credits|membership`，会员批次还需提交 `membershipDays` 与 `bonusCreditsMicrocredits`。
+
 ## 图片与视频工作台的项目归属
 
 `POST /api/workbench/tasks` 必须提供 `projectId`，服务端在模型解析和计费之前检查项目属于当前账号且处于进行中状态。空项目返回 400，不存在或越权返回 404，归档项目返回 400。自定义渠道经 `/api/tasks` 提交且 `input.metadata.source=workbench` 时执行同样校验；重试也重新检查项目状态。

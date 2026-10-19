@@ -34,6 +34,9 @@ export type TopupProduct = {
     description?: string;
     amountFen: number;
     creditsMicrocredits: number;
+    productType?: "credits" | "membership" | string;
+    membershipDays?: number;
+    bonusCreditsMicrocredits?: number;
     enabled: boolean;
     sortOrder: number;
     saleStrategy: TopupSaleStrategy;
@@ -63,6 +66,9 @@ export type PaymentOrder = {
     amountFen: number;
     currency: "CNY" | string;
     creditsMicrocredits: number;
+    productType?: "credits" | "membership" | string;
+    membershipDays?: number;
+    bonusCreditsMicrocredits?: number;
     status: PaymentOrderStatus;
     providerStatus?: string;
     providerTradeNo?: string;
@@ -147,6 +153,9 @@ export type TopupProductInput = Pick<TopupProduct, "name" | "amountFen" | "credi
     stockTotal?: number;
     saleStartAt?: string;
     saleEndAt?: string;
+    productType?: TopupProduct["productType"];
+    membershipDays?: number;
+    bonusCreditsMicrocredits?: number;
 };
 
 export function createAdminTopupProduct(input: TopupProductInput) {

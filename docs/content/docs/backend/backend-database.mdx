@@ -5,6 +5,10 @@ description: 影策后端核心持久化表与状态边界
 
 # 后端数据库
 
+## 积分奖励与会员（Schema 62）
+
+Schema 62 新增 `reward_claims` 幂等奖励记录和 `memberships` 会员权益表。`reward_claims` 以用户、奖励类型、目标及周期记录任务奖励、分享奖励和会员赠送积分，防止重复领取；`memberships` 保存会员起止时间、来源支付订单或兑换码。`topup_products`、`payment_orders`、`redeem_batches`、`redeem_codes` 增加 `product_type`、会员时长和赠送积分字段。迁移会补种默认年会员商品：99 元、365 天、50 积分。关闭自动迁移的部署需先升级至 Schema 62。
+
 ## 卓越剧场作品
 
 Schema 48 `theatre_works` 新增剧场作品表：`id`（主键）、`user_id`（作者索引）、`resource_id`（唯一索引）、`title`（最长 120 字）、`description`（text）、`created_at`（排序索引）、`updated_at`。Schema 49 增加 `cover_resource_id`（封面资源索引，非空字段默认空字符串表示未设置封面）。Schema 50 增加 `kind`（索引，默认 `video`，短剧为 `short_drama`）、`is_complete`（默认 false），原视频与封面保持不变。`resource_id` 指向普通视频或短剧当前首集，同一预览资源只对应一个作品；封面引用作者的图片资源，作者展示名、视频大小与时长由现有 `users`、`resources` 查询，不复制存储凭据或媒体 URL。

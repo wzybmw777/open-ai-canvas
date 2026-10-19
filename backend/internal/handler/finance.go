@@ -10,6 +10,87 @@ import (
 )
 
 func RegisterFinanceRoutes(r *gin.RouterGroup, svc *service.Service) {
+	r.GET("/rewards", func(c *gin.Context) {
+		user, err := currentUser(c, svc)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		result, err := svc.Rewards(user)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		ok(c, result)
+	})
+	r.POST("/rewards/tasks/:taskId/claim", func(c *gin.Context) {
+		user, err := currentUser(c, svc)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		account, granted, err := svc.ClaimTaskReward(user.ID, c.Param("taskId"))
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		ok(c, gin.H{"account": account, "granted": granted})
+	})
+	r.POST("/rewards/shares/:shareId/claim", func(c *gin.Context) {
+		user, err := currentUser(c, svc)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		account, granted, err := svc.ClaimShareReward(user.ID, c.Param("shareId"))
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		ok(c, gin.H{"account": account, "granted": granted})
+	})
+	r.GET("/membership", func(c *gin.Context) {
+		user, err := currentUser(c, svc)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		membership, err := svc.Membership(user.ID)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		ok(c, gin.H{"membership": membership})
+	})
+	r.POST("/membership/redeem", func(c *gin.Context) {
+		user, err := currentUser(c, svc)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		if !enforceRateLimit(c, "membership-redeem:"+user.ID, 10, time.Minute) {
+			return
+		}
+		var req struct {
+			Code string `json:"code"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			fail(c, http.StatusBadRequest, err)
+			return
+		}
+		account, redeemed, err := svc.RedeemMembershipCode(user.ID, req.Code, c.ClientIP())
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		membership, err := svc.Membership(user.ID)
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		ok(c, gin.H{"account": account, "membership": membership, "redeemed": redeemed})
+	})
+
 	r.GET("/wallet", func(c *gin.Context) {
 		user, err := currentUser(c, svc)
 		if err != nil {

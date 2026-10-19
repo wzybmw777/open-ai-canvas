@@ -3,6 +3,7 @@ import { http } from "@/services/api/request";
 
 
 export type CanvasShareStatus = {
+    id?: string;
     enabled: boolean;
     token?: string;
     expiresAt?: string;

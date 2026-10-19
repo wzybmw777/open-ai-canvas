@@ -4,6 +4,7 @@ import { Copy, Link2, RefreshCw, Share2, Unlink } from "lucide-react";
 
 import { canvasThemes } from "@/lib/canvas-theme";
 import { createCanvasShare, deleteCanvasShare, getCanvasShare, type CanvasShareStatus } from "@/services/api/canvas-share";
+import { claimShareReward } from "@/services/api/rewards";
 import { useActiveTheme } from "@/stores/canvas/use-canvas-theme-store";
 import { Select } from "@/components/ui/base/select";
 
@@ -16,17 +17,27 @@ export function CanvasShareModal({ projectId, open, onClose, beforeCreate }: { p
     const [submitting, setSubmitting] = useState(false);
     const shareUrl = useMemo(() => share.token ? `${window.location.origin}/share/canvas/${share.token}` : "", [share.token]);
 
+    const claimShare = useCallback(async (shareId: string, notify: boolean) => {
+        try {
+            const reward = await claimShareReward(shareId);
+            if (notify && reward.granted) message.success("分享成功，已获得 2 积分");
+        } catch {
+            // 分享链接已经创建；再次打开分享弹窗会重试领取积分。
+        }
+    }, [message]);
+
     const load = useCallback(async () => {
         setLoading(true);
         try {
             const result = await getCanvasShare(projectId);
             setShare(result.share);
+            if (result.share.enabled && result.share.id) void claimShare(result.share.id, false);
         } catch (error) {
             message.error(error instanceof Error ? error.message : "读取分享状态失败");
         } finally {
             setLoading(false);
         }
-    }, [message, projectId]);
+    }, [claimShare, message, projectId]);
 
     useEffect(() => {
         if (open) void load();
@@ -45,6 +56,9 @@ export function CanvasShareModal({ projectId, open, onClose, beforeCreate }: { p
             if (saved === false) return;
             const result = await createCanvasShare(projectId, { expiresDays, rotate });
             setShare(result.share);
+            if (result.share.id) {
+                await claimShare(result.share.id, true);
+            }
             const url = result.share.token ? `${window.location.origin}/share/canvas/${result.share.token}` : "";
             await copy(url);
         } catch (error) {

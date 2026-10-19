@@ -23,11 +23,13 @@ export function WorkspaceWalletHost() {
     const navigate = useNavigate();
     const [open, setOpen] = useState(false);
     const [pendingPaymentOrderId, setPendingPaymentOrderId] = useState("");
+    const [pendingProductId, setPendingProductId] = useState("");
     const [paymentInvalid, setPaymentInvalid] = useState(false);
 
     const applyOpen = (detail: WorkspaceWalletOpenDetail = {}) => {
         if (!useUserStore.getState().features.creditsEnabled) return;
         setPendingPaymentOrderId(detail.paymentOrderId || "");
+        setPendingProductId(detail.productId || "");
         setPaymentInvalid(Boolean(detail.paymentInvalid));
         setOpen(true);
     };
@@ -55,17 +57,19 @@ export function WorkspaceWalletHost() {
         <WorkspaceWalletModal
             open={open}
             pendingPaymentOrderId={pendingPaymentOrderId}
+            pendingProductId={pendingProductId}
             paymentInvalid={paymentInvalid}
             onClose={() => {
                 setOpen(false);
                 setPendingPaymentOrderId("");
+                setPendingProductId("");
                 setPaymentInvalid(false);
             }}
         />
     );
 }
 
-export function WorkspaceWalletModal({ open, onClose, pendingPaymentOrderId, paymentInvalid }: { open: boolean; onClose: () => void; pendingPaymentOrderId?: string; paymentInvalid?: boolean }) {
+export function WorkspaceWalletModal({ open, onClose, pendingPaymentOrderId, pendingProductId, paymentInvalid }: { open: boolean; onClose: () => void; pendingPaymentOrderId?: string; pendingProductId?: string; paymentInvalid?: boolean }) {
     const { message } = App.useApp();
     const { locale, text } = useLocaleText();
     const redeemPurchaseUrl = useAppearanceStore((state) => state.appearance.redeemPurchaseUrl);
@@ -122,11 +126,12 @@ export function WorkspaceWalletModal({ open, onClose, pendingPaymentOrderId, pay
                 setExternalShop(shopResult.shop);
                 setTab((current) => current === "topup" && shopResult.shop && (!productResult.products.some((item) => item.enabled) || !providerResult.providers.some((item) => item.enabled && item.pluginEnabled && item.configured)) ? "shop" : current === "shop" && !shopResult.shop ? "topup" : current);
                 setSelectedProductId((current) => current || productResult.products.find((item) => item.canPurchase)?.id || productResult.products.find((item) => item.enabled)?.id || "");
+                if (pendingProductId && productResult.products.some((item) => item.id === pendingProductId && item.canPurchase)) setSelectedProductId(pendingProductId);
                 setSelectedProviderId((current) => current || providerResult.providers.find((item) => item.enabled && item.pluginEnabled && item.configured)?.id || "");
             })
             .catch((error) => message.error(localizedErrorMessage(error, "读取充值配置失败", "Could not load top-up options", locale)))
             .finally(() => setPaymentsLoading(false));
-    }, [open]);
+    }, [open, pendingProductId]);
 
     useEffect(() => {
         if (!open || !paymentInvalid) return;
@@ -452,7 +457,7 @@ function WalletLedgerRow({ entry }: { entry: CreditLedgerEntry }) {
     const { locale, text } = useLocaleText();
     const positive = entry.amountMicrocredits > 0;
     const note = entry.note ? generationErrorMessage(entry.note) : "";
-    const title = entry.type === "consume" ? text("模型调用", "Model usage") : entry.type === "refund" ? text("消费退款", "Refund") : entry.type === "payment_topup" ? text("在线充值", "Online top-up") : entry.type === "redeem" ? text("兑换码充值", "Code redemption") : note || text("积分调整", "Credit adjustment");
+    const title = entry.type === "consume" ? text("模型调用", "Model usage") : entry.type === "refund" ? text("消费退款", "Refund") : entry.type === "payment_topup" ? text("在线充值", "Online top-up") : entry.type === "redeem" ? text("兑换码充值", "Code redemption") : entry.type === "reward_task" ? text("任务奖励", "Task reward") : entry.type === "reward_share" ? text("分享奖励", "Share reward") : entry.type === "membership_bonus" ? text("会员赠送", "Membership bonus") : note || text("积分调整", "Credit adjustment");
     return <article className="workspace-wallet-ledger-row"><span className={cn("workspace-wallet-ledger-icon", positive ? "is-income" : "is-consume")}>{positive ? <Coins /> : <CreditCard />}</span><div><strong>{title}</strong><span>{[entry.scene, entry.model, note].filter(Boolean).join(" · ") || text("积分账户变动", "Credit balance changed")}</span></div><time>{new Date(entry.createdAt).toLocaleString(locale, { hour12: false })}</time><b className={positive ? "is-income" : "is-consume"}>{positive ? "+" : ""}{formatCredits(entry.amountMicrocredits, 6)}</b></article>;
 }
 

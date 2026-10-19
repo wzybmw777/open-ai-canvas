@@ -16,6 +16,7 @@ type ResourceDeletionStatus string
 type BillingStatus string
 type CreditLedgerType string
 type RedeemCodeStatus string
+type ProductType string
 type AnnouncementStatus string
 type AnnouncementLevel string
 type ProjectStatus string
@@ -112,15 +113,21 @@ const (
 	ProviderCancelStatusConfirmed ProviderCancelStatus = "confirmed"
 	ProviderCancelStatusUncertain ProviderCancelStatus = "uncertain"
 
-	CreditLedgerRedeem       CreditLedgerType = "redeem"
-	CreditLedgerAdminGrant   CreditLedgerType = "admin_grant"
-	CreditLedgerReserve      CreditLedgerType = "reserve"
-	CreditLedgerConsume      CreditLedgerType = "consume"
-	CreditLedgerRefund       CreditLedgerType = "refund"
-	CreditLedgerAdminAdjust  CreditLedgerType = "admin_adjustment"
-	CreditLedgerSignupBonus  CreditLedgerType = "signup_bonus"
-	CreditLedgerCheckinBonus CreditLedgerType = "checkin_bonus"
-	CreditLedgerPaymentTopup CreditLedgerType = "payment_topup"
+	CreditLedgerRedeem          CreditLedgerType = "redeem"
+	CreditLedgerAdminGrant      CreditLedgerType = "admin_grant"
+	CreditLedgerReserve         CreditLedgerType = "reserve"
+	CreditLedgerConsume         CreditLedgerType = "consume"
+	CreditLedgerRefund          CreditLedgerType = "refund"
+	CreditLedgerAdminAdjust     CreditLedgerType = "admin_adjustment"
+	CreditLedgerSignupBonus     CreditLedgerType = "signup_bonus"
+	CreditLedgerCheckinBonus    CreditLedgerType = "checkin_bonus"
+	CreditLedgerPaymentTopup    CreditLedgerType = "payment_topup"
+	CreditLedgerRewardTask      CreditLedgerType = "reward_task"
+	CreditLedgerRewardShare     CreditLedgerType = "reward_share"
+	CreditLedgerMembershipBonus CreditLedgerType = "membership_bonus"
+
+	ProductTypeCredits    ProductType = "credits"
+	ProductTypeMembership ProductType = "membership"
 
 	RedeemCodeUnused   RedeemCodeStatus = "unused"
 	RedeemCodeRedeemed RedeemCodeStatus = "redeemed"

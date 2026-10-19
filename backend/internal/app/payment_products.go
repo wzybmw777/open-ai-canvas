@@ -38,6 +38,12 @@ func (s *Service) AdminTopupProducts(actor *model.User) ([]model.TopupProduct, e
 func decorateTopupProducts(products []model.TopupProduct, now time.Time) []model.TopupProduct {
 	for index := range products {
 		product := &products[index]
+		if product.ProductType == "" {
+			product.ProductType = model.ProductTypeCredits
+		}
+		if product.ProductType == model.ProductTypeMembership && product.BonusCreditsMicrocredits == 0 {
+			product.BonusCreditsMicrocredits = product.CreditsMicrocredits
+		}
 		if product.SaleStrategy == "" {
 			product.SaleStrategy = model.TopupSaleStrategyUnlimited
 		}
@@ -119,7 +125,27 @@ func topupProductFromRequest(id, actorID string, request TopupProductRequest, st
 	if request.AmountFen <= 0 || request.AmountFen > 100_000_000 {
 		return nil, BadAuthRequest("充值金额必须为 1 分至 100 万元")
 	}
-	if request.CreditsMicrocredits <= 0 || request.CreditsMicrocredits > maxTopupCreditsMicrocredits {
+	productType := request.ProductType
+	if productType == "" {
+		productType = model.ProductTypeCredits
+	}
+	if productType != model.ProductTypeCredits && productType != model.ProductTypeMembership {
+		return nil, BadAuthRequest("商品类型无效")
+	}
+	bonusCredits := request.BonusCreditsMicrocredits
+	credits := request.CreditsMicrocredits
+	if productType == model.ProductTypeMembership {
+		if request.MembershipDays <= 0 || request.MembershipDays > 3650 {
+			return nil, BadAuthRequest("会员商品时长必须为 1-3650 天")
+		}
+		if bonusCredits == 0 {
+			bonusCredits = credits
+		}
+		if bonusCredits < 0 || bonusCredits > maxTopupCreditsMicrocredits {
+			return nil, BadAuthRequest("会员赠送积分超出允许范围")
+		}
+		credits = bonusCredits
+	} else if credits <= 0 || credits > maxTopupCreditsMicrocredits {
 		return nil, BadAuthRequest("充值积分必须为 0.000001 至 10 亿积分")
 	}
 	strategy := request.SaleStrategy
@@ -150,7 +176,8 @@ func topupProductFromRequest(id, actorID string, request TopupProductRequest, st
 	}
 	return &model.TopupProduct{
 		ID: id, Name: name, Description: truncateRunes(strings.TrimSpace(request.Description), 500),
-		AmountFen: request.AmountFen, CreditsMicrocredits: request.CreditsMicrocredits,
+		AmountFen: request.AmountFen, CreditsMicrocredits: credits, ProductType: productType,
+		MembershipDays: request.MembershipDays, BonusCreditsMicrocredits: bonusCredits,
 		Enabled: request.Enabled, SortOrder: request.SortOrder, SaleStrategy: strategy,
 		PeriodDays: request.PeriodDays, PeriodPurchaseLimit: request.PeriodPurchaseLimit,
 		StockTotal: request.StockTotal, StockRemaining: stockRemaining,

@@ -67,10 +67,13 @@ type BillingOrderPage struct {
 }
 
 type CreateRedeemBatchRequest struct {
-	AmountMicrocredits int64      `json:"amountMicrocredits"`
-	Count              int        `json:"count"`
-	Note               string     `json:"note"`
-	ExpiresAt          *time.Time `json:"expiresAt"`
+	AmountMicrocredits       int64             `json:"amountMicrocredits"`
+	Count                    int               `json:"count"`
+	Note                     string            `json:"note"`
+	ExpiresAt                *time.Time        `json:"expiresAt"`
+	ProductType              model.ProductType `json:"productType"`
+	MembershipDays           int               `json:"membershipDays"`
+	BonusCreditsMicrocredits int64             `json:"bonusCreditsMicrocredits"`
 }
 
 type CreateRedeemBatchResult struct {
@@ -166,7 +169,17 @@ func (s *Service) AdminCreateRedeemBatch(actor *model.User, req CreateRedeemBatc
 	if err := s.RequireAdmin(actor); err != nil {
 		return nil, err
 	}
-	if req.AmountMicrocredits <= 0 {
+	productType := req.ProductType
+	if productType == "" {
+		productType = model.ProductTypeCredits
+	}
+	amount := req.AmountMicrocredits
+	if productType == model.ProductTypeMembership {
+		if req.MembershipDays <= 0 || req.MembershipDays > 3650 || req.BonusCreditsMicrocredits < 0 || req.BonusCreditsMicrocredits > maxTopupCreditsMicrocredits {
+			return nil, BadAuthRequest("会员兑换码权益无效")
+		}
+		amount = req.BonusCreditsMicrocredits
+	} else if productType != model.ProductTypeCredits || amount <= 0 {
 		return nil, BadAuthRequest("兑换码积分必须大于 0")
 	}
 	if req.Count <= 0 || req.Count > 5000 {
@@ -175,7 +188,7 @@ func (s *Service) AdminCreateRedeemBatch(actor *model.User, req CreateRedeemBatc
 	if req.ExpiresAt != nil && !req.ExpiresAt.After(time.Now()) {
 		return nil, BadAuthRequest("兑换码过期时间必须晚于当前时间")
 	}
-	batch := model.RedeemBatch{ID: newID(), AmountMicrocredits: req.AmountMicrocredits, Count: req.Count, Note: truncateRunes(strings.TrimSpace(req.Note), 500), CreatedBy: actor.ID, ExpiresAt: req.ExpiresAt}
+	batch := model.RedeemBatch{ID: newID(), AmountMicrocredits: amount, Count: req.Count, Note: truncateRunes(strings.TrimSpace(req.Note), 500), CreatedBy: actor.ID, ExpiresAt: req.ExpiresAt, ProductType: productType, MembershipDays: req.MembershipDays, BonusCreditsMicrocredits: req.BonusCreditsMicrocredits}
 	codes := make([]string, 0, req.Count)
 	items := make([]model.RedeemCode, 0, req.Count)
 	for range req.Count {
@@ -186,7 +199,7 @@ func (s *Service) AdminCreateRedeemBatch(actor *model.User, req CreateRedeemBatc
 		codes = append(codes, plain)
 		items = append(items, model.RedeemCode{
 			ID: newID(), BatchID: batch.ID, CodeHash: hashRedeemCode(plain), CodeSuffix: plain[len(plain)-4:],
-			AmountMicrocredits: req.AmountMicrocredits, Status: model.RedeemCodeUnused, ExpiresAt: req.ExpiresAt,
+			AmountMicrocredits: amount, ProductType: productType, MembershipDays: req.MembershipDays, BonusCreditsMicrocredits: req.BonusCreditsMicrocredits, Status: model.RedeemCodeUnused, ExpiresAt: req.ExpiresAt,
 		})
 	}
 	encodedCodes, err := json.Marshal(codes)

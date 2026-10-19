@@ -67,6 +67,7 @@ function buildNav(features: FeatureAvailability, locale: AppLocale): { groups: W
             ],
         },
         ...(features.taskCenterEnabled ? [{ heading: text("记录", "Records"), items: [{ ...toolItem("tasks", "/tasks"), title: text("生成任务", "Generation tasks"), icon: HistoryIcon }] }] : []),
+        { heading: text("成长", "Growth"), items: [{ ...toolItem("rewards", "/rewards"), title: text("成长计划", "Growth plan") }] },
     ];
 
     // 管理、设置和退出登录不再占据参考站式侧栏底部，而是通过用户卡片菜单进入。

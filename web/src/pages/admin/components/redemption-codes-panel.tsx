@@ -12,11 +12,13 @@ import { AdminDataTable, AdminRowActions, AdminStatusBadge, AdminTableEmpty, typ
 import { Select } from "@/components/ui/base/select";
 import { BatchStatusDistribution, CreateRedeemBatchDrawer, GeneratedCodesModal, RedeemBatchCodesModal } from "./redemption-codes-modals";
 
-export type RedeemFormValues = { amount?: number | null; count?: number | null; note?: string; expiresAt?: string };
+export type RedeemFormValues = { productType?: "credits" | "membership"; amount?: number | null; membershipDays?: number | null; count?: number | null; note?: string; expiresAt?: string };
 export type PendingRedeemBatch = {
     amountMicrocredits: number;
     count: number;
     totalMicrocredits: number;
+    productType: "credits" | "membership";
+    membershipDays?: number;
     note?: string;
     expiresAt?: string;
 };
@@ -24,7 +26,7 @@ type BatchValidity = "all" | "active" | "expired";
 export type DetailStatus = "all" | "available" | "redeemed" | "expired" | "disabled";
 
 export const MICRO_CREDITS_PER_CREDIT = 1_000_000;
-export const DEFAULT_CREATE_VALUES: RedeemFormValues = { amount: 10, count: 10 };
+export const DEFAULT_CREATE_VALUES: RedeemFormValues = { productType: "credits", amount: 10, membershipDays: 365, count: 10 };
 export const GENERATED_PREVIEW_LIMIT = 200;
 export const DETAIL_STATUS_LABELS: Record<DetailStatus, string> = {
     all: "全部状态",
@@ -136,7 +138,13 @@ export default function RedemptionCodesPanel({ createOpen, onCreateOpenChange, o
             }
             expiresAt = timestamp.toISOString();
         }
-        setPendingCreate({ amountMicrocredits, count, totalMicrocredits, note: values.note?.trim() || undefined, expiresAt });
+        const productType = values.productType === "membership" ? "membership" : "credits";
+        const membershipDays = Number(values.membershipDays);
+        if (productType === "membership" && (!Number.isInteger(membershipDays) || membershipDays < 1 || membershipDays > 3650)) {
+            form.setFields([{ name: "membershipDays", errors: ["会员时长需为 1–3650 天"] }]);
+            return;
+        }
+        setPendingCreate({ productType, amountMicrocredits, membershipDays: productType === "membership" ? membershipDays : undefined, count, totalMicrocredits, note: values.note?.trim() || undefined, expiresAt });
     };
 
     const createBatch = async () => {
@@ -146,6 +154,9 @@ export default function RedemptionCodesPanel({ createOpen, onCreateOpenChange, o
         try {
             const result = await createAdminRedeemBatch({
                 amountMicrocredits: pendingCreate.amountMicrocredits,
+                productType: pendingCreate.productType,
+                membershipDays: pendingCreate.membershipDays,
+                bonusCreditsMicrocredits: pendingCreate.productType === "membership" ? pendingCreate.amountMicrocredits : undefined,
                 count: pendingCreate.count,
                 note: pendingCreate.note,
                 expiresAt: pendingCreate.expiresAt,

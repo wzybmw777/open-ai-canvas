@@ -61,6 +61,12 @@ export const navigationTools = [
         section: "工作台管理",
     },
     {
+        slug: "rewards",
+        label: "成长计划",
+        icon: WandSparkles,
+        section: "工作台管理",
+    },
+    {
         slug: "settings",
         label: "设置",
         icon: Settings,

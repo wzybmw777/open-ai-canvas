@@ -5,6 +5,12 @@ description: 从产品功能快速定位主要代码入口
 
 # 代码功能地图
 
+## 成长计划与会员
+
+- 用户页面与 API：`web/src/pages/rewards/index.tsx`、`web/src/services/api/rewards.ts`；入口位于工作台侧栏“成长计划”。任务奖励、分享奖励和会员兑换均由服务端幂等校验。
+- 后端路由与业务：`handler/finance.go` 的 `/rewards`、`/membership` 路由，`app/rewards.go` 编排任务/分享归属和积分功能开关，`repository/rewards.go` 原子写入积分流水、奖励记录和会员顺延。
+- 商品与兑换码：`app/payment_products.go`、`app/finance.go`、`repository/payment.go`、`repository/finance_redeem.go`；会员支付和会员兑换码可分别配置天数与赠送积分。
+
 ## AI 去水印统一入口
 
 `web/src/components/layout/workspace-sidebar-nav.tsx` 提供一个“AI 去水印”入口，路由 `/toolbox/watermark`。`pages/workbench/watermark-page.tsx` 负责统一外壳、图片/视频页签和功能开放状态；两个处理面板共用 `use-watermark-task.ts`，隔离 `imageTask` / `videoTask` 查询参数，切换保留处理状态。

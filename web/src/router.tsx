@@ -59,6 +59,7 @@ const SkillsPage = lazy(() => import("@/pages/skills"));
 const PluginsPage = lazy(() => import("@/pages/plugins"));
 const EagleLibraryPage = lazy(() => import("@/pages/plugins/eagle"));
 const TasksPage = lazy(() => import("@/pages/tasks"));
+const RewardsPage = lazy(() => import("@/pages/rewards"));
 const ProjectsPage = lazy(loadProjectsPage);
 const ProjectDetailPage = lazy(loadProjectDetailPage);
 const SettingsPage = lazy(() => import("@/pages/settings"));
@@ -151,6 +152,7 @@ export const router = createBrowserRouter([
                     </RequireAuth>
                 ),
             },
+            { path: "/rewards", element: <RequireAuth>{deferred(<RewardsPage />)}</RequireAuth> },
             { path: "/assets", element: <RequireAuth>{deferred(<AssetsPage />)}</RequireAuth> },
             { path: "/inspirations", element: <RequireAuth>{deferred(<InspirationsPage />)}</RequireAuth> },
             { path: "/theatre", element: <RequireAuth>{deferred(<TheatrePage />)}</RequireAuth> },

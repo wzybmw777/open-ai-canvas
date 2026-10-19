@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const CurrentSchemaVersion int64 = 61
+const CurrentSchemaVersion int64 = 62
 
 const baselineSchemaChecksum = "sha256:open-ai-canvas-schema-v1-20260830"
 const schemaMigrationAppliedAtIndexChecksum = "sha256:schema-migrations-applied-at-index-v2-20260830"
@@ -213,6 +213,25 @@ var schemaMigrations = []migration{
 	}},
 	{version: 60, name: "sql_perf_indexes", checksum: "sha256:sql-perf-indexes-v56-20261016", apply: migrateSchemaV56},
 	{version: 61, name: "canvas_multi_session_sync", checksum: "sha256:canvas-multi-session-sync-v57", apply: migrateCanvasCollaboration},
+	{version: 62, name: "rewards_membership", checksum: "sha256:rewards-membership-v62-20261019", apply: migrateRewardsMembership},
+}
+
+func migrateRewardsMembership(tx *gorm.DB) error {
+	if err := tx.AutoMigrate(&model.RewardClaim{}, &model.Membership{}, &model.TopupProduct{}, &model.PaymentOrder{}, &model.RedeemBatch{}, &model.RedeemCode{}); err != nil {
+		return err
+	}
+	var product model.TopupProduct
+	if err := tx.First(&product, "id = ?", "annual-membership-365").Error; err == nil {
+		return nil
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	return tx.Create(&model.TopupProduct{
+		ID: "annual-membership-365", Name: "年会员", Description: "365 天会员，赠送 50 积分",
+		AmountFen: 9900, CreditsMicrocredits: 50 * 1_000_000, ProductType: model.ProductTypeMembership,
+		MembershipDays: 365, BonusCreditsMicrocredits: 50 * 1_000_000, Enabled: true, SortOrder: -100,
+		SaleStrategy: model.TopupSaleStrategyUnlimited,
+	}).Error
 }
 
 func migrateAuthPhoneUniqueIndex(tx *gorm.DB) error {
