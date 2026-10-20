@@ -3,7 +3,7 @@ import { createBrowserRouter, Navigate, Outlet, useLocation } from "react-router
 
 import { RequireAuth } from "@/components/auth/require-auth";
 import { FullScreenLoader, WorkspaceRouteLoader } from "@/components/ui/aceternity/full-screen-loader";
-import { loadAssetsPage, loadCanvasPage, loadCanvasProjectPage, loadCreatePage, loadProjectDetailPage, loadProjectsPage, loadTheatrePage } from "@/lib/workspace-route-modules";
+import { loadAssetsPage, loadCanvasPage, loadCanvasProjectPage, loadCreatePage, loadTheatrePage } from "@/lib/workspace-route-modules";
 import { CanvasRefreshShell } from "@/pages/canvas/canvas-refresh-shell";
 import { AuthScene } from "@/pages/auth/auth-scene";
 import RouteErrorPage from "@/pages/route-error";
@@ -60,8 +60,6 @@ const PluginsPage = lazy(() => import("@/pages/plugins"));
 const EagleLibraryPage = lazy(() => import("@/pages/plugins/eagle"));
 const TasksPage = lazy(() => import("@/pages/tasks"));
 const RewardsPage = lazy(() => import("@/pages/rewards"));
-const ProjectsPage = lazy(loadProjectsPage);
-const ProjectDetailPage = lazy(loadProjectDetailPage);
 const SettingsPage = lazy(() => import("@/pages/settings"));
 const TestVoiceRecording = lazy(() => import("@/pages/test-voice-recording"));
 const UserLayout = lazy(() => import("@/layouts/user-layout"));
@@ -183,7 +181,7 @@ export const router = createBrowserRouter([
                 path: "/projects",
                 element: (
                     <RequireAuth>
-                        <RequireFeature feature="shortDramaEnabled">{deferred(<ProjectsPage />)}</RequireFeature>
+                        {deferred(<CanvasPage />)}
                     </RequireAuth>
                 ),
             },
@@ -191,7 +189,7 @@ export const router = createBrowserRouter([
                 path: "/projects/:projectId",
                 element: (
                     <RequireAuth>
-                        <RequireFeature feature="shortDramaEnabled">{deferred(<ProjectDetailPage />)}</RequireFeature>
+                        <Navigate to="/projects" replace />
                     </RequireAuth>
                 ),
             },
@@ -199,7 +197,7 @@ export const router = createBrowserRouter([
                 path: "/projects/:projectId/:view",
                 element: (
                     <RequireAuth>
-                        <RequireFeature feature="shortDramaEnabled">{deferred(<ProjectDetailPage />)}</RequireFeature>
+                        <Navigate to="/projects" replace />
                     </RequireAuth>
                 ),
             },
@@ -207,7 +205,7 @@ export const router = createBrowserRouter([
                 path: "/projects/:projectId/chapters/:chapterId",
                 element: (
                     <RequireAuth>
-                        <RequireFeature feature="shortDramaEnabled">{deferred(<ProjectDetailPage />)}</RequireFeature>
+                        <Navigate to="/projects" replace />
                     </RequireAuth>
                 ),
             },
@@ -215,7 +213,7 @@ export const router = createBrowserRouter([
                 path: "/projects/:projectId/workflow/:unitId/:stage",
                 element: (
                     <RequireAuth>
-                        <RequireFeature feature="shortDramaEnabled">{deferred(<ProjectDetailPage />)}</RequireFeature>
+                        <Navigate to="/projects" replace />
                     </RequireAuth>
                 ),
             },

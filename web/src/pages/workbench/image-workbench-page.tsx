@@ -9,7 +9,7 @@ import { ModelPicker } from "@/components/model-picker";
 import { SpotlightSurface } from "@/components/ui/aceternity/spotlight-surface";
 import { WorkspacePage } from "@/components/layout/workspace-page";
 import { ProjectContextBar } from "@/components/project-context-bar";
-import { getProjectCore } from "@/services/api/projects";
+import { getRemoteCanvasProject } from "@/services/api/user-data";
 import { CanvasResourceMentionTextarea } from "@/components/canvas/canvas-resource-mention-textarea";
 import { normalizeCanvasNodeMentionTokens, type CanvasResourceReference } from "@/lib/canvas/canvas-resource-references";
 import { imageResolutionUsesQuality } from "@/lib/image-size-presets";
@@ -617,9 +617,8 @@ function ProjectWorkbench({ kind, projectId, userId, onProjectChange }: { kind: 
         setBusy(true);
         let submittedTaskId = "";
         try {
-            const { project } = await getProjectCore(projectId);
+            await getRemoteCanvasProject(projectId);
             if (!currentScope()) return;
-            if (project.status !== "active") throw new Error("项目已归档，请选择进行中的项目");
             const imageRequest = kind === "image" && imageProfile ? normalizeImageValue(imageProfile, { size: ratio, quality, imageResolution, imageParameters: config.imageParameters, count, transparentBackground: config.transparentBackground }) : null;
             const videoRequest = kind === "video" && videoProfile ? normalizeVideoValue(videoProfile, { seconds, ratio, resolution: videoQuality }) : null;
             const parameters = imageRequest
@@ -821,9 +820,8 @@ function ProjectWorkbench({ kind, projectId, userId, onProjectChange }: { kind: 
         if (!projectId || task.projectId !== projectId || !currentScope()) { message.warning("请先切换到任务所属项目"); return; }
         setTaskBusyId(task.id);
         try {
-            const { project } = await getProjectCore(projectId);
+            await getRemoteCanvasProject(projectId);
             if (!currentScope()) return;
-            if (project.status !== "active") throw new Error("项目已归档，无法重试生成");
             let restoreSource = task;
             if (!restoreSource.inputJson) {
                 try {

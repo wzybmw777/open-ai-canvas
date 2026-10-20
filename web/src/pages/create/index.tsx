@@ -4,7 +4,7 @@ import { Tooltip } from "@/components/ui/base/tooltip";
 import { History, Sparkles, Maximize2 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useNavigate, useSearchParams } from "react-router";
-import { getProjectCore } from "@/services/api/projects";
+import { getRemoteCanvasProject } from "@/services/api/user-data";
 import { CreationProjectContext } from "./creation-project-context";
 
 import type { AssetLibraryPickerItem } from "@/components/assets/asset-library-picker-modal";
@@ -144,7 +144,7 @@ export default function CreatePage() {
     attachmentsRef.current = attachments;
 
     const activeConversation = useMemo(() => conversations.find((item) => item.id === activeId) || conversations[0], [activeId, conversations]);
-    const projectRequired = !activeConversation?.projectId;
+    const projectRequired = Boolean(userId) && !activeConversation?.canvasId;
     const requireCreationProject = () => {
         if (!projectRequired) return true;
         toast.warning(text("请先选择创作项目，再输入内容或添加参考素材", "Choose a project before entering a prompt or adding references"));
@@ -286,10 +286,10 @@ export default function CreatePage() {
         setConversationScope(null);
         void loadCreationConversations<CreationConversation>().then((stored) => {
             if (cancelled || getActiveUserScope() !== scope || (useUserStore.getState().user?.id || null) !== userId) return;
-            let next = stored?.length ? stored : [newConversation()];
-            let initial = requestedProjectId ? next.find((item) => item.projectId === requestedProjectId) : next[0];
+            let next = (stored || []).filter((item) => item.messages.length);
+            let initial = requestedProjectId ? next.find((item) => item.canvasId === requestedProjectId) : undefined;
             if (!initial) {
-                initial = { ...newConversation(), projectId: requestedProjectId };
+                initial = { ...newConversation(), canvasId: requestedProjectId || undefined };
                 next = [initial, ...next];
             }
             conversationsRef.current = next;
@@ -621,7 +621,7 @@ export default function CreatePage() {
             releaseSubmitGate();
             return;
         }
-        if (!activeConversation.projectId) {
+        if (!activeConversation.canvasId) {
             toast.warning(text("请先选择创作所属项目", "Choose a project before generating"));
             releaseRetryLock();
             releaseSubmitGate();
@@ -629,9 +629,8 @@ export default function CreatePage() {
         }
         const submitScope = getActiveUserScope();
         try {
-            const { project } = await getProjectCore(activeConversation.projectId);
+            await getRemoteCanvasProject(activeConversation.canvasId);
             if (submitScope !== getActiveUserScope()) throw new Error(text("账号已切换，请重新开始创作", "Account changed. Start again."));
-            if (project.status !== "active") throw new Error(text("项目已归档，请恢复后再创作", "Restore this project before generating"));
         } catch (error) {
             toast.error(error instanceof Error ? error.message : text("项目不可用，请重新选择", "Project unavailable. Choose another."));
             releaseRetryLock();
@@ -695,7 +694,7 @@ export default function CreatePage() {
             return;
         }
         const expandedPrompt = skillExecution.prompt;
-        if (submitScope !== getActiveUserScope() || activeIdRef.current !== activeConversation.id || conversationsRef.current.find((item) => item.id === activeConversation.id)?.projectId !== activeConversation.projectId) {
+        if (submitScope !== getActiveUserScope() || activeIdRef.current !== activeConversation.id || conversationsRef.current.find((item) => item.id === activeConversation.id)?.canvasId !== activeConversation.canvasId) {
             releaseRetryLock();
             releaseSubmitGate();
             return;
@@ -756,7 +755,7 @@ export default function CreatePage() {
         try {
             if (mode === "text") {
                 const result = await runtime.runGenerationOperationOnce(retryContext?.clientOperationId, () => runtime.runBackendGenerationTask({
-                    projectId: activeConversation.projectId,
+                    projectId: activeConversation.canvasId,
                     mode: "text",
                     prompt: expandedPrompt,
                     config: requestConfig,
@@ -777,7 +776,7 @@ export default function CreatePage() {
             } else if (mode === "image") {
                 const taskCount = Math.max(1, Math.min(imageProfile.maxOutputs, Math.floor(Number(count) || 1)));
                 const settled = await runtime.runGenerationOperationOnce(retryContext?.clientOperationId, () => runtime.runBackendGenerationTaskBatch({
-                    projectId: activeConversation.projectId,
+                    projectId: activeConversation.canvasId,
                     mode: "image",
                     prompt: expandedPrompt,
                     config: { ...requestConfig, count: "1" },
@@ -820,7 +819,7 @@ export default function CreatePage() {
                 updateOriginAssistant((item) => ({ ...item, content: failedCount ? `${resultUrls.length} 张图片已生成，${failedCount} 张失败` : "图片已生成" }));
             } else {
                 const result = await runtime.runGenerationOperationOnce(retryContext?.clientOperationId, () => runtime.runBackendGenerationTask({
-                    projectId: activeConversation.projectId,
+                    projectId: activeConversation.canvasId,
                     mode: "video",
                     prompt: expandedPrompt,
                     config: requestConfig,
@@ -870,7 +869,7 @@ export default function CreatePage() {
     }, [retrySequence]);
 
     const startNewConversation = () => {
-        const next = { ...newConversation(), projectId: activeConversation?.projectId };
+        const next = { ...newConversation(), canvasId: activeConversation?.canvasId };
         followLatestMessageRef.current = true;
         setConversations((current) => [next, ...current]);
         setActiveId(next.id);
@@ -1120,7 +1119,7 @@ export default function CreatePage() {
 
     return <>
         <div className="creation-home relative flex h-full min-h-0 flex-col overflow-hidden">
-            <CreationProjectContext projectId={activeConversation.projectId} locked={Boolean(activeConversation.messages.length) || busy} onChange={(projectId) => updateActive((conversation) => ({ ...conversation, projectId }))} onNew={startNewConversation} />
+            <CreationProjectContext key={`${userId}:${activeConversation.id}`} canvasId={activeConversation.canvasId} locked={Boolean(activeConversation.messages.length) || busy} onChange={(canvasId) => updateActive((conversation) => ({ ...conversation, canvasId }))} onNew={startNewConversation} />
             {isEmpty ? <>
                 <div className="creation-top-actions">
                     <Tooltip title={text("历史对话", "History")}><button type="button" aria-label={text("查看历史对话", "View history")} aria-expanded={historyOpen} className="creation-top-action" onClick={() => setHistoryOpen(true)}><History /><span>{text("历史对话", "History")}</span></button></Tooltip>
@@ -1143,7 +1142,7 @@ export default function CreatePage() {
                 <section ref={launchpadRef} className="creation-launchpad" aria-label={text("开始创作", "Start creating")}>
                     <div className={cn("creation-composer-stage is-home-mode", agentMode && "is-agent-mode")}>
                         <CreationModeTabs mode={mode} agentActive={agentMode} onAgentSelect={() => setAgentMode(true)} onModeChange={(next) => { setAgentMode(false); selectMode(next); }} />
-                        {agentMode ? <CreationAgentEntry projectId={activeConversation.projectId} /> : <div className="creation-empty-composer"><CreationComposer {...composerProps} variant="empty" /></div>}
+                        {agentMode ? <CreationAgentEntry canvasId={activeConversation.canvasId} /> : <div className="creation-empty-composer"><CreationComposer {...composerProps} variant="empty" /></div>}
                     </div>
                     <CreationEmptySuggest
                         onStartPrompt={startPrompt}

@@ -3,7 +3,7 @@ import type { MenuProps } from "antd";
 import { AppModal } from "@/components/ui/product/app-modal";
 import { Check, ChevronDown, FileText, FolderOpen, HardDrive, Image as ImageIcon, LoaderCircle, Music2, Puzzle, RotateCcw, Search, Trash2, Upload, UserRound, Video } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUserStore } from "@/stores/use-user-store";
 
 import { AssetMediaPreview } from "@/components/asset-media-preview";
@@ -132,6 +132,7 @@ export function AssetLibraryPickerModal({
     const displayFolderActionLabel = folderActionLabel ?? text("将文件夹放到画布", "Add folder to canvas");
     const displayConfirmLabel = confirmLabel ?? ((count: number) => locale === "en-US" ? `Use selected assets${count ? ` (${count})` : ""}` : `使用已选素材${count ? `（${count}）` : ""}`);
     const { message } = App.useApp();
+    const queryClient = useQueryClient();
     const [category, setCategory] = useState(initialCategory);
     const [mediaKind, setMediaKind] = useState<AssetPickerMediaKind | "all">("all");
     const [folderId, setFolderId] = useState(initialFolderId);
@@ -402,7 +403,21 @@ export function AssetLibraryPickerModal({
                 if (ids.length) setSelected((current) => new Set(multiple ? [...current, ...ids] : ids.slice(-1)));
             } else {
                 const ids = await upload!.onUpload(files);
-                if (ids.length) setSelected((current) => new Set(multiple ? [...current, ...ids] : ids.slice(-1)));
+                if (ids.length) {
+                    setSelected((current) => new Set(multiple ? [...current, ...ids] : ids.slice(-1)));
+                    await flushAssetStorePersistence();
+                    if (remoteEnabled) {
+                        try {
+                            // 文件上传完成不代表素材元数据已同步；先保存，再刷新分页与分类计数。
+                            await saveRemoteUserDataNow([]);
+                        } catch (reason) {
+                            message.warning(locale === "en-US" ? "Assets saved locally. Cloud sync is pending; check sync status." : localSavedRemotePendingMessage("素材已在本地保存", reason));
+                            return;
+                        }
+                        setRemotePage(1);
+                        await queryClient.invalidateQueries({ queryKey: ["asset-picker", userId] });
+                    }
+                }
             }
         } catch (reason) {
             setError(localizedErrorMessage(reason, "素材上传失败，请重试", "Asset upload failed. Try again.", locale));

@@ -5,6 +5,13 @@ description: 从产品功能快速定位主要代码入口
 
 # 代码功能地图
 
+## 我的项目与默认创作画布
+
+- `/projects` 与 `/canvas` 使用 `web/src/pages/canvas/index.tsx` 展示画布项目；`router.tsx` 不再挂载旧短剧制作详情，`workspace-route-modules.ts` 同步预加载画布列表。
+- `services/creation-project.ts` 准备已保存到服务端的默认画布；`components/project-context-bar.tsx` 在创作页和独立图片/视频工作台共用画布选择器。
+- 首页 `pages/create/index.tsx` 以会话 `canvasId` 提交任务，`services/creation-canvas-conversation.ts` 将对话合并到同一画布，`creation-agent-entry.tsx` 打开该画布 Agent。
+- 后端工作台归属校验位于 `app/workbench_bridge.go`；按用户验证 `CanvasProject`，关联旧业务项目的归档限制沿用任务准入检查。
+
 ## 成长计划与会员
 
 - 用户页面与 API：`web/src/pages/rewards/index.tsx`、`web/src/services/api/rewards.ts`；入口位于工作台侧栏“成长计划”。任务奖励、分享奖励和会员兑换均由服务端幂等校验。

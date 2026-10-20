@@ -80,6 +80,7 @@
     gap: 18px;
 }
 .rewards-card {
+    min-width: 0;
     padding: 24px;
 }
 .rewards-card-icon {
@@ -111,30 +112,29 @@
 }
 .rewards-task-list {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 8px;
     margin: 18px 0;
 }
 .rewards-task-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    justify-content: space-between;
     gap: 10px;
     padding: 9px 10px;
     border-radius: 10px;
     background: var(--user-surface-muted);
     font-size: 12px;
 }
-.rewards-task-row span {
-    display: flex;
+.rewards-task-title {
     min-width: 0;
-    align-items: center;
-    gap: 7px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 .rewards-task-row svg {
     width: 14px;
+    height: 14px;
     color: var(--user-accent);
 }
 .rewards-membership {

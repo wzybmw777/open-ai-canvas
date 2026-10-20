@@ -38,7 +38,6 @@ export async function continueCreationConversationOnCanvas(source: SourceConvers
         const project = await loadCanvasProjectForEditing(existingId);
         assertScope();
         if (!project) throw new Error("关联画布已不存在，请先恢复画布后继续。");
-        if (source.projectId && project.projectId !== source.projectId) throw new Error("关联画布不属于当前项目，请在对应项目中继续创作。");
         const sessions = project.chatSessions || [];
         const previous = sessions.find((item) => item.id === sessionId);
         const incoming = new Map(messages.map((item) => [item.id, item]));

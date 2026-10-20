@@ -16,7 +16,7 @@ const PAGE_TITLES: Record<string, string> = {
     home: "创作",
     create: "创作",
     inspirations: "灵感库",
-    projects: "项目",
+    projects: "我的项目",
     canvas: "画布",
     tasks: "生成任务",
     assets: "素材库",

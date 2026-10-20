@@ -154,9 +154,9 @@ func (s *Service) WorkbenchTasks(userID, kind, projectID string, activeOnly bool
 	}
 	projectID = strings.TrimSpace(projectID)
 	if projectID != "" {
-		if _, err := s.repo.ProjectForUser(userID, projectID); err != nil {
+		if _, err := s.repo.CanvasProjectForUser(userID, projectID); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, NotFound("项目不存在或无权访问")
+				return nil, NotFound("画布项目不存在或无权访问")
 			}
 			return nil, err
 		}
@@ -178,21 +178,21 @@ func workbenchTaskRequiresProject(input map[string]any, projectID, trustedKind, 
 	return !cleanup
 }
 
-// 独立工作台始终归属业务项目，不接受本地画布 ID 或未关联任务作为兜底。
-func (s *Service) requireWorkbenchProject(userID, projectID string) (*model.Project, error) {
+// 独立工作台只接受当前用户已持久化的画布项目。
+func (s *Service) requireWorkbenchProject(userID, projectID string) (*model.CanvasProject, error) {
 	projectID = strings.TrimSpace(projectID)
 	if projectID == "" {
-		return nil, BadAuthRequest("请选择生成内容所属项目")
+		return nil, BadAuthRequest("请选择生成内容所属画布项目")
 	}
-	project, err := s.repo.ProjectForUser(userID, projectID)
+	project, err := s.repo.CanvasProjectForUser(userID, projectID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, NotFound("项目不存在或无权访问")
+		return nil, NotFound("画布项目不存在或无权访问")
 	}
 	if err != nil {
 		return nil, err
 	}
-	if project.Status != model.ProjectStatusActive {
-		return nil, BadAuthRequest("项目已归档，无法创建生成任务")
+	if err := s.ensureTaskProjectActive(userID, project.ID); err != nil {
+		return nil, err
 	}
 	return project, nil
 }

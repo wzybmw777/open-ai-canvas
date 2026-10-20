@@ -1973,7 +1973,7 @@ paths:
       parameters:
         - in: query
           name: projectId
-          description: 按所属项目筛选；提供时校验当前用户的项目访问权限。
+          description: 按画布项目 ID 筛选；提供时校验当前用户的画布归属，允许读取关联已归档项目的历史任务。
           schema: { type: string }
         - in: query
           name: kind
@@ -2005,7 +2005,7 @@ paths:
               additionalProperties: false
               required: [projectId, kind, prompt, model, modelChoice, parameters, references]
               properties:
-                projectId: { type: string, minLength: 1, description: 当前用户拥有的进行中项目 ID }
+                projectId: { type: string, minLength: 1, description: 当前用户拥有的画布项目 ID；关联业务项目已归档时禁止生成 }
                 kind: { type: string, enum: [image, video] }
                 toolId: { type: string }
                 presetId: { type: string }

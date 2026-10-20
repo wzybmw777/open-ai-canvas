@@ -34,7 +34,7 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
         };
         return [
             { id: "home", title: text("首页", "Home"), icon: Home, to: "/" },
-            toolEntry("canvas", "/canvas"),
+            { ...toolEntry("projects", "/projects"), title: text("我的项目", "My projects") },
             toolEntry("theatre", "/theatre"),
             ...(features.taskCenterEnabled ? [toolEntry("tasks", "/tasks")] : []),
             toolEntry("assets", "/assets"),

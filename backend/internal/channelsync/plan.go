@@ -205,7 +205,7 @@ models:
 		// SKU. Keep their curated descriptions instead of copying all SKU limits.
 		preserveDescription := providerOptions[key] > 1 && strings.TrimSpace(item.Description) != ""
 		if source, ok := upstream[key]; ok && source.Description != "" && !preserveDescription {
-			description := []rune(source.Description)
+			description := []rune(descriptionWithoutPrices(source.Description))
 			if len(description) > 500 {
 				description = description[:500]
 			}

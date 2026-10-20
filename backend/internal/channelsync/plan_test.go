@@ -3,6 +3,8 @@ package channelsync
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"reflect"
 	"testing"
 	"time"
 	"yingce/backend/internal/model"
@@ -73,6 +75,46 @@ func TestChannelCostUsesSelectedGroupQuoteInsteadOfOfficialOrDescriptionPrice(t 
 	tier := plan.Models[0].PriceTiers[0]
 	if tier.CostPricing.UnitPriceMicrocredits != 350000 || tier.UnitPriceMicrocredits != 437500 {
 		t.Fatalf("incorrect channel cost or sale ratio: %#v", tier)
+	}
+}
+
+func TestBuildSyncsDescriptionsWithoutUpstreamPrices(t *testing.T) {
+	for _, tc := range []struct{ name, source, want string }{
+		{"official seedance", "官转可返官链 | 不卡人脸 | 2.6元/次 | 4-15s | 9 图 / 0 视 / 3 音 | 固定720P | 平均6分钟 | 无限并发", "官转可返官链 | 不卡人脸 | 4-15s | 9 图 / 0 视 / 3 音 | 固定720P | 平均6分钟 | 无限并发"},
+		{"spaced per second", "不卡人脸 | 直连 0.25 元/秒 | 5/10/15s | 720P", "不卡人脸 | 5/10/15s | 720P"},
+		{"other currency", "9 图 ｜ $2.60/request ｜ ￥3.50/条 ｜ USD 1.20/second ｜ 3 音", "9 图 | 3 音"},
+		{"mixed capability and price", "固定720P 2.6元/次 | 4-15s", "固定720P | 4-15s"},
+		{"only price", "2.6元/次", ""},
+		{"capabilities without prices", "官转可返官链 | 不卡人脸 | 4-15s | 9 图 / 0 视 / 3 音 | 固定720P | 平均6分钟 | 无限并发", "官转可返官链 | 不卡人脸 | 4-15s | 9 图 / 0 视 / 3 音 | 固定720P | 平均6分钟 | 无限并发"},
+	} {
+		for _, syncPrices := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/prices=%v", tc.name, syncPrices), func(t *testing.T) {
+				var source UpstreamModel
+				if err := json.Unmarshal([]byte(`{"name":"video","pricing":{"billing_mode":"per_request","per_request_price":3.12}}`), &source); err != nil {
+					t.Fatal(err)
+				}
+				source.Description = tc.source
+				original := model.ChannelModel{ModelKey: "video", Enabled: true, Description: "old", PriceTiers: []model.ChannelModelPriceTier{{
+					SelectorJSON: `{}`, BillingMode: "fixed_request", Enabled: true, PriceConfigured: true,
+					UnitPriceMicrocredits: 3900000, CostPricing: model.CreditCostPricing{Configured: true, UnitPriceMicrocredits: 3120000},
+				}}}
+				group := &Group{Models: []UpstreamModel{source}}
+				plan, err := Build([]model.ChannelModel{original}, []string{"video"}, nil, group, syncPrices, false)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(plan.Models) != 1 || plan.Models[0].Description != tc.want || plan.Summary.Descriptions != 1 || plan.Summary.Prices != 0 {
+					t.Fatalf("description must exclude prices and retain capabilities: %#v", plan)
+				}
+				if !reflect.DeepEqual(plan.Models[0].PriceTiers, original.PriceTiers) || original.Description != "old" || !plan.Models[0].Enabled {
+					t.Fatal("description sync changed prices, availability or the original snapshot")
+				}
+				repeated, err := Build(plan.Models, []string{"video"}, nil, group, syncPrices, false)
+				if err != nil || len(repeated.Models) != 0 || repeated.Summary.Descriptions != 0 {
+					t.Fatalf("repeated sync must not restore upstream prices: %#v, %v", repeated, err)
+				}
+			})
+		}
 	}
 }
 

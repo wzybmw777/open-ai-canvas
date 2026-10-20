@@ -10,10 +10,10 @@ import (
 
 func TestCreateWorkbenchVideoTaskUsesReferenceModeAndPrice(t *testing.T) {
 	s, db, _, _ := creationTestService(t)
-	if err := db.AutoMigrate(&model.Project{}); err != nil {
+	if err := db.AutoMigrate(&model.CanvasProject{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Create(&model.Project{ID: "workbench-project", UserID: "user", Name: "Workbench", Status: model.ProjectStatusActive}).Error; err != nil {
+	if err := db.Create(&model.CanvasProject{ID: "workbench-project", UserID: "user", Title: "Workbench"}).Error; err != nil {
 		t.Fatal(err)
 	}
 	profile := DefaultModelCapabilityConfigForModel(string(model.ChannelInterfaceMiniMaxVideo), "MiniMax-H3")
@@ -59,6 +59,9 @@ func TestCreateWorkbenchVideoTaskUsesReferenceModeAndPrice(t *testing.T) {
 			task, err := s.CreateWorkbenchTask("user", req, "", "")
 			if err != nil {
 				t.Fatal(err)
+			}
+			if task.ProjectID != "workbench-project" {
+				t.Fatalf("task project = %q, want canvas ID", task.ProjectID)
 			}
 			var input struct {
 				Metadata struct {

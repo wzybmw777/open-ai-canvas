@@ -24,8 +24,8 @@ describe("workspace route loading", () => {
         for (const route of ["projects", "canvas", "assets", "create"]) {
             expect(modules).toContain(`${route}: () => import`);
         }
-        expect(modules).toContain('projectDetail: () => import("@/pages/projects/detail")');
-        expect(modules).toContain('slug === "projects" && segments.length > 1');
+        expect(modules).toContain('projects: () => import("@/pages/canvas")');
+        expect(modules).not.toContain('import("@/pages/projects/detail")');
         expect(navigation).toContain("onPointerEnter={() => preloadWorkspaceRoute(linkTo)}");
         expect(navigation).toContain("onPointerDown={() => preloadWorkspaceRoute(linkTo)}");
         expect(navigation).toContain("onFocus={() => preloadWorkspaceRoute(linkTo)}");

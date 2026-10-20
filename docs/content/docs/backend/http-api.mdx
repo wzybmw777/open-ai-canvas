@@ -15,7 +15,7 @@ description: 信封、错误码与 OpenAPI
 
 ## 图片与视频工作台的项目归属
 
-`POST /api/workbench/tasks` 必须提供 `projectId`，服务端在模型解析和计费之前检查项目属于当前账号且处于进行中状态。空项目返回 400，不存在或越权返回 404，归档项目返回 400。自定义渠道经 `/api/tasks` 提交且 `input.metadata.source=workbench` 时执行同样校验；重试也重新检查项目状态。
+`POST /api/workbench/tasks` 必须提供 `projectId`，其值为「我的项目」中的真实画布 ID，服务端在模型解析和计费之前检查画布属于当前账号。空 ID 返回 400，不存在、越权或仅有旧业务项目记录的 ID 返回 404；若画布仍关联已归档的旧业务项目，生成返回 400。自定义渠道经 `/api/tasks` 提交且 `input.metadata.source=workbench` 时执行同样校验；重试也重新检查归属和关联状态。
 
 `GET /api/workbench/tasks?kind=image|video&projectId=<ID>` 按项目筛选记录并检查项目访问权限；归档项目可以查看历史。省略筛选时仍返回当前用户对应工具的记录，供素材处理工具使用。
 

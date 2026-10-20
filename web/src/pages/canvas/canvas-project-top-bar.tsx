@@ -158,7 +158,7 @@ export function CanvasTopBar({
                         )}
                         {projectContext && !isTitleEditing ? (
                             <div className="canvas-topbar-project-context mt-0.5 flex w-full min-w-0 items-center gap-1.5 overflow-hidden text-[var(--fs-tiny)]" style={{ color: theme.node.muted }}>
-                                <Link to={`/projects/${projectContext.projectId}/overview`} className="inline-flex min-w-0 items-center gap-1 hover:underline" title={`返回项目：${projectContext.projectName}`}>
+                                <Link to="/projects" className="inline-flex min-w-0 items-center gap-1 hover:underline" title="返回我的项目">
                                     <FolderKanban className="size-3 shrink-0" />
                                     <span className="max-w-[120px] truncate">{projectContext.projectName}</span>
                                 </Link>

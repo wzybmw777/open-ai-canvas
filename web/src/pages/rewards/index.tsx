@@ -132,17 +132,20 @@ export default function RewardsPage() {
                             <p>{text("每个成功完成的生成任务都可以领取一次 5 积分。", "Claim 5 credits once for every successful generation task.")}</p>
                             {successfulTasks.length ? (
                                 <div className="rewards-task-list">
-                                    {successfulTasks.map((task) => (
-                                        <div className="rewards-task-row" key={task.id}>
-                                            <span>
-                                                <Check />
-                                                {task.prompt?.trim() || text("已完成任务", "Completed task")}
-                                            </span>
-                                            <Button size="small" loading={actingId === task.id} onClick={() => void claimTask(task)}>
-                                                {text("领取", "Claim")}
-                                            </Button>
-                                        </div>
-                                    ))}
+                                    {successfulTasks.map((task) => {
+                                        const title = task.prompt?.trim() || text("已完成任务", "Completed task");
+                                        return (
+                                            <div className="rewards-task-row" key={task.id}>
+                                                <Check aria-hidden="true" />
+                                                <span className="rewards-task-title" title={title}>
+                                                    {title}
+                                                </span>
+                                                <Button size="small" loading={actingId === task.id} onClick={() => void claimTask(task)}>
+                                                    {text("领取", "Claim")}
+                                                </Button>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             ) : (
                                 <Button onClick={() => navigate("/tasks")}>{text("去完成任务", "Open task center")}</Button>

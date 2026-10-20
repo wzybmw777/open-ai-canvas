@@ -85,7 +85,7 @@ export function CanvasFolderCard({ project, projectName, onClick, onPrefetch, op
                         )}
                     </div>
                     <div className="canvas-collection-meta">
-                        <span className="canvas-collection-meta-item">{projectName ? `所属项目：${projectName}` : "自由画布"}</span>
+                        <span className="canvas-collection-meta-item">{projectName ? `所属项目：${projectName}` : "画布项目"}</span>
                         <span className="canvas-collection-meta-separator" aria-hidden="true">·</span>
                         <span className="canvas-collection-meta-item">{project.nodeCount} 节点</span>
                     </div>
