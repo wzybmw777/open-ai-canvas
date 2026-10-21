@@ -36,7 +36,7 @@ import { useLocaleText } from "@/lib/i18n";
 import { canvasRichTextChangeMap, mergeCanvasRichText, mergeCanvasText } from "@/lib/canvas/canvas-text-merge";
 import { useActiveTheme } from "@/stores/canvas/use-canvas-theme-store";
 import { CanvasNodeType, type CanvasNodeData } from "@/types/canvas";
-import { CanvasTextLeaseIndicator, useCanvasTextLease } from "./use-canvas-text-lease";
+import { useCanvasTextLease } from "./use-canvas-text-lease";
 
 type CanvasTextEditorModalProps = {
     node: CanvasNodeData | null;
@@ -219,7 +219,6 @@ export function CanvasTextEditorModal({ node, open, onClose, onChange }: CanvasT
                 </div>
 
                 <footer className="flex h-8 shrink-0 items-center gap-3 border-t px-3 text-[var(--fs-tiny)]" style={{ borderColor: theme.node.stroke, color: theme.node.muted }}>
-                    {node && <CanvasTextLeaseIndicator nodeId={node.id} />}
                 </footer>
             </section>
         </AppModal>

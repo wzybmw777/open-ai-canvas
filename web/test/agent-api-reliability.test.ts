@@ -160,12 +160,12 @@ describe("Agent SSE recovery", () => {
 describe("Agent admission replay and durable pending records", () => {
     it.each(["full_access", "unsupported"])("resets retired selection %s while retaining conversation history", async (permissionMode) => {
         const conversation = { id: "historical-chat", title: "旧对话", messages: [{ id: "message", role: "assistant", text: "已保存的回复" }], run: { id: "old-run", permissionMode, status: "completed" }, permissionMode, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" };
-        storage.data.set("cloud-agent-conversations-v1:canvas", JSON.stringify({ version: 1, activeId: conversation.id, conversations: [conversation] }));
-        const restored = await conversations.loadCloudAgentConversations("canvas");
+        storage.data.set("cloud-agent-conversations-v2:global", JSON.stringify({ version: 1, activeId: conversation.id, conversations: [conversation] }));
+        const restored = await conversations.loadCloudAgentConversations();
         expect(restored.activeId).toBe(conversation.id);
         expect(restored.conversations[0]).toEqual({ ...conversation, permissionMode: "request_approval" });
-        await conversations.saveCloudAgentConversations("canvas", restored.activeId, restored.conversations);
-        expect((await conversations.loadCloudAgentConversations("canvas")).conversations[0]?.permissionMode).toBe("request_approval");
+        await conversations.saveCloudAgentConversations(restored.activeId, restored.conversations);
+        expect((await conversations.loadCloudAgentConversations()).conversations[0]?.permissionMode).toBe("request_approval");
     });
     const input: CreateAgentRunInput = { canvasId: "canvas", prompt: "generate", model: "original", idempotencyKey: "stable-key-123" };
     it("retries with a frozen original body/key and a bounded HTTP timeout", async () => {
@@ -195,18 +195,18 @@ describe("Agent admission replay and durable pending records", () => {
 
     it("restores the full original request and message identity, isolated by conversation", async () => {
         const pending = { fingerprint: "fingerprint", key: input.idempotencyKey, request: input, parentRunId: "parent", messageId: "bubble" };
-        await conversations.saveCloudAgentPendingSubmission("canvas", "conversation", pending);
-        expect(await conversations.loadCloudAgentPendingSubmission("canvas", "conversation")).toEqual(pending);
-        expect(await conversations.loadCloudAgentPendingSubmission("canvas", "other")).toBeNull();
-        await conversations.clearCloudAgentPendingSubmission("canvas", "conversation");
-        expect(await conversations.loadCloudAgentPendingSubmission("canvas", "conversation")).toBeNull();
+        await conversations.saveCloudAgentPendingSubmission("conversation", pending);
+        expect(await conversations.loadCloudAgentPendingSubmission("conversation")).toEqual(pending);
+        expect(await conversations.loadCloudAgentPendingSubmission("other")).toBeNull();
+        await conversations.clearCloudAgentPendingSubmission("conversation");
+        expect(await conversations.loadCloudAgentPendingSubmission("conversation")).toBeNull();
     });
 
     it.each(["{broken", "null", "{}", JSON.stringify({ fingerprint: "f", key: input.idempotencyKey, request: { ...input, idempotencyKey: "wrong-key" } })])("fails closed on corrupt pending recovery data", async (raw) => {
-        await conversations.saveCloudAgentPendingSubmission("canvas", "conversation", { fingerprint: "f", key: input.idempotencyKey });
+        await conversations.saveCloudAgentPendingSubmission("conversation", { fingerprint: "f", key: input.idempotencyKey });
         const key = [...storage.data.keys()][0];
         storage.data.set(key, raw);
-        await expect(conversations.loadCloudAgentPendingSubmission("canvas", "conversation")).rejects.toThrow("已暂停本对话发送");
+        await expect(conversations.loadCloudAgentPendingSubmission("conversation")).rejects.toThrow("已暂停本对话发送");
         expect(storage.data.get(key)).toBe(raw);
     });
 });

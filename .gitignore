@@ -27,6 +27,7 @@ docs/content/docs/backend/*
 !docs/content/docs/backend/http-api.mdx
 !docs/content/docs/backend/code-map.mdx
 !docs/content/docs/backend/newapi-channel-2.mdx
+!docs/content/docs/backend/bailian-minimax-video.mdx
 !docs/content/docs/backend/video-token-billing.mdx
 !docs/content/docs/backend/qt-channel-sync.mdx
 !docs/content/docs/backend/channel-sync.mdx

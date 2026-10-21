@@ -51,7 +51,7 @@ var publicCanvasMetadataKeys = map[string]bool{
 	"videoEditOperation": true, "videoCameraMoveId": true, "videoCameraMovePrompt": true,
 	"videoStartFrameNodeId": true, "videoEndFrameNodeId": true, "versionOfNodeId": true,
 	"versionLabel": true, "versionPrimary": true, "previsSceneId": true, "previsShotId": true,
-	"previsPreviewNodeId": true, "previsDepthNodeId": true, "previsNormalNodeId": true,
+	"previsPreviewNodeId": true, "previsDepthNodeId": true, "previsDepthVideoNodeId": true, "previsNormalNodeId": true,
 	"skillId": true, "skillVersion": true, "skillSnapshot": true, "storyboard": true,
 	"storyboardShotDuration": true, "storyboardShotCount": true, "storyboardComposerHeight": true, "frame": true,
 }
