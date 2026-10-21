@@ -29,7 +29,7 @@ function WatermarkPage({ userID }: { userID: string }) {
 
     return <WorkspacePage>
         <PageHeader title={text("AI 去水印", "AI watermark removal")} description={text("选择图片或视频，使用平台模型修复水印，原文件独立保留。", "Remove image or video watermarks with platform models while keeping the original file.")} />
-        {availability.isPending ? loading : availability.error ? <div role="alert" className="mt-5 flex items-center gap-3 text-sm text-destructive"><span>{text("无法确认功能开放状态", "Could not check feature availability")}</span><Button onClick={() => void availability.refetch()}>{text("重试", "Retry")}</Button></div> : !features.imageWorkbenchEnabled && !features.videoWorkbenchEnabled ? <WorkspaceState icon="empty" title={text("AI 去水印暂未开放", "AI watermark removal is unavailable")} description={text("当前功能已由平台管理员关闭。", "This feature is currently disabled by the platform administrator.")} /> : <div ref={panels}><Tabs
+        {availability.isPending ? loading : availability.error ? <div role="alert" className="mt-5 flex items-center gap-3 text-sm text-destructive"><span>{text("无法确认功能开放状态", "Could not check feature availability")}</span><Button onClick={() => void availability.refetch()}>{text("重试", "Retry")}</Button></div> : !features.watermarkRemovalEnabled || (!features.imageWorkbenchEnabled && !features.videoWorkbenchEnabled) ? <WorkspaceState icon="empty" title={text("AI 去水印暂未开放", "AI watermark removal is unavailable")} description={text("当前功能已由平台管理员关闭。", "This feature is currently disabled by the platform administrator.")} /> : <div ref={panels}><Tabs
             className="mt-4"
             activeKey={mode}
             destroyOnHidden={false}

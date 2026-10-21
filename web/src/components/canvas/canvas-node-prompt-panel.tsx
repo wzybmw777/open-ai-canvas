@@ -34,7 +34,7 @@ import { createPluginHostContext } from "@/services/plugin-host";
 import { usePluginStore } from "@/stores/use-plugin-store";
 import { useResolvedCanvasResourceReferences } from "./use-resolved-canvas-resource-references";
 import { quoteModel, type LogicalModelQuote } from "@/services/api/logical-models";
-import { ConnectedReferenceShelf, ReferenceToolsPopover, referenceShelfHeading } from "./canvas-node-prompt-references";
+import { ConnectedReferenceShelf, ReferenceToolsPopover, referenceShelfHeading, type AddCanvasReferenceAction } from "./canvas-node-prompt-references";
 import { PromptModalResizeHandle, PromptResizeHandle, clampExpandedModalSize, clampPromptHeight, estimatePromptContentHeight, promptEditorBounds } from "./canvas-node-prompt-resize";
 import { audioConfigPatch, buildNodeConfig, defaultMode, modeDisplayName, promptPlaceholder, videoConfigPatch } from "./canvas-node-prompt-config";
 
@@ -51,6 +51,7 @@ type CanvasNodePromptPanelProps = {
     onGenerate: (nodeId: string, mode: CanvasNodeGenerationMode, prompt: string) => void;
     mentionReferences?: CanvasResourceReference[];
     onAddReference?: (nodeId: string, reference: CanvasResourceReference) => CanvasResourceReference | undefined;
+    onAddReferenceNodes?: (nodeId: string, action: AddCanvasReferenceAction) => void;
     onRemoveReference?: (nodeId: string, reference: CanvasResourceReference) => void;
     onReorderReferences?: (nodeId: string, orderedNodeIds: string[]) => void;
     onReplaceReference?: (nodeId: string, oldReference: CanvasResourceReference, sourceNodeId: string) => void;
@@ -78,7 +79,7 @@ const PROMPT_EDITOR_MODAL_WIDTH = "min(1200px, 92vw)";
 const PROMPT_EDITOR_MODAL_DEFAULT_WIDTH = 1200;
 const PROMPT_EDITOR_MODAL_DEFAULT_HEIGHT = 420;
 
-export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChange, onConfigChange, onGenerate, mentionReferences = [], onAddReference, onRemoveReference, onReorderReferences, onReplaceReference, onReplaceReferenceFiles, onClose, onNodeMouseDown, onImageSettingsOpenChange, workspaceMode = "professional", onListGenerate }: CanvasNodePromptPanelProps) {
+export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChange, onConfigChange, onGenerate, mentionReferences = [], onAddReference, onAddReferenceNodes, onRemoveReference, onReorderReferences, onReplaceReference, onReplaceReferenceFiles, onClose, onNodeMouseDown, onImageSettingsOpenChange, workspaceMode = "professional", onListGenerate }: CanvasNodePromptPanelProps) {
     const globalConfig = useEffectiveConfig();
     const themeName = useActiveTheme();
     const theme = canvasThemes[themeName];
@@ -183,6 +184,7 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
     const [routeQuote, setRouteQuote] = useState<LogicalModelQuote | null>(null);
     const credits = routeQuote ? routeQuote.amountMicrocredits / 1_000_000 : configuredCredits;
     const activeReferenceCount = activeReferences.length;
+    const hasReferenceShelf = activeReferenceCount > 0 || Boolean(onAddReferenceNodes && !node.metadata?.locked);
     const videoFrameOptions = resolvedMentionReferences.filter((item) => item.active && item.kind === "image").map((item) => ({ nodeId: item.nodeId, label: item.label, title: item.title, previewUrl: item.previewUrl }));
     const hasVideoPromptTools = mode === "video" && !simpleMode && videoFrameOptions.length > 0;
     const monochromeAccent = theme.node.activeStroke;
@@ -199,10 +201,10 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
         color: theme.node.text,
         boxShadow: theme.node.shadow,
     } as CSSProperties;
-    const promptBounds = promptEditorBounds(false, activeReferenceCount > 0);
-    const expandedPromptBounds = promptEditorBounds(true, activeReferenceCount > 0);
-    const composerHeight = clampPromptHeight(manualPromptHeight ?? promptContentHeight + (activeReferenceCount ? PROMPT_REFERENCE_SHELF_HEIGHT : 0), promptBounds);
-    const expandedComposerHeight = clampPromptHeight(expandedPromptContentHeight + (activeReferenceCount ? PROMPT_REFERENCE_SHELF_HEIGHT : 0), expandedPromptBounds);
+    const promptBounds = promptEditorBounds(false, hasReferenceShelf);
+    const expandedPromptBounds = promptEditorBounds(true, hasReferenceShelf);
+    const composerHeight = clampPromptHeight(manualPromptHeight ?? promptContentHeight + (hasReferenceShelf ? PROMPT_REFERENCE_SHELF_HEIGHT : 0), promptBounds);
+    const expandedComposerHeight = clampPromptHeight(expandedPromptContentHeight + (hasReferenceShelf ? PROMPT_REFERENCE_SHELF_HEIGHT : 0), expandedPromptBounds);
     const measureExpandedModalSize = () => {
         const rect = expandedModalRef.current?.getBoundingClientRect();
         if (!rect?.width || !rect.height) return { width: PROMPT_EDITOR_MODAL_DEFAULT_WIDTH, height: PROMPT_EDITOR_MODAL_DEFAULT_HEIGHT };
@@ -544,10 +546,11 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
                         references={resolvedMentionReferences}
                         theme={theme}
                         onInsert={insertPromptReference}
-                        onRemove={(reference) => onRemoveReference?.(node.id, reference)}
-                        onReorder={onReorderReferences ? (orderedNodeIds) => onReorderReferences(node.id, orderedNodeIds) : undefined}
-                        onReplaceReference={onReplaceReference ? (oldReference, sourceNodeId) => onReplaceReference(node.id, oldReference, sourceNodeId) : undefined}
-                        onReplaceReferenceFiles={onReplaceReferenceFiles ? (oldReference, files) => onReplaceReferenceFiles(node.id, oldReference, files) : undefined}
+                        onAdd={onAddReferenceNodes && !node.metadata?.locked ? (action) => onAddReferenceNodes(node.id, action) : undefined}
+                        onRemove={onRemoveReference && !node.metadata?.locked ? (reference) => onRemoveReference(node.id, reference) : undefined}
+                        onReorder={onReorderReferences && !node.metadata?.locked ? (orderedNodeIds) => onReorderReferences(node.id, orderedNodeIds) : undefined}
+                        onReplaceReference={onReplaceReference && !node.metadata?.locked ? (oldReference, sourceNodeId) => onReplaceReference(node.id, oldReference, sourceNodeId) : undefined}
+                        onReplaceReferenceFiles={onReplaceReferenceFiles && !node.metadata?.locked ? (oldReference, files) => onReplaceReferenceFiles(node.id, oldReference, files) : undefined}
                     />
                     <CanvasResourceMentionTextarea
                         value={prompt}
@@ -557,7 +560,7 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
                         includeAssetLibrary
                         onChange={updatePrompt}
                         autoLinkEnabled={autoLinkEnabled}
-                        onReferenceFilesDrop={onReplaceReferenceFiles ? (reference, files) => onReplaceReferenceFiles(node.id, reference, files) : undefined}
+                        onReferenceFilesDrop={onReplaceReferenceFiles && !node.metadata?.locked ? (reference, files) => onReplaceReferenceFiles(node.id, reference, files) : undefined}
                         onContentSizeChange={expanded ? setExpandedPromptContentHeight : setPromptContentHeight}
                         containerClassName="min-h-0 flex-1"
                         className={expanded

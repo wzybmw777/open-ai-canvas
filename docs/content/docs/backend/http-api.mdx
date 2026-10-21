@@ -7,7 +7,11 @@ description: 信封、错误码与 OpenAPI
 
 ## 成长计划、积分奖励与会员
 
-需要登录并启用积分功能。`GET /api/rewards` 返回当前积分账户、任务目录、今日分享奖励状态和会员有效期。成功生成的当前用户任务可通过 `POST /api/rewards/tasks/:taskId/claim` 领取一次 1 积分；公开画布分享记录可通过 `POST /api/rewards/shares/:shareId/claim` 按 UTC 日期领取一次 2 积分。服务端校验任务或分享记录归属、状态和幂等键。
+需要登录并启用积分功能。`GET /api/rewards` 返回当前积分账户、任务目录、`generationTasks`、今日分享奖励状态和会员有效期。`generationTasks` 从当前用户最近 50 条有执行和完成记录的成功任务中筛选生成任务，每项为 `{ id, prompt, claimed }`，`claimed` 读取当前用户的持久化任务奖励记录；无符合条件的任务时返回空数组。
+
+当前用户经服务端执行并成功完成的生成任务可通过 `POST /api/rewards/tasks/:taskId/claim` 领取一次 1 积分。任务必须具有执行次数、有效开始/完成时间、可解析的输入和非空结果对象；客户端自行提交完成的文本回放任务和内部非生成任务不符合条件，仅有 `succeeded` 状态不足以领取。读取列表和实际领取共用资格校验。领取返回 `{ account, granted }`，重复领取返回 `granted: false` 且不追加积分；前端据此更新余额并显示禁用的“已领取”，刷新后保持。
+
+公开画布分享记录可通过 `POST /api/rewards/shares/:shareId/claim` 按 UTC 日期领取一次 2 积分。服务端校验任务或分享记录归属、状态和幂等键。
 
 `GET /api/payments/products` 返回后台配置的商品。会员商品使用 `productType=membership`、`membershipDays` 和 `bonusCreditsMicrocredits` 描述价格、时长和赠送积分，默认种子商品为 99 元、365 天、50 积分。会员支付订单完成后原子开通或顺延会员并发放赠送积分。
 
@@ -20,6 +24,10 @@ description: 信封、错误码与 OpenAPI
 `GET /api/workbench/tasks?kind=image|video&projectId=<ID>` 按项目筛选记录并检查项目访问权限；归档项目可以查看历史。省略筛选时仍返回当前用户对应工具的记录，供素材处理工具使用。
 
 图片与视频去水印是既有资源的处理工具，专用接口完成资源归属和媒体校验后可不关联项目；重试沿用已持久化的任务身份。普通 `/api/tasks` 不能通过伪造 `metadata.edit` 或 `workbenchKind` 绕过项目校验，显式关联项目时仍校验其归属与状态。
+
+## AI 去水印开放配置
+
+管理员在「功能开放」通过 `GET/PATCH /api/admin/settings/features` 读取或设置 `watermarkRemovalEnabled`（布尔值，默认 `false`），沿用 `system_settings` 的 `feature_availability` JSON 和管理员审计；登录用户通过 `GET /api/features` 获取状态。开关统一控制图片和视频去水印，各自仍需对应工作台开启。关闭后隐藏侧栏入口、直接访问显示未开放，专用状态、创建任务及历史去水印任务重试返回 403。已有任务继续执行，历史和结果保留，无数据库结构变化。
 
 ## 图片去水印
 

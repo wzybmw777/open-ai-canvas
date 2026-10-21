@@ -28,7 +28,81 @@ tags:
   - name: admin
   - name: skills
   - name: workbench
+  - name: rewards
 paths:
+  /rewards:
+    get:
+      tags: [rewards]
+      summary: 获取成长计划账户与任务奖励状态
+      description: 需要启用积分功能。generationTasks 从当前用户最近 50 条有执行和完成记录的成功任务中筛选；文本回放和内部非生成任务不符合资格。claimed 读取当前用户持久化的任务奖励记录。
+      responses:
+        "200":
+          description: 成长计划与可展示的任务奖励列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [account, membership, tasks, generationTasks, shareRewardMicrocredits, shareClaimedToday]
+                        properties:
+                          account: { type: object }
+                          membership: { type: object }
+                          tasks:
+                            type: array
+                            items: { type: object }
+                          generationTasks:
+                            type: array
+                            items:
+                              type: object
+                              required: [id, prompt, claimed]
+                              properties:
+                                id: { type: string }
+                                prompt: { type: string }
+                                claimed: { type: boolean }
+                          shareRewardMicrocredits: { type: integer, format: int64 }
+                          shareClaimedToday: { type: boolean }
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /rewards/tasks/{taskId}/claim:
+    post:
+      tags: [rewards]
+      summary: 领取一次生成任务奖励
+      description: 需要启用积分功能。服务端校验任务归属、生成类型、执行次数、开始和完成时间、输入和非空结果对象，拒绝客户端自行完成的文本回放任务。首次领取 1 积分；重复领取返回 granted=false，不重复发放。
+      parameters:
+        - in: path
+          name: taskId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 信封 data 为当前账户和本次是否发放奖励
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [account, granted]
+                        properties:
+                          account: { type: object }
+                          granted: { type: boolean }
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
   /theatre/works:
     get:
       tags: [theatre]
@@ -1891,7 +1965,7 @@ paths:
     get:
       tags: [workbench]
       summary: 查询图片去水印入口与限制
-      description: 需要登录及图片工作台开关；可用模型沿用平台目录，在创建时校验。
+      description: 需要登录，并同时开启 AI 去水印（watermarkRemovalEnabled，默认关闭）及图片工作台；可用模型沿用平台目录，在创建时校验。关闭去水印后状态、提交及历史任务重试返回 403。
       responses:
         "200":
           description: 图片去水印可用配置
@@ -1959,7 +2033,7 @@ paths:
     get:
       tags: [workbench]
       summary: 查询视频去水印入口与限制
-      description: 需要登录和视频工作台开关；后端缺少 ffprobe 时 available=false。
+      description: 需要登录，并同时开启 AI 去水印（watermarkRemovalEnabled，默认关闭）及视频工作台；后端缺少 ffprobe 时 available=false。关闭去水印后状态、提交及历史任务重试返回 403。
       responses:
         "200":
           description: 视频去水印状态

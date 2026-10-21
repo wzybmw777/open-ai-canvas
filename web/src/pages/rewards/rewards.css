@@ -96,6 +96,39 @@
 .rewards-card-icon svg {
     width: 20px;
 }
+.rewards-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+.rewards-card-top .rewards-card-icon {
+    margin-bottom: 0;
+}
+.rewards-create-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1-half);
+    color: var(--user-accent);
+}
+.rewards-create-link svg {
+    width: var(--space-4);
+    height: var(--space-4);
+}
+.rewards-task-cost {
+    display: block;
+    color: var(--user-muted-foreground);
+}
+.rewards-card .rewards-task-status {
+    color: var(--user-ink);
+    font-weight: 600;
+}
+.rewards-create-link:focus-visible,
+a.rewards-task-title:focus-visible {
+    outline: var(--focus-ring-width) solid var(--control-focus-ring);
+    outline-offset: var(--space-half);
+}
 .rewards-card-heading {
     display: flex;
     align-items: flex-start;
@@ -131,6 +164,16 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+a.rewards-task-title {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: var(--user-border);
+    text-underline-offset: var(--space-half);
+}
+a.rewards-task-title:hover {
+    color: var(--user-accent);
+    text-decoration-color: currentColor;
 }
 .rewards-task-row svg {
     width: 14px;

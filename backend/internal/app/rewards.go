@@ -1,7 +1,9 @@
 package app
 
 import (
+	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"yingce/backend/internal/model"
@@ -20,16 +22,23 @@ type RewardTaskView struct {
 	AmountMicrocredits int64  `json:"amountMicrocredits"`
 }
 
+type GenerationTaskRewardView struct {
+	ID      string `json:"id"`
+	Prompt  string `json:"prompt"`
+	Claimed bool   `json:"claimed"`
+}
+
 type RewardsSummary struct {
-	Account                 model.CreditAccount `json:"account"`
-	Membership              model.Membership    `json:"membership"`
-	Tasks                   []RewardTaskView    `json:"tasks"`
-	ShareRewardMicrocredits int64               `json:"shareRewardMicrocredits"`
-	ShareClaimedToday       bool                `json:"shareClaimedToday"`
+	Account                 model.CreditAccount        `json:"account"`
+	Membership              model.Membership           `json:"membership"`
+	Tasks                   []RewardTaskView           `json:"tasks"`
+	GenerationTasks         []GenerationTaskRewardView `json:"generationTasks"`
+	ShareRewardMicrocredits int64                      `json:"shareRewardMicrocredits"`
+	ShareClaimedToday       bool                       `json:"shareClaimedToday"`
 }
 
 func rewardTaskCatalog() []RewardTaskView {
-	return []RewardTaskView{{ID: "successful-generation", Name: "完成创作任务", Description: "每个成功完成的生成任务都可领取一次积分", AmountMicrocredits: taskRewardMicrocredits}}
+	return []RewardTaskView{{ID: "successful-generation", Name: "完成创作任务", Description: "每个经服务端执行并成功完成的生成任务可领取一次积分", AmountMicrocredits: taskRewardMicrocredits}}
 }
 
 func rewardPeriodKey(now time.Time) string {
@@ -37,7 +46,7 @@ func rewardPeriodKey(now time.Time) string {
 }
 
 func (s *Service) Rewards(user *model.User) (*RewardsSummary, error) {
-	if user == nil {
+	if user == nil || strings.TrimSpace(user.ID) == "" {
 		return nil, Unauthorized("请先登录")
 	}
 	if err := s.RequireFeature(FeatureCredits); err != nil {
@@ -55,10 +64,26 @@ func (s *Service) Rewards(user *model.User) (*RewardsSummary, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &RewardsSummary{Account: *account, Membership: *membership, Tasks: rewardTaskCatalog(), ShareRewardMicrocredits: shareRewardMicrocredits, ShareClaimedToday: claimed}, nil
+	candidates, err := s.repo.CompletedTaskRewardCandidates(user.ID, 50)
+	if err != nil {
+		return nil, err
+	}
+	tasks := make([]GenerationTaskRewardView, 0, len(candidates))
+	for _, candidate := range candidates {
+		if taskRewardEligible(candidate.Task) {
+			tasks = append(tasks, GenerationTaskRewardView{ID: candidate.ID, Prompt: truncateRunes(candidate.Prompt, 500), Claimed: candidate.RewardClaimed})
+		}
+	}
+	return &RewardsSummary{Account: *account, Membership: *membership, Tasks: rewardTaskCatalog(), GenerationTasks: tasks, ShareRewardMicrocredits: shareRewardMicrocredits, ShareClaimedToday: claimed}, nil
 }
 
 func (s *Service) ClaimTaskReward(userID, taskID string) (*model.CreditAccount, bool, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, false, Unauthorized("请先登录")
+	}
+	if strings.TrimSpace(taskID) == "" {
+		return nil, false, BadAuthRequest("任务 ID 不能为空")
+	}
 	if err := s.RequireFeature(FeatureCredits); err != nil {
 		return nil, false, err
 	}
@@ -66,10 +91,29 @@ func (s *Service) ClaimTaskReward(userID, taskID string) (*model.CreditAccount, 
 	if err != nil {
 		return nil, false, err
 	}
-	if task.Status != model.TaskStatusSucceeded {
-		return nil, false, BadAuthRequest("任务尚未成功完成")
+	if !taskRewardEligible(*task) {
+		return nil, false, BadAuthRequest("仅服务端执行并成功完成的生成任务可领取奖励")
 	}
 	return s.repo.ClaimRewardOnce(userID, model.CreditLedgerRewardTask, taskRewardMicrocredits, task.ID, "", "完成创作任务奖励")
+}
+
+func taskRewardEligible(task model.Task) bool {
+	// 客户端可自行完成文本回放；succeeded 本身不能证明执行过模型生成。
+	if task.Status != model.TaskStatusSucceeded || task.Attempts <= 0 || task.StartedAt == nil || task.StartedAt.IsZero() || task.CompletedAt == nil || task.CompletedAt.IsZero() {
+		return false
+	}
+	switch task.Type {
+	case "canvas_text", "canvas_image", "canvas_video", "canvas_audio":
+	default:
+		if !strings.HasPrefix(task.Type, "video_") || strings.TrimPrefix(task.Type, "video_") == "" {
+			return false
+		}
+	}
+	var input, result map[string]any
+	if json.Unmarshal([]byte(task.InputJSON), &input) != nil || input == nil || isTextReplayTaskRequest(input) {
+		return false
+	}
+	return json.Unmarshal([]byte(task.ResultJSON), &result) == nil && len(result) > 0
 }
 
 func (s *Service) ClaimShareReward(userID, shareID string) (*model.CreditAccount, bool, error) {

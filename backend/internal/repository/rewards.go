@@ -9,6 +9,23 @@ import (
 	"yingce/backend/internal/model"
 )
 
+type TaskRewardCandidate struct {
+	model.Task
+	RewardClaimed bool
+}
+
+func (r *Repository) CompletedTaskRewardCandidates(userID string, limit int) ([]TaskRewardCandidate, error) {
+	if limit < 1 || limit > 100 {
+		limit = 50
+	}
+	tasks := []TaskRewardCandidate{}
+	err := r.db.Model(&model.Task{}).
+		Select(`tasks.*, EXISTS (SELECT 1 FROM reward_claims WHERE reward_claims.user_id = tasks.user_id AND reward_claims.target_id = tasks.id AND reward_claims.reward_type = ? AND reward_claims.period_key = '') AS reward_claimed`, model.CreditLedgerRewardTask).
+		Where("tasks.user_id = ? AND tasks.status = ? AND tasks.attempts > 0 AND tasks.started_at IS NOT NULL AND tasks.completed_at IS NOT NULL", userID, model.TaskStatusSucceeded).
+		Order("tasks.created_at DESC, tasks.id DESC").Limit(limit).Scan(&tasks).Error
+	return tasks, err
+}
+
 func (r *Repository) ClaimRewardOnce(userID string, rewardType model.CreditLedgerType, amount int64, targetID, periodKey, note string) (*model.CreditAccount, bool, error) {
 	var account model.CreditAccount
 	referenceKey := "reward:" + string(rewardType) + ":" + userID + ":" + targetID

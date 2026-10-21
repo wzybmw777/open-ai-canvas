@@ -352,6 +352,12 @@ export type CanvasNodeMetadata = {
     audioEmotionSurprised?: string;
     audioEmotionCalm?: string;
     references?: string[];
+    /** 当前节点解除的参考关联；不修改分镜、批次或共享配置中的原始素材。 */
+    excludedReferenceNodeIds?: string[];
+    /** 目标自己的参考顺序，不重排共享配置节点的输入。 */
+    referenceNodeOrder?: string[];
+    /** 用户已调整当前输入；重新生成应读取当前图而非历史请求快照。 */
+    referenceInputsEdited?: boolean;
     naturalWidth?: number;
     naturalHeight?: number;
     freeResize?: boolean;

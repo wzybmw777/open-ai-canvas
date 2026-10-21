@@ -26,6 +26,7 @@ func TestVideoCleanupAdmissionOwnershipAndBilling(t *testing.T) {
 	s.dataDir = t.TempDir()
 	features := platform.DefaultFeatureAvailability()
 	features.VideoWorkbenchEnabled = true
+	features.WatermarkRemovalEnabled = true
 	if _, err := s.UpdateFeatureAvailability(&model.User{ID: "admin", Role: model.UserRoleAdmin}, features); err != nil {
 		t.Fatal(err)
 	}

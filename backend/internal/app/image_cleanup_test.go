@@ -39,6 +39,7 @@ func enableCleanupFeature(t *testing.T, s *Service) {
 	t.Helper()
 	features := platform.DefaultFeatureAvailability()
 	features.ImageWorkbenchEnabled = true
+	features.WatermarkRemovalEnabled = true
 	if _, err := s.UpdateFeatureAvailability(&model.User{ID: "admin", Role: model.UserRoleAdmin}, features); err != nil {
 		t.Fatal(err)
 	}

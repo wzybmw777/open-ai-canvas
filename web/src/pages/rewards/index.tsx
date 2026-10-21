@@ -1,14 +1,14 @@
 import { App, Button, Input, Skeleton } from "antd";
-import { Check, Coins, Gift, Share2, Sparkles, Star, TicketCheck } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router";
+import { ArrowUpRight, Check, Gift, Share2, Sparkles, Star, TicketCheck } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router";
 
 import { WorkspacePage, PageHeader } from "@/components/layout/workspace-page";
 import { localizedErrorMessage, useLocaleText } from "@/lib/i18n";
 import { openWorkspaceWallet } from "@/lib/workspace-wallet";
-import { listGenerationTasks, type GenerationTask } from "@/services/api/task-center";
 import { listTopupProducts, type TopupProduct } from "@/services/api/payments";
-import { claimTaskReward, findMembershipProduct, getRewards, redeemMembershipCode, type RewardsSummary } from "@/services/api/rewards";
+import { claimTaskReward, findMembershipProduct, getRewards, redeemMembershipCode, type GenerationTaskReward, type RewardsSummary } from "@/services/api/rewards";
+import { useUserStore } from "@/stores/use-user-store";
 import "./rewards.css";
 
 export function formatRewardCredits(microcredits: number) {
@@ -28,22 +28,22 @@ export default function RewardsPage() {
     const { message } = App.useApp();
     const { locale, text } = useLocaleText();
     const navigate = useNavigate();
+    const taskCenterEnabled = useUserStore((state) => state.features.taskCenterEnabled);
     const [summary, setSummary] = useState<RewardsSummary | null>(null);
     const [product, setProduct] = useState<TopupProduct | null>(null);
-    const [tasks, setTasks] = useState<GenerationTask[]>([]);
     const [code, setCode] = useState("");
     const [loading, setLoading] = useState(true);
     const [actingId, setActingId] = useState("");
+    const claiming = useRef(false);
     const [redeeming, setRedeeming] = useState(false);
     const membershipActive = Boolean(summary?.membership.expiresAt && new Date(summary.membership.expiresAt).getTime() > Date.now());
 
     const load = async () => {
         setLoading(true);
         try {
-            const [rewardResult, products, generationTasks] = await Promise.all([getRewards(), listTopupProducts(), listGenerationTasks(50)]);
+            const [rewardResult, products] = await Promise.all([getRewards(), listTopupProducts()]);
             setSummary(rewardResult);
             setProduct(findMembershipProduct(products.products) ?? null);
-            setTasks(generationTasks);
         } catch (error) {
             message.error(localizedErrorMessage(error, "成长计划加载失败", "Could not load the growth plan", locale));
         } finally {
@@ -55,20 +55,28 @@ export default function RewardsPage() {
         void load();
     }, []);
 
-    const successfulTasks = useMemo(() => tasks.filter((task) => task.status === "succeeded").slice(0, 8), [tasks]);
+    const successfulTasks = summary?.generationTasks ?? [];
+    const pendingTaskCount = successfulTasks.filter((task) => !task.claimed).length;
     const copy = product ? membershipProductCopy(product) : null;
 
-    const claimTask = async (task: GenerationTask) => {
+    const claimTask = async (task: GenerationTaskReward) => {
+        if (task.claimed || claiming.current) return;
+        claiming.current = true;
         setActingId(task.id);
         try {
             const result = await claimTaskReward(task.id);
-            if (result.granted) message.success(text("任务奖励已到账", "Task reward added"));
+            setSummary((current) => current ? {
+                ...current,
+                account: result.account,
+                generationTasks: current.generationTasks.map((item) => item.id === task.id ? { ...item, claimed: true } : item),
+            } : current);
+            if (result.granted) message.success(text("1 积分已到账", "1 credit added"));
             else message.info(text("这个任务已经领取过奖励", "This task reward was already claimed"));
-            await load();
             window.dispatchEvent(new CustomEvent("wallet:updated"));
         } catch (error) {
             message.error(localizedErrorMessage(error, "领取任务奖励失败", "Could not claim task reward", locale));
         } finally {
+            claiming.current = false;
             setActingId("");
         }
     };
@@ -119,8 +127,14 @@ export default function RewardsPage() {
 
                     <section className="rewards-grid">
                         <article className="rewards-card rewards-card-task">
-                            <div className="rewards-card-icon">
-                                <Gift />
+                            <div className="rewards-card-top">
+                                <div className="rewards-card-icon">
+                                    <Gift />
+                                </div>
+                                <Link className="rewards-create-link" to="/create">
+                                    {successfulTasks.length && !pendingTaskCount ? text("继续创作", "Keep creating") : text("去创作", "Start creating")}
+                                    <ArrowUpRight aria-hidden="true" />
+                                </Link>
                             </div>
                             <div className="rewards-card-heading">
                                 <div>
@@ -129,7 +143,15 @@ export default function RewardsPage() {
                                 </div>
                                 <strong>+1</strong>
                             </div>
-                            <p>{text("每个成功完成的生成任务都可以领取一次 1 积分。", "Claim 1 credit once for every successful generation task.")}</p>
+                            <p>{text("每次成功生成可领取 1 积分，每条任务限领一次。", "Earn 1 credit for each successful generation. Each task can be claimed once.")}</p>
+                            <small className="rewards-task-cost">{text("生成费用按所选模型计费。", "Generation is charged at the selected model's rates.")}</small>
+                            <p className="rewards-task-status" role="status">
+                                {pendingTaskCount
+                                    ? text(`有 ${pendingTaskCount} 项奖励待领取`, pendingTaskCount === 1 ? "1 reward ready to claim" : `${pendingTaskCount} rewards ready to claim`)
+                                    : successfulTasks.length
+                                        ? text("当前奖励已全部领取", "All current rewards have been claimed")
+                                        : text("完成第一次创作，成功后可领取 1 积分", "Complete your first creation to earn 1 credit after a successful generation")}
+                            </p>
                             {successfulTasks.length ? (
                                 <div className="rewards-task-list">
                                     {successfulTasks.map((task) => {
@@ -137,19 +159,19 @@ export default function RewardsPage() {
                                         return (
                                             <div className="rewards-task-row" key={task.id}>
                                                 <Check aria-hidden="true" />
-                                                <span className="rewards-task-title" title={title}>
-                                                    {title}
-                                                </span>
-                                                <Button size="small" loading={actingId === task.id} onClick={() => void claimTask(task)}>
-                                                    {text("领取", "Claim")}
+                                                {taskCenterEnabled ? (
+                                                    <Link className="rewards-task-title" to={`/tasks?taskId=${encodeURIComponent(task.id)}`} title={title} aria-label={text(`查看任务：${title}`, `View task: ${title}`)}>
+                                                        {title}
+                                                    </Link>
+                                                ) : <span className="rewards-task-title" title={title}>{title}</span>}
+                                                <Button size="small" disabled={task.claimed || Boolean(actingId)} loading={actingId === task.id} onClick={() => void claimTask(task)}>
+                                                    {task.claimed ? text("已领取", "Claimed") : text("领取 1 积分", "Claim 1 credit")}
                                                 </Button>
                                             </div>
                                         );
                                     })}
                                 </div>
-                            ) : (
-                                <Button onClick={() => navigate("/tasks")}>{text("去完成任务", "Open task center")}</Button>
-                            )}
+                            ) : null}
                         </article>
                         <article className="rewards-card rewards-card-share">
                             <div className="rewards-card-icon">

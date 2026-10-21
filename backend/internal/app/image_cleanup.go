@@ -32,6 +32,9 @@ func (s *Service) ImageCleanupStatus(userID string) (*ImageCleanupAvailability, 
 	if strings.TrimSpace(userID) == "" {
 		return nil, Unauthorized("请先登录")
 	}
+	if err := s.RequireFeature(FeatureWatermarkRemoval); err != nil {
+		return nil, err
+	}
 	if err := s.RequireFeature(FeatureImageWorkbench); err != nil {
 		return nil, err
 	}

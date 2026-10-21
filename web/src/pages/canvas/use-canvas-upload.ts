@@ -112,10 +112,10 @@ export function useCanvasUpload({
         if (dialog !== "preserve") setDialogNodeId(dialog === "open" ? nodeId : null);
     }, [setDialogNodeId, setSelectedConnectionId, setSelectedNodeIds]);
 
-    const persistMediaNode = useCallback(async (node: CanvasNodeData) => {
+    const persistMediaNode = useCallback(async (node: CanvasNodeData, isCurrent: () => boolean = () => true) => {
         try {
             const result = await ensureCanvasNodeAsset({ canvasId, domainProjectId, node, source: "canvas-upload" });
-            setNodes((current) => current.map((item) => item.id === node.id ? { ...item, metadata: { ...item.metadata, assetId: result.assetId } } : item));
+            if (isCurrent()) setNodes((current) => current.map((item) => item.id === node.id ? { ...item, metadata: { ...item.metadata, assetId: result.assetId } } : item));
             if (domainProjectId) await queryClient.invalidateQueries({ queryKey: ["project", domainProjectId] });
             return true;
         } catch (error) {
@@ -150,7 +150,9 @@ export function useCanvasUpload({
     }, [canvasId, domainProjectId, queryClient]);
 
     const activeUploadsRef = useRef(new Set<string>());
-    const createFileNode = useCallback(async (file: File, position: Position, replaceId?: string) => {
+    const createFileNode = useCallback(async (file: File, position: Position, replaceId?: string, options?: { preserveSelection?: boolean; isCurrent?: () => boolean }) => {
+        const isCurrent = options?.isCurrent || (() => true);
+        if (!isCurrent()) return null;
         const original = replaceId ? nodesRef.current.find((node) => node.id === replaceId) : undefined;
         if (replaceId && (!original || activeUploadsRef.current.has(replaceId))) return null;
         const id = replaceId || `upload-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -158,13 +160,15 @@ export function useCanvasUpload({
         const progress = startUploadStatus(replaceId ? "替换文件" : "上传文件", "读取文件信息", domainProjectId ? 4 : 3);
         try {
             const placeholder = await createFileUploadPlaceholder(id, file, position);
+            if (!isCurrent()) return null;
             setNodes((current) => replaceId ? current.map((item) => item.id === id ? {
                 ...item, width: placeholder.width, height: placeholder.height,
                 metadata: { ...item.metadata, fileUpload: "uploading", fileUploadProgress: undefined, status: undefined, size: undefined, errorDetails: undefined },
             } : item) : [...current, placeholder]);
-            selectInsertedNode(id, "close");
+            if (!options?.preserveSelection) selectInsertedNode(id, "close");
             let lastPercent: number | undefined;
             const onProgress = (loaded: number, total: number) => {
+                if (!isCurrent()) return;
                 const percent = uploadPercent(loaded, total);
                 if (percent === undefined || percent === lastPercent) return;
                 lastPercent = percent;
@@ -183,6 +187,7 @@ export function useCanvasUpload({
                 const media = await uploadMediaFile(file, placeholder.type === CanvasNodeType.Video ? "video" : "audio", onProgress);
                 metadata = placeholder.type === CanvasNodeType.Video ? videoMetadata(media) : audioMetadata(media);
             }
+            if (!isCurrent()) return null;
             progress.update("更新画布节点", 3);
             const currentNode = nodesRef.current.find((item) => item.id === id);
             if (!currentNode) {
@@ -210,12 +215,14 @@ export function useCanvasUpload({
             };
             setNodes((current) => current.map((item) => item.id === id ? { ...item, type: node.type, metadata: node.metadata } : item));
             if (domainProjectId) progress.update("写入项目资产", 4);
-            const persisted = await persistMediaNode(node);
+            const persisted = await persistMediaNode(node, isCurrent);
+            if (!isCurrent()) return null;
             const localOnly = metadata.storageKey && !resourceIdFromStorageKey(metadata.storageKey);
             progress.done(localOnly ? "已保存在本机，尚未上传到服务器" : persisted ? "文件已添加到画布" : "文件已添加，项目资产待重试");
             if (localOnly) message.warning("文件已保存在本机，尚未上传到服务器");
             return id;
         } catch (error) {
+            if (!isCurrent()) return null;
             const details = error instanceof Error ? error.message : "文件上传失败";
             setNodes((current) => current.map((item) => item.id !== id ? item : original?.metadata?.content ? {
                 ...item, width: original.width, height: original.height, metadata: original.metadata,

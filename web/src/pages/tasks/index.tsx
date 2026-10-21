@@ -1,5 +1,5 @@
 import { CollectionToolbar } from "@/components/layout/collection-toolbar";
-import { App, Button, Drawer, Form, Input, Modal, Typography } from "antd";
+import { App, Button, Drawer, Form, Input, Modal, Skeleton, Typography } from "antd";
 import { Switch } from "@/components/ui/base/switch";
 import { SegmentedControl } from "@/components/ui/base/segmented-control";
 import { Bug, LayoutGrid, List, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
@@ -62,6 +62,12 @@ export default function TasksPage() {
     const { locale, text } = useLocaleText();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
+    const searchParamsRef = useRef(searchParams);
+    searchParamsRef.current = searchParams;
+    // 关闭后重开同一任务也属于新详情，旧操作不能回写。
+    const detailRequestRef = useRef(0);
+    const mountedRef = useRef(false);
+    const selectedTaskId = searchParams.get("taskId") || "";
     const effectiveConfig = useEffectiveConfig();
     const isAiConfigReady = useConfigStore((state) => state.isAiConfigReady);
     const projects = useCanvasStore((state) => state.projects);
@@ -76,7 +82,7 @@ export default function TasksPage() {
     const [creating, setCreating] = useState(false);
     const statusFilter = taskStatusFilter(searchParams.get("status"));
     const setStatusFilter = (value: TaskStatusFilter) => {
-        const next = new URLSearchParams(searchParams);
+        const next = new URLSearchParams(searchParamsRef.current);
         next.set("status", value);
         setSearchParams(next, { replace: true });
     };
@@ -253,25 +259,66 @@ export default function TasksPage() {
         }
     }, [locale, message, syncCompletedCanvasTasks]);
 
-    const openTaskDetail = useCallback(
-        async (task: GenerationTask) => {
-            setDetailTask(task);
-            setTaskLogs([]);
-            setDetailLoading(true);
-            setLogsLoading(true);
-            try {
-                const [detail, logs] = await Promise.all([queryGenerationTask(task.id), listTaskLogs(task.id)]);
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => { mountedRef.current = false; };
+    }, []);
+
+    const openTaskDetail = (task: GenerationTask) => {
+        setSearchParams((current) => {
+            const next = new URLSearchParams(current);
+            next.set("taskId", task.id);
+            return next;
+        });
+    };
+
+    const closeTaskDetail = () => {
+        setSearchParams((current) => {
+            const next = new URLSearchParams(current);
+            next.delete("taskId");
+            return next;
+        }, { replace: true });
+    };
+
+    useEffect(() => {
+        detailRequestRef.current += 1;
+        setDetailTask(tasksRef.current.find((task) => task.id === selectedTaskId) ?? null);
+        setTaskLogs([]);
+        if (!selectedTaskId) {
+            setDetailLoading(false);
+            setLogsLoading(false);
+            return;
+        }
+        let cancelled = false;
+        const controller = new AbortController();
+        setDetailLoading(true);
+        setLogsLoading(true);
+        void Promise.all([queryGenerationTask(selectedTaskId, { signal: controller.signal }), listTaskLogs(selectedTaskId)])
+            .then(([detail, logs]) => {
+                if (cancelled) return;
                 setDetailTask(detail);
                 setTaskLogs(logs);
-            } catch (error) {
+            })
+            .catch((error) => {
+                if (cancelled) return;
                 message.error(localizedErrorMessage(error, "任务详情加载失败", "Could not load task details", locale));
-            } finally {
+                setSearchParams((current) => {
+                    const next = new URLSearchParams(current);
+                    next.delete("taskId");
+                    return next;
+                }, { replace: true });
+            })
+            .finally(() => {
+                if (cancelled) return;
                 setDetailLoading(false);
                 setLogsLoading(false);
-            }
-        },
-        [locale, message],
-    );
+            });
+        return () => {
+            cancelled = true;
+            detailRequestRef.current += 1;
+            controller.abort();
+        };
+    }, [selectedTaskId, locale, message, setSearchParams]);
 
     useEffect(() => {
         tasksRef.current = tasks;
@@ -302,6 +349,7 @@ export default function TasksPage() {
     }, [loadTasks]);
 
     const runAction = async (id: string) => {
+        const detailRequest = detailRequestRef.current;
         setActingId(id);
         try {
             const currentTask = await queryGenerationTask(id);
@@ -310,8 +358,10 @@ export default function TasksPage() {
                 ? currentTask
                 : savingMedia ? await recoverGenerationTaskMedia(id) : await retryGenerationTask(id);
             setTasks((items) => items.map((item) => (item.id === id ? next : item)));
-            setDetailTask((current) => (current?.id === id ? { ...current, ...next } : current));
-            setStatusFilter("active");
+            if (detailRequestRef.current === detailRequest) {
+                setDetailTask((current) => (current?.id === id ? { ...current, ...next } : current));
+            }
+            if (mountedRef.current) setStatusFilter("active");
             setPage(1);
             message.success(next.status === "succeeded" ? text("任务已完成", "Task completed") : savingMedia ? text("正在恢复作品保存，不会重新生成", "Retrying the save without regenerating") : text("任务已在队列中", "Task queued"));
         } catch (error) {
@@ -322,17 +372,21 @@ export default function TasksPage() {
     };
 
     const queryProviderTask = async (task: GenerationTask) => {
+        const detailRequest = detailRequestRef.current;
+        const isCurrentDetail = () => detailRequestRef.current === detailRequest && searchParamsRef.current.get("taskId") === task.id;
         setActingId(task.id);
         try {
             const result = await queryFailedVideoProviderTask(task.id);
             if (!result.recovered) {
-                setTaskLogs(await listTaskLogs(task.id));
+                const logs = await listTaskLogs(task.id);
+                if (isCurrentDetail()) setTaskLogs(logs);
                 message.info(`${text("上游任务仍在处理中", "Provider task is still processing")}${result.providerStatus ? ` (${result.providerStatus})` : ""}`);
                 return;
             }
-            setDetailTask(result.task);
+            if (isCurrentDetail()) setDetailTask(result.task);
             setTasks((items) => items.map((item) => (item.id === task.id ? { ...item, ...result.task } : item)));
-            setTaskLogs(await listTaskLogs(task.id));
+            const logs = await listTaskLogs(task.id);
+            if (isCurrentDetail()) setTaskLogs(logs);
             await syncGenerationTaskToCanvasStore(result.task);
             window.dispatchEvent(new CustomEvent("wallet:updated"));
             void loadTasks(false);
@@ -484,7 +538,7 @@ export default function TasksPage() {
                     </Form.Item>
                 </Form>
             </Modal>
-            <Drawer className="library-drawer" title={text("任务详情", "Task details")} open={Boolean(detailTask)} onClose={() => setDetailTask(null)} size="large" destroyOnHidden>
+            <Drawer className="library-drawer" title={text("任务详情", "Task details")} open={Boolean(selectedTaskId)} onClose={closeTaskDetail} size="large" destroyOnHidden>
                 {detailTask ? (
                     <div className="space-y-5">
                         <div className="task-detail-facts grid text-sm sm:grid-cols-2">
@@ -518,7 +572,7 @@ export default function TasksPage() {
                             </div>
                         </div>
                     </div>
-                ) : null}
+                ) : detailLoading ? <Skeleton active /> : null}
             </Drawer>
             <Modal
                 title={<span className="block truncate pr-8">{mediaPreview?.title || text("生成结果预览", "Generated result preview")}</span>}

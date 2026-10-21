@@ -2,6 +2,8 @@ import { CanvasWorkspacePanel } from "@/components/canvas/canvas-workspace-panel
 import "@/lib/plugins/builtin/ai-art-critique";
 import "@/lib/plugins/builtin/media-conversion";
 import { useCanvasImageLayerGroups } from "./use-canvas-image-layer-groups";
+import { useCanvasPromptReferences } from "./use-canvas-prompt-references";
+import { disconnectCanvasNodeReference, reorderCanvasNodeReferences } from "@/lib/canvas/canvas-node-references";
 import { useCanvasImageLayerMaterials } from "./use-canvas-image-layer-materials";
 import { isCanvasNodeGenerating } from "@/lib/canvas/canvas-node-task-state";
 import { createCanvasStateWriter } from "@/lib/canvas/canvas-editor-state";
@@ -101,7 +103,6 @@ import {
     buildCanvasResourceReferences,
     getContextResourceNodes,
     normalizeCanvasNodeMentionTokens,
-    reorderCanvasResourceConnections,
     replaceCanvasReferenceMentions,
     type CanvasResourceReference,
 } from "@/lib/canvas/canvas-resource-references";
@@ -1307,17 +1308,13 @@ function CanvasViewportPage() {
         (targetNodeId: string, reference: CanvasResourceReference) => {
             const referenceNodeId = reference.nodeId;
             if (!referenceNodeId) return;
-            // 生成节点可能通过配置节点接收参考，只移除参考来源边，保留目标到配置节点的主链。
             const previousNodes = nodesRef.current;
             const previousConnections = connectionsRef.current;
-            const configNodeId = previousConnections.find((connection) => {
-                if (connection.fromNodeId !== targetNodeId) return false;
-                return previousNodes.find((node) => node.id === connection.toNodeId)?.type === CanvasNodeType.Config;
-            })?.toNodeId;
-            const removedConnectionIds = new Set(previousConnections.filter((connection) => connection.fromNodeId === referenceNodeId && (connection.toNodeId === targetNodeId || connection.toNodeId === configNodeId)).map((connection) => connection.id));
-            if (!removedConnectionIds.size) return;
-            const nextConnections = previousConnections.filter((connection) => !removedConnectionIds.has(connection.id));
-            const nextNodes = applyCanvasConnectionPromptSync(previousNodes, previousConnections, previousNodes, nextConnections);
+            const target = previousNodes.find((node) => node.id === targetNodeId);
+            if (!target || target.metadata?.locked) return;
+            const { nodes: nextNodes, connections: nextConnections } = disconnectCanvasNodeReference(previousNodes, previousConnections, targetNodeId, referenceNodeId);
+            const keptIds = new Set(nextConnections.map((connection) => connection.id));
+            const removedConnectionIds = new Set(previousConnections.filter((connection) => !keptIds.has(connection.id)).map((connection) => connection.id));
             if (nextNodes !== previousNodes) {
                 nodesRef.current = nextNodes;
                 setNodes(nextNodes);
@@ -1329,13 +1326,19 @@ function CanvasViewportPage() {
         [connectionsRef, nodesRef, setConnections, setNodes, setSelectedConnectionId],
     );
 
+    const { openReferenceAdder, referenceDialogs } = useCanvasPromptReferences({
+        canvasId: projectId, config: effectiveConfig, nodes, connections, nodesRef, connectionsRef, setNodes, setConnections, createAssetPayloadNode, createFileNode,
+    });
+
     const handleReorderNodeReferences = useCallback(
         (targetNodeId: string, orderedNodeIds: string[]) => {
             const previousNodes = nodesRef.current;
             const previousConnections = connectionsRef.current;
-            const nextConnections = reorderCanvasResourceConnections(targetNodeId, orderedNodeIds, previousNodes, previousConnections);
-            if (nextConnections === previousConnections) return;
-            const nextNodes = applyCanvasConnectionPromptSync(previousNodes, previousConnections, previousNodes, nextConnections);
+            const target = previousNodes.find((node) => node.id === targetNodeId);
+            if (!target || target.metadata?.locked) return;
+            const activeIds = new Set((buildCanvasNodeMentionReferenceMap(previousNodes, previousConnections, [target]).get(targetNodeId) || []).map((reference) => reference.nodeId));
+            if (orderedNodeIds.some((id) => !activeIds.has(id))) return;
+            const { nodes: nextNodes, connections: nextConnections } = reorderCanvasNodeReferences(previousNodes, previousConnections, targetNodeId, orderedNodeIds);
             if (nextNodes !== previousNodes) {
                 nodesRef.current = nextNodes;
                 setNodes(nextNodes);
@@ -2214,6 +2217,7 @@ function CanvasViewportPage() {
                     projectId={projectId}
                     node={panelNode}
                     isRunning={isCanvasNodeGenerating(panelNode, runningNodeId)}
+                    onAddReferenceNodes={openReferenceAdder}
                     mentionReferences={[
                         ...(mentionReferencesByNodeId.get(panelNode.id) || EMPTY_RESOURCE_REFERENCES),
                         ...buildCanvasResourceReferences(nodesRef.current, connectionsRef.current).filter(
@@ -2277,6 +2281,7 @@ function CanvasViewportPage() {
             handleReplaceNodeReference,
             handleReplaceNodeReferenceFiles,
             mentionReferencesByNodeId,
+            openReferenceAdder,
             message,
             projectId,
             runningNodeId,
@@ -3536,6 +3541,7 @@ function CanvasViewportPage() {
                             <BatchGenerationSettingsDialog open={batchGenDialogOpen} config={batchGenDialogConfig} rowCount={batchGenDialogRowCount} concurrency={batchGenDialogConcurrency} onClose={closeBatchGenDialog} onConfirm={confirmBatchGenDialog} />
 
                             <AssetPickerModal open={assetPickerOpen} multiple={assetInsertScope === "canvas"} onInsert={handleLibraryAssetsInsert} onClose={closeAssetPicker} />
+                            {referenceDialogs}
                             <CanvasCharacterLibraryModal
                                 open={characterLibraryOpen}
                                 imageResourceId={resourceIdFromStorageKey(selectedCharacterImage?.metadata?.storageKey) || undefined}

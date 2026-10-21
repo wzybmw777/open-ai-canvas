@@ -269,7 +269,7 @@ describe("canvas resource mention slots", () => {
         const connections = [connection(image.id, target.id), connection(target.id, config.id), connection(audio.id, config.id)];
         const references = buildCanvasNodeMentionReferenceMap(nodes, connections);
 
-        expect(references.get(target.id)?.map((reference) => reference.nodeId)).toEqual([audio.id]);
+        expect(references.get(target.id)?.map((reference) => reference.nodeId)).toEqual([audio.id, image.id]);
         expect(references.get(config.id)?.map((reference) => reference.nodeId)).toEqual([target.id, audio.id]);
         expect(references.get(image.id)?.map((reference) => reference.nodeId)).toEqual([]);
         expect(buildNodeMentionReferences(image, nodes, connections).map((reference) => reference.nodeId)).toEqual([image.id]);

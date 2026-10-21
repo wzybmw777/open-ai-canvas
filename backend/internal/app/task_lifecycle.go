@@ -71,6 +71,19 @@ func (w *taskLifecycleCoordinator) retryTask(userID string, id string) (*model.T
 	if err := json.Unmarshal([]byte(decryptedInput), &billingInput); err != nil {
 		return nil, err
 	}
+	metadata, _ := billingInput["metadata"].(map[string]any)
+	if metadata["source"] == "workbench" && metadata["edit"] == "remove_watermark" {
+		if err := s.RequireFeature(FeatureWatermarkRemoval); err != nil {
+			return nil, err
+		}
+		feature := FeatureImageWorkbench
+		if task.WorkbenchKind == WorkbenchKindVideo {
+			feature = FeatureVideoWorkbench
+		}
+		if err := s.RequireFeature(feature); err != nil {
+			return nil, err
+		}
+	}
 	if workbenchTaskRequiresProject(billingInput, task.ProjectID, task.WorkbenchKind, task.Operation) {
 		if _, err := s.requireWorkbenchProject(userID, task.ProjectID); err != nil {
 			return nil, err

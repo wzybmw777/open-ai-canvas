@@ -33,6 +33,9 @@ func (s *Service) VideoCleanupStatus(userID string) (*VideoCleanupAvailability, 
 	if strings.TrimSpace(userID) == "" {
 		return nil, Unauthorized("请先登录")
 	}
+	if err := s.RequireFeature(FeatureWatermarkRemoval); err != nil {
+		return nil, err
+	}
 	if err := s.RequireFeature(FeatureVideoWorkbench); err != nil {
 		return nil, err
 	}

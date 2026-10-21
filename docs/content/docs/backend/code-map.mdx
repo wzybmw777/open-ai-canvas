@@ -22,6 +22,8 @@ description: 从产品功能快速定位主要代码入口
 
 `web/src/components/layout/workspace-sidebar-nav.tsx` 提供一个“AI 去水印”入口，路由 `/toolbox/watermark`。`pages/workbench/watermark-page.tsx` 负责统一外壳、图片/视频页签和功能开放状态；两个处理面板共用 `use-watermark-task.ts`，隔离 `imageTask` / `videoTask` 查询参数，切换保留处理状态。
 
+独立开关 `watermarkRemovalEnabled` 在 `internal/platform/feature_availability.go` 定义，默认关闭；后台 `feature-availability-panel.tsx` 负责编辑，侧栏与页面共同检查该开关及图片/视频工作台开关。`app/image_cleanup.go`、`app/video_cleanup.go` 在状态和提交入口校验开放状态，`app/task_lifecycle.go` 在历史去水印任务重试时再次校验。
+
 ## 图片去水印
 
 - 页面与 API：`web/src/pages/workbench/image-watermark-page.tsx`、`services/api/image-cleanup.ts`；复用 `components/image-mask-editor.tsx` 的涂抹能力。

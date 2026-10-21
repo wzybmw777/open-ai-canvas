@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -196,6 +197,112 @@ func TestTaskBillingOrderSkipsPricingWhenCreditsDisabled(t *testing.T) {
 	}
 	if order != nil {
 		t.Fatalf("taskBillingOrder() = %#v, want nil", order)
+	}
+}
+
+func TestWatermarkRemovalAvailability(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		watermark bool
+		image     bool
+		video     bool
+		wantImage bool
+		wantVideo bool
+	}{
+		{"closed independently", false, true, true, false, false},
+		{"both open", true, true, true, true, true},
+		{"image only", true, true, false, true, false},
+		{"video only", true, false, true, false, true},
+		{"workbenches closed", true, false, false, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, db := newFeatureAvailabilityTestService(t)
+			value, err := json.Marshal(map[string]bool{"watermarkRemovalEnabled": tc.watermark, "imageWorkbenchEnabled": tc.image, "videoWorkbenchEnabled": tc.video})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := db.Create(&model.SystemSetting{Key: featureAvailabilitySettingKey, ValueJSON: string(value)}).Error; err != nil {
+				t.Fatal(err)
+			}
+			_, imageErr := svc.ImageCleanupStatus("user")
+			_, videoErr := svc.VideoCleanupStatus("user")
+			if (imageErr == nil) != tc.wantImage || (videoErr == nil) != tc.wantVideo {
+				t.Fatalf("image error=%v, video error=%v; want available=%v/%v", imageErr, videoErr, tc.wantImage, tc.wantVideo)
+			}
+		})
+	}
+}
+
+func TestDisabledWatermarkRemovalBlocksTaskCreation(t *testing.T) {
+	svc, db := newFeatureAvailabilityTestService(t)
+	if err := db.Create(&model.SystemSetting{Key: featureAvailabilitySettingKey, ValueJSON: `{"imageWorkbenchEnabled":true,"videoWorkbenchEnabled":true}`}).Error; err != nil {
+		t.Fatal(err)
+	}
+	for _, userID := range []string{"user", ""} {
+		_, imageErr := svc.CreateImageCleanupTask(userID, ImageCleanupRequest{}, "", "")
+		_, videoErr := svc.CreateVideoCleanupTask(userID, VideoCleanupRequest{}, "", "")
+		wantStatus := 403
+		if userID == "" {
+			wantStatus = 401
+		}
+		for _, err := range []error{imageErr, videoErr} {
+			var appErr *AppError
+			if !errors.As(err, &appErr) || appErr.Status != wantStatus {
+				t.Fatalf("user=%q: got %v, want status %d", userID, err, wantStatus)
+			}
+		}
+	}
+}
+
+func TestWatermarkRemovalSettingPersistsAndAudits(t *testing.T) {
+	svc, db := newFeatureAvailabilityTestService(t)
+	actor := &model.User{ID: "admin", Role: model.UserRoleAdmin}
+	for _, enabled := range []bool{true, false} {
+		value := platform.DefaultFeatureAvailability()
+		encoded, _ := json.Marshal(map[string]bool{"watermarkRemovalEnabled": enabled})
+		if err := json.Unmarshal(encoded, &value); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := svc.UpdateFeatureAvailability(actor, value); err != nil {
+			t.Fatal(err)
+		}
+		got, err := svc.FeatureEnabled("watermarkRemoval")
+		if err != nil || got != enabled {
+			t.Fatalf("FeatureEnabled()=%v, %v; want %v", got, err, enabled)
+		}
+	}
+	var count int64
+	if err := db.Model(&model.AdminAuditEvent{}).Where("action = ?", "feature_availability.update").Count(&count).Error; err != nil || count != 2 {
+		t.Fatalf("audit count=%d, err=%v", count, err)
+	}
+}
+
+func TestDisabledWatermarkRemovalBlocksRetry(t *testing.T) {
+	svc, db := newFeatureAvailabilityTestService(t)
+	if err := db.Create(&model.SystemSetting{Key: featureAvailabilitySettingKey, ValueJSON: `{"imageWorkbenchEnabled":true,"videoWorkbenchEnabled":true}`}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.Task{}); err != nil {
+		t.Fatal(err)
+	}
+	for _, kind := range []string{"image", "video"} {
+		task := model.Task{ID: kind + "-cleanup", UserID: "user", Type: "canvas_" + kind, Operation: "image", WorkbenchKind: kind, Status: model.TaskStatusFailed,
+			InputJSON: `{"metadata":{"source":"workbench","workbenchKind":"` + kind + `","edit":"remove_watermark"}}`}
+		if kind == "video" {
+			task.Operation = "video_edit"
+		}
+		if err := db.Create(&task).Error; err != nil {
+			t.Fatal(err)
+		}
+		_, err := svc.RetryTask("user", task.ID)
+		var appErr *AppError
+		if !errors.As(err, &appErr) || appErr.Status != 403 {
+			t.Fatalf("%s retry: got %v, want forbidden", kind, err)
+		}
+		stored, err := svc.repo.Task(task.ID)
+		if err != nil || stored.Status != model.TaskStatusFailed || stored.BillingOrderID != "" {
+			t.Fatalf("rejected retry changed task: %+v, %v", stored, err)
+		}
 	}
 }
 

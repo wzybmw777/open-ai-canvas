@@ -17,10 +17,17 @@ export type Membership = {
     sourceType?: string;
 };
 
+export type GenerationTaskReward = {
+    id: string;
+    prompt: string;
+    claimed: boolean;
+};
+
 export type RewardsSummary = {
     account: CreditAccount;
     membership: Membership;
     tasks: RewardTask[];
+    generationTasks: GenerationTaskReward[];
     shareRewardMicrocredits: number;
     shareClaimedToday: boolean;
 };

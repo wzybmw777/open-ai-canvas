@@ -261,6 +261,20 @@ function rewriteCanvasPromptAfterReferenceChange(prompt: string, previousReferen
 }
 
 export function applyCanvasConnectionPromptSync(previousNodes: CanvasNodeData[], previousConnections: CanvasConnection[], nextNodes: CanvasNodeData[], nextConnections: CanvasConnection[], options: { clearPromptTemplate?: boolean } = {}) {
+    const previousEdges = new Set(previousConnections.map((edge) => JSON.stringify([edge.fromNodeId, edge.toNodeId])));
+    const restoredInputs = new Map<string, Set<string>>();
+    for (const edge of nextConnections) {
+        if (edge.storyboardRowId || edge.relation) continue;
+        if (previousEdges.has(JSON.stringify([edge.fromNodeId, edge.toNodeId]))) continue;
+        const inputs = restoredInputs.get(edge.toNodeId) || new Set<string>();
+        inputs.add(edge.fromNodeId);
+        restoredInputs.set(edge.toNodeId, inputs);
+    }
+    if (restoredInputs.size) nextNodes = nextNodes.map((node) => {
+        const restored = restoredInputs.get(node.id);
+        if (!restored || !node.metadata?.excludedReferenceNodeIds?.some((id) => restored.has(id))) return node;
+        return { ...node, metadata: { ...node.metadata, excludedReferenceNodeIds: node.metadata.excludedReferenceNodeIds.filter((id) => !restored.has(id)), referenceInputsEdited: true } };
+    });
     nextNodes = detachRemovedBatchCellConnections(nextNodes, previousConnections, nextConnections);
     const previousMap = buildCanvasNodeMentionReferenceMap(previousNodes, previousConnections, nextNodes);
     const nextMap = buildCanvasNodeMentionReferenceMap(nextNodes, nextConnections, nextNodes);
@@ -457,15 +471,19 @@ function buildCanvasResourceInputResolver(nodes: CanvasNodeData[], connections: 
         visited.add(nodeId);
         const node = nodeById.get(nodeId);
         if (!node) return [];
+        const excluded = new Set(node.metadata?.excludedReferenceNodeIds || []);
+        const order = new Map((node.metadata?.referenceNodeOrder || []).map((id, index) => [id, index]));
+        const allowed = (inputs: CanvasNodeData[]) => uniqueCanvasNodes(inputs).filter((input) => !excluded.has(input.id)).sort((left, right) => (order.get(left.id) ?? order.size) - (order.get(right.id) ?? order.size));
         const configTargetId = configTargetBySourceId.get(nodeId);
         const configInputs = configTargetId ? (resourceInputsByTargetId.get(configTargetId) || []).filter((input) => input.id !== nodeId) : [];
         const ownInputs = (resourceInputsByTargetId.get(nodeId) || []).filter((input) => input.id !== nodeId);
         const storyboardInputs = storyboardInputsByTargetId.get(nodeId) || [];
-        if (configInputs.length) return uniqueCanvasNodes(configInputs);
-        if (storyboardInputs.length || ownInputs.length) return uniqueCanvasNodes([...storyboardInputs, ...ownInputs]);
+        // 面板新加的直接引用只属于当前目标，不写入可能被其他节点共享的配置。
+        if (configInputs.length) return allowed([...configInputs, ...ownInputs]);
+        if (storyboardInputs.length || ownInputs.length) return allowed([...storyboardInputs, ...ownInputs]);
         const batchRoot = node.metadata?.batchRootId ? nodeById.get(node.metadata.batchRootId) : undefined;
-        if (batchRoot?.metadata?.isBatchRoot) return resolve(batchRoot.id, false, visited);
-        return includeSelf && isResourceNode(node) ? [node] : [];
+        if (batchRoot?.metadata?.isBatchRoot) return allowed(resolve(batchRoot.id, false, visited));
+        return includeSelf && isResourceNode(node) ? allowed([node]) : [];
     };
 }
 
