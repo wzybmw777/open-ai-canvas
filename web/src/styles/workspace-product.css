@@ -832,7 +832,7 @@
     border-radius: var(--product-control-radius) !important;
 }
 
-.app-product-workspace main.app-user-content:not(.workbench-page) :is(.product-collection-card, .library-card, .task-grid-card, .task-record-row, .skill-library-card, .plugin-card, .inspiration-card) {
+.app-product-workspace main.app-user-content:not(.workbench-page) :is(.product-collection-card, .library-card, .task-grid-card, .task-record-row, .skill-library-card, .plugin-card) {
     border: 1px solid var(--user-border) !important;
     border-radius: var(--product-page-radius) !important;
     background: var(--user-surface) !important;
@@ -842,14 +842,14 @@
     animation: none !important;
 }
 
-.app-product-workspace main.app-user-content:not(.workbench-page) :is(.product-collection-card, .library-card, .task-grid-card, .task-record-row, .skill-library-card, .plugin-card, .inspiration-card):is(:hover, :focus-within) {
+.app-product-workspace main.app-user-content:not(.workbench-page) :is(.product-collection-card, .library-card, .task-grid-card, .task-record-row, .skill-library-card, .plugin-card):is(:hover, :focus-within) {
     border-color: var(--user-border-strong) !important;
     background: var(--user-surface-hover) !important;
     box-shadow: none !important;
     transform: none !important;
 }
 
-.app-product-workspace main.app-user-content:not(.workbench-page) :is(.library-card, .product-collection-card, .task-grid-card, .skill-library-card, .plugin-card, .inspiration-card) img {
+.app-product-workspace main.app-user-content:not(.workbench-page) :is(.library-card, .product-collection-card, .task-grid-card, .skill-library-card, .plugin-card) img {
     animation: none !important;
     filter: none !important;
 }

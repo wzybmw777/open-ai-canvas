@@ -2,7 +2,7 @@ import { App, Button, Dropdown, Input } from "antd";
 import { ChevronDown, Download, Heart, Import, MoreHorizontal, Pencil, Plus, RotateCcw, Search, SlidersHorizontal, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { PaginationBar } from "@/components/layout/workspace-page";
+import { PaginationBar, WorkspacePage } from "@/components/layout/workspace-page";
 import { WorkspaceErrorState, WorkspaceLoadingState, WorkspaceState } from "@/components/layout/workspace-state";
 import { SegmentedControl } from "@/components/ui/base/segmented-control";
 import { Select } from "@/components/ui/base/select";
@@ -618,4 +618,10 @@ function InspirationCard({
     );
 }
 
-export default InspirationHall;
+export default function InspirationsPage() {
+    return (
+        <WorkspacePage className="inspirations-page">
+            <InspirationHall />
+        </WorkspacePage>
+    );
+}

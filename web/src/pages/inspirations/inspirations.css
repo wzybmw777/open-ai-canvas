@@ -9,6 +9,10 @@
     color: var(--user-ink);
 }
 
+.inspirations-page .inspiration-hall {
+    margin-top: 0;
+}
+
 .inspiration-hall-header {
     display: flex;
     align-items: center;

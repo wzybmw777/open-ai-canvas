@@ -38,11 +38,11 @@ func TestClaimTaskRewardRequiresSuccessfulOwnedTaskAndIsIdempotent(t *testing.T)
 		t.Fatalf("foreign task granted=%v err=%v", granted, err)
 	}
 	account, granted, err := svc.ClaimTaskReward("user-1", "task-success")
-	if err != nil || !granted || account.AvailableMicrocredits != 5*CreditScale {
+	if err != nil || !granted || account.AvailableMicrocredits != CreditScale {
 		t.Fatalf("first task claim account=%#v granted=%v err=%v", account, granted, err)
 	}
 	account, granted, err = svc.ClaimTaskReward("user-1", "task-success")
-	if err != nil || granted || account.AvailableMicrocredits != 5*CreditScale {
+	if err != nil || granted || account.AvailableMicrocredits != CreditScale {
 		t.Fatalf("duplicate task claim account=%#v granted=%v err=%v", account, granted, err)
 	}
 }

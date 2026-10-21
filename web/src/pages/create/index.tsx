@@ -47,7 +47,7 @@ import { creationVideoConfig } from "./creation-generation-config";
 import { CreationLoginDialog } from "./creation-login-dialog";
 
 const AssetLibraryPickerModal = lazy(() => import("@/components/assets/asset-library-picker-modal").then((module) => ({ default: module.AssetLibraryPickerModal })));
-const InspirationHall = lazy(() => import("@/pages/inspirations"));
+const InspirationHall = lazy(() => import("@/pages/inspirations").then((module) => ({ default: module.InspirationHall })));
 const loadCreationRuntime = () => import("./creation-runtime");
 type CreationRuntime = Awaited<ReturnType<typeof loadCreationRuntime>>;
 

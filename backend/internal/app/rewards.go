@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	taskRewardMicrocredits  int64 = 5 * CreditScale
+	taskRewardMicrocredits  int64 = CreditScale
 	shareRewardMicrocredits int64 = 2 * CreditScale
 )
 

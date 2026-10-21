@@ -7,7 +7,7 @@ description: 信封、错误码与 OpenAPI
 
 ## 成长计划、积分奖励与会员
 
-需要登录并启用积分功能。`GET /api/rewards` 返回当前积分账户、任务目录、今日分享奖励状态和会员有效期。成功生成的当前用户任务可通过 `POST /api/rewards/tasks/:taskId/claim` 领取一次 5 积分；公开画布分享记录可通过 `POST /api/rewards/shares/:shareId/claim` 按 UTC 日期领取一次 2 积分。服务端校验任务或分享记录归属、状态和幂等键。
+需要登录并启用积分功能。`GET /api/rewards` 返回当前积分账户、任务目录、今日分享奖励状态和会员有效期。成功生成的当前用户任务可通过 `POST /api/rewards/tasks/:taskId/claim` 领取一次 1 积分；公开画布分享记录可通过 `POST /api/rewards/shares/:shareId/claim` 按 UTC 日期领取一次 2 积分。服务端校验任务或分享记录归属、状态和幂等键。
 
 `GET /api/payments/products` 返回后台配置的商品。会员商品使用 `productType=membership`、`membershipDays` 和 `bonusCreditsMicrocredits` 描述价格、时长和赠送积分，默认种子商品为 99 元、365 天、50 积分。会员支付订单完成后原子开通或顺延会员并发放赠送积分。
 

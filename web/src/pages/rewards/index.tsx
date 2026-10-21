@@ -127,9 +127,9 @@ export default function RewardsPage() {
                                     <span className="rewards-card-kicker">{text("做任务赚积分", "CREATE TO EARN")}</span>
                                     <h3>{text("完成创作任务", "Complete a creation task")}</h3>
                                 </div>
-                                <strong>+5</strong>
+                                <strong>+1</strong>
                             </div>
-                            <p>{text("每个成功完成的生成任务都可以领取一次 5 积分。", "Claim 5 credits once for every successful generation task.")}</p>
+                            <p>{text("每个成功完成的生成任务都可以领取一次 1 积分。", "Claim 1 credit once for every successful generation task.")}</p>
                             {successfulTasks.length ? (
                                 <div className="rewards-task-list">
                                     {successfulTasks.map((task) => {
