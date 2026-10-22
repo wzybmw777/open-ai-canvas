@@ -113,17 +113,16 @@ func TestClaimTaskRewardRejectsClientCompletedReplay(t *testing.T) {
 }
 
 func TestClaimTaskRewardAllowsExecutedGenerationTypes(t *testing.T) {
-	for _, tc := range []struct{ taskType, result string }{
-		{"canvas_text", `{"mode":"text","text":"generated text"}`},
-		{"canvas_image", `{"mode":"image","images":[{"resourceId":"image-1"}]}`},
-		{"canvas_video", `{"mode":"video","video":{"resourceId":"video-1"}}`},
-		{"canvas_audio", `{"mode":"audio","audio":{"resourceId":"audio-1"}}`},
-		{"video_generate", `{"mode":"video","video":{"resourceId":"video-2"}}`},
+	for _, tc := range []struct{ taskType, mode, result string }{
+		{"canvas_text", "text", `{"mode":"text","text":"generated text"}`},
+		{"canvas_image", "image", `{"mode":"image","images":[{"resourceId":"image-1"}]}`},
+		{"canvas_video", "video", `{"mode":"video","video":{"resourceId":"video-1"}}`},
+		{"video_generate", "video", `{"mode":"video","video":{"resourceId":"video-2"}}`},
 	} {
 		t.Run(tc.taskType, func(t *testing.T) {
 			svc, db := newRewardsService(t)
 			task := completedRewardTask("task-1", "user-1")
-			task.Type, task.ResultJSON = tc.taskType, tc.result
+			task.Type, task.InputJSON, task.ResultJSON = tc.taskType, `{"mode":"`+tc.mode+`"}`, tc.result
 			if err := db.Create(&task).Error; err != nil {
 				t.Fatal(err)
 			}
@@ -132,6 +131,108 @@ func TestClaimTaskRewardAllowsExecutedGenerationTypes(t *testing.T) {
 				t.Fatalf("account=%#v granted=%v err=%v", account, granted, err)
 			}
 		})
+	}
+}
+
+func TestClaimTaskRewardUsesGenerationSurfaceAndRejectsProcessingTasks(t *testing.T) {
+	cases := []struct {
+		name     string
+		task     model.Task
+		wantNote string
+	}{
+		{
+			name: "create page image stays image even with a canvas project",
+			task: func() model.Task {
+				task := completedRewardTask("create-image", "user-1")
+				task.Type, task.ProjectID = "canvas_image", "project-1"
+				task.InputJSON = `{"mode":"image","metadata":{"source":"create-page"}}`
+				task.ResultJSON = `{"mode":"image","images":[{"resourceId":"image-1"}]}`
+				return task
+			}(),
+			wantNote: "完成图片生成奖励",
+		},
+		{
+			name: "canvas surface is canvas",
+			task: func() model.Task {
+				task := completedRewardTask("canvas-image", "user-1")
+				task.Type, task.ProjectID = "canvas_image", "project-1"
+				task.InputJSON = `{"mode":"image","metadata":{"generationSurface":"canvas"}}`
+				task.ResultJSON = `{"mode":"image","images":[{"resourceId":"image-2"}]}`
+				return task
+			}(),
+			wantNote: "完成画布生成奖励",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, db := newRewardsService(t)
+			if err := db.Create(&tc.task).Error; err != nil {
+				t.Fatal(err)
+			}
+			if _, granted, err := svc.ClaimTaskReward("user-1", tc.task.ID); err != nil || !granted {
+				t.Fatalf("granted=%v err=%v", granted, err)
+			}
+			var entry model.CreditLedgerEntry
+			if err := db.Where("user_id = ?", "user-1").First(&entry).Error; err != nil {
+				t.Fatal(err)
+			}
+			if entry.Note != tc.wantNote {
+				t.Fatalf("note=%q want %q", entry.Note, tc.wantNote)
+			}
+		})
+	}
+
+	svc, db := newRewardsService(t)
+	processing := completedRewardTask("video-cleanup", "user-1")
+	processing.Type, processing.Operation = "canvas_video", "video_edit"
+	processing.InputJSON = `{"mode":"video","metadata":{"source":"workbench","workbenchKind":"video","edit":"remove_watermark"}}`
+	processing.ResultJSON = `{"mode":"video","video":{"resourceId":"video-1"}}`
+	if err := db.Create(&processing).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, granted, err := svc.ClaimTaskReward("user-1", processing.ID); err == nil || granted {
+		t.Fatalf("processing task granted=%v err=%v", granted, err)
+	}
+}
+
+func TestClaimTaskRewardRejectsTaskModeMismatch(t *testing.T) {
+	svc, db := newRewardsService(t)
+	task := completedRewardTask("mismatch", "user-1")
+	task.Type = "canvas_image"
+	task.ResultJSON = `{"mode":"image","images":[{"resourceId":"image-1"}]}`
+	if err := db.Create(&task).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, granted, err := svc.ClaimTaskReward("user-1", task.ID); err == nil || granted {
+		t.Fatalf("mismatched task granted=%v err=%v", granted, err)
+	}
+}
+
+func TestClaimTaskRewardIsLimitedToOnePerGenerationCategory(t *testing.T) {
+	svc, db := newRewardsService(t)
+	tasks := []model.Task{
+		completedRewardTask("text-1", "user-1"),
+		completedRewardTask("text-2", "user-1"),
+		{ID: "image-1", UserID: "user-1", Type: "canvas_image", Status: model.TaskStatusSucceeded, Attempts: 1, StartedAt: completedRewardTask("image-start", "user-1").StartedAt, CompletedAt: completedRewardTask("image-end", "user-1").CompletedAt, InputJSON: `{"mode":"image"}`, ResultJSON: `{"mode":"image","images":[{"resourceId":"image-1"}]}`},
+		{ID: "video-1", UserID: "user-1", Type: "canvas_video", Status: model.TaskStatusSucceeded, Attempts: 1, StartedAt: completedRewardTask("video-start", "user-1").StartedAt, CompletedAt: completedRewardTask("video-end", "user-1").CompletedAt, InputJSON: `{"mode":"video"}`, ResultJSON: `{"mode":"video","video":{"resourceId":"video-1"}}`},
+		{ID: "canvas-1", UserID: "user-1", ProjectID: "canvas-1", Type: "canvas_image", Status: model.TaskStatusSucceeded, Attempts: 1, StartedAt: completedRewardTask("canvas-start", "user-1").StartedAt, CompletedAt: completedRewardTask("canvas-end", "user-1").CompletedAt, InputJSON: `{"mode":"image","metadata":{"generationSurface":"canvas"}}`, ResultJSON: `{"mode":"image","images":[{"resourceId":"canvas-image-1"}]}`},
+	}
+	for _, task := range tasks {
+		if err := db.Create(&task).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, taskID := range []string{"text-1", "image-1", "video-1", "canvas-1"} {
+		if _, granted, err := svc.ClaimTaskReward("user-1", taskID); err != nil || !granted {
+			t.Fatalf("first claim task=%s granted=%v err=%v", taskID, granted, err)
+		}
+	}
+	if _, granted, err := svc.ClaimTaskReward("user-1", "text-2"); err != nil || granted {
+		t.Fatalf("second text category claim granted=%v err=%v", granted, err)
+	}
+	account, err := svc.repo.CreditAccount("user-1")
+	if err != nil || account.AvailableMicrocredits != 4*CreditScale {
+		t.Fatalf("account=%#v err=%v", account, err)
 	}
 }
 
@@ -164,8 +265,12 @@ func TestRewardsListsVerifiedOwnedTasksWithPersistedClaimState(t *testing.T) {
 	internal.Type = "timeline_render"
 	empty := completedRewardTask("empty", "user-1")
 	empty.ResultJSON = `{}`
+	available := completedRewardTask("available", "user-1")
+	available.Type = "canvas_image"
+	available.InputJSON = `{"mode":"image"}`
+	available.ResultJSON = `{"mode":"image","images":[{"resourceId":"image-1"}]}`
 	for _, task := range []model.Task{
-		completedRewardTask("claimed", "user-1"), completedRewardTask("available", "user-1"), completedRewardTask("foreign", "user-2"),
+		completedRewardTask("claimed", "user-1"), available, completedRewardTask("foreign", "user-2"),
 		replay, internal, empty,
 		{ID: "unverified", UserID: "user-1", Status: model.TaskStatusSucceeded},
 		{ID: "running", UserID: "user-1", Status: model.TaskStatusRunning},

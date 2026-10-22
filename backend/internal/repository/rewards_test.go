@@ -39,6 +39,20 @@ func TestClaimRewardOnceIsIdempotentPerTarget(t *testing.T) {
 	}
 }
 
+func TestRewardClaimTargetExistsDoesNotUsePeriodKey(t *testing.T) {
+	db := openRewardsTestDB(t)
+	repo := New(db)
+	if err := db.Create(&model.RewardClaim{ID: "claim-1", UserID: "user-1", RewardType: model.CreditLedgerRewardTask, TargetID: "generation:image", PeriodKey: ""}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if claimed, err := repo.RewardClaimTargetExists("user-1", model.CreditLedgerRewardTask, "generation:image"); err != nil || !claimed {
+		t.Fatalf("claimed=%v err=%v", claimed, err)
+	}
+	if claimed, err := repo.RewardClaimTargetExists("user-1", model.CreditLedgerRewardTask, "generation:video"); err != nil || claimed {
+		t.Fatalf("other target claimed=%v err=%v", claimed, err)
+	}
+}
+
 func TestExtendMembershipUsesExistingExpiryAndIsIdempotent(t *testing.T) {
 	db := openRewardsTestDB(t)
 	repo := New(db)

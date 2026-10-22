@@ -24,6 +24,23 @@ export function membershipProductCopy(product: Pick<TopupProduct, "amountFen" | 
     };
 }
 
+export function generationRewardCategoryLabel(category: GenerationTaskReward["category"], locale: string) {
+    if (locale.startsWith("en")) return { image: "Image generation", video: "Video generation", text: "Text generation", canvas: "Canvas generation" }[category];
+    return { image: "图片生成", video: "视频生成", text: "文本生成", canvas: "画布生成" }[category];
+}
+
+function rewardCatalogCategory(id: string): GenerationTaskReward["category"] | undefined {
+    const category = id.replace(/^generation-/, "");
+    return category === "image" || category === "video" || category === "text" || category === "canvas" ? category : undefined;
+}
+
+function rewardCatalogPath(category: GenerationTaskReward["category"]) {
+    if (category === "image") return "/toolbox/image";
+    if (category === "video") return "/toolbox/video";
+    if (category === "canvas") return "/canvas";
+    return "/create";
+}
+
 export default function RewardsPage() {
     const { message } = App.useApp();
     const { locale, text } = useLocaleText();
@@ -139,12 +156,24 @@ export default function RewardsPage() {
                             <div className="rewards-card-heading">
                                 <div>
                                     <span className="rewards-card-kicker">{text("做任务赚积分", "CREATE TO EARN")}</span>
-                                    <h3>{text("完成创作任务", "Complete a creation task")}</h3>
+                                    <h3>{text("完成生成任务", "Complete generation tasks")}</h3>
                                 </div>
-                                <strong>+1</strong>
+                                <strong>最高 +4</strong>
                             </div>
-                            <p>{text("每次成功生成可领取 1 积分，每条任务限领一次。", "Earn 1 credit for each successful generation. Each task can be claimed once.")}</p>
+                            <p>{text("图片、视频、文本、画布生成各可领取 1 积分，每种工具只能领取一次。", "Earn 1 credit for image, video, text, and canvas generation. Each tool can reward you once.")}</p>
                             <small className="rewards-task-cost">{text("生成费用按所选模型计费。", "Generation is charged at the selected model's rates.")}</small>
+                            <div className="rewards-tool-grid">
+                                {(summary.tasks || []).map((task) => {
+                                    const category = rewardCatalogCategory(task.id);
+                                    if (!category) return null;
+                                    return (
+                                        <Link className="rewards-tool-link" to={rewardCatalogPath(category)} key={task.id}>
+                                            <span>{generationRewardCategoryLabel(category, locale)}</span>
+                                            <small>{text("去使用工具", "Open tool")}</small>
+                                        </Link>
+                                    );
+                                })}
+                            </div>
                             <p className="rewards-task-status" role="status">
                                 {pendingTaskCount
                                     ? text(`有 ${pendingTaskCount} 项奖励待领取`, pendingTaskCount === 1 ? "1 reward ready to claim" : `${pendingTaskCount} rewards ready to claim`)
@@ -155,10 +184,12 @@ export default function RewardsPage() {
                             {successfulTasks.length ? (
                                 <div className="rewards-task-list">
                                     {successfulTasks.map((task) => {
+                                        const category = generationRewardCategoryLabel(task.category, locale);
                                         const title = task.prompt?.trim() || text("已完成任务", "Completed task");
                                         return (
                                             <div className="rewards-task-row" key={task.id}>
                                                 <Check aria-hidden="true" />
+                                                <span className="rewards-task-category">{category}</span>
                                                 {taskCenterEnabled ? (
                                                     <Link className="rewards-task-title" to={`/tasks?taskId=${encodeURIComponent(task.id)}`} title={title} aria-label={text(`查看任务：${title}`, `View task: ${title}`)}>
                                                         {title}

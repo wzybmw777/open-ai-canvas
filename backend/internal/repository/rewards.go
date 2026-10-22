@@ -141,6 +141,12 @@ func (r *Repository) RewardClaimExists(userID string, rewardType model.CreditLed
 	return count > 0, err
 }
 
+func (r *Repository) RewardClaimTargetExists(userID string, rewardType model.CreditLedgerType, targetID string) (bool, error) {
+	var count int64
+	err := r.db.Model(&model.RewardClaim{}).Where("user_id = ? AND reward_type = ? AND target_id = ?", userID, rewardType, targetID).Count(&count).Error
+	return count > 0, err
+}
+
 func (r *Repository) RewardClaimReferenceExists(referenceKey string) (bool, error) {
 	var count int64
 	err := r.db.Model(&model.RewardClaim{}).Where("reference_key = ?", referenceKey).Count(&count).Error

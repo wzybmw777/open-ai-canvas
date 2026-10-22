@@ -125,7 +125,8 @@
     font-weight: 600;
 }
 .rewards-create-link:focus-visible,
-a.rewards-task-title:focus-visible {
+a.rewards-task-title:focus-visible,
+.rewards-tool-link:focus-visible {
     outline: var(--focus-ring-width) solid var(--control-focus-ring);
     outline-offset: var(--space-half);
 }
@@ -143,6 +144,37 @@ a.rewards-task-title:focus-visible {
     color: var(--user-accent);
     font-size: 24px;
 }
+.rewards-tool-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin: 16px 0;
+}
+.rewards-tool-link {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+    padding: 9px 10px;
+    border: 1px solid var(--user-border);
+    border-radius: 10px;
+    color: var(--user-ink);
+    text-decoration: none;
+}
+.rewards-tool-link:hover {
+    border-color: var(--user-accent);
+    color: var(--user-accent);
+}
+.rewards-tool-link span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+}
+.rewards-tool-link small {
+    color: var(--user-muted);
+    font-size: 10px;
+}
 .rewards-task-list {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -151,13 +183,18 @@ a.rewards-task-title:focus-visible {
 }
 .rewards-task-row {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 10px;
     padding: 9px 10px;
     border-radius: 10px;
     background: var(--user-surface-muted);
     font-size: 12px;
+}
+.rewards-task-category {
+    color: var(--user-muted);
+    font-size: 11px;
+    white-space: nowrap;
 }
 .rewards-task-title {
     min-width: 0;
@@ -237,6 +274,9 @@ a.rewards-task-title:hover {
     }
     .rewards-grid {
         grid-template-columns: 1fr;
+    }
+    .rewards-tool-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .rewards-balance,
     .rewards-membership-actions {

@@ -7,9 +7,9 @@ description: 信封、错误码与 OpenAPI
 
 ## 成长计划、积分奖励与会员
 
-需要登录并启用积分功能。`GET /api/rewards` 返回当前积分账户、任务目录、`generationTasks`、今日分享奖励状态和会员有效期。`generationTasks` 从当前用户最近 50 条有执行和完成记录的成功任务中筛选生成任务，每项为 `{ id, prompt, claimed }`，`claimed` 读取当前用户的持久化任务奖励记录；无符合条件的任务时返回空数组。
+需要登录并启用积分功能。`GET /api/rewards` 返回当前积分账户、任务目录、`generationTasks`、今日分享奖励状态和会员有效期。`generationTasks` 从当前用户最近 100 条有执行和完成记录的成功任务中筛选，每种生成工具只保留一条展示记录；每项为 `{ id, prompt, category, claimed }`，其中 `category` 为 `image`、`video`、`text` 或 `canvas`。图片、视频、文本和画布生成各自最多奖励一次，`claimed` 读取对应类别的持久化奖励记录；无符合条件的任务时返回空数组。
 
-当前用户经服务端执行并成功完成的生成任务可通过 `POST /api/rewards/tasks/:taskId/claim` 领取一次 1 积分。任务必须具有执行次数、有效开始/完成时间、可解析的输入和非空结果对象；客户端自行提交完成的文本回放任务和内部非生成任务不符合条件，仅有 `succeeded` 状态不足以领取。读取列表和实际领取共用资格校验。领取返回 `{ account, granted }`，重复领取返回 `granted: false` 且不追加积分；前端据此更新余额并显示禁用的“已领取”，刷新后保持。
+当前用户经服务端执行并成功完成的图片、视频、文本或画布生成任务可通过 `POST /api/rewards/tasks/:taskId/claim` 领取对应类别的一次 1 积分。关联画布项目的创作页任务仍按图片、视频或文本模式计算；只有画布生成入口标记为 `canvas`。任务必须具有执行次数、有效开始/完成时间、可解析的输入和非空结果对象；客户端自行提交完成的文本回放、去水印等处理任务和内部非生成任务不符合条件，仅有 `succeeded` 状态不足以领取。读取列表和实际领取共用资格校验。领取返回 `{ account, granted }`，同一类别重复领取返回 `granted: false` 且不追加积分；前端据此更新余额并显示禁用的“已领取”，刷新后保持。
 
 公开画布分享记录可通过 `POST /api/rewards/shares/:shareId/claim` 按 UTC 日期领取一次 2 积分。服务端校验任务或分享记录归属、状态和幂等键。
 

@@ -40,11 +40,11 @@ test.each(["empty", "pending", "claimed"])("rewards %s state always leads to cre
     const adapter = apiClient.defaults.adapter;
     const locale = useLocaleStore.getState().locale;
     useLocaleStore.setState({ locale: "zh-CN" });
-    const tasks = state === "empty" ? [] : [{ id: "task/a b", prompt: "待查看的作品", claimed: state === "claimed" }];
+    const tasks = state === "empty" ? [] : [{ id: "task/a b", prompt: "待查看的作品", category: "text", claimed: state === "claimed" }];
     let writes = 0;
     apiClient.defaults.adapter = async (config) => {
         if (config.method !== "get") writes++;
-        const data = config.url === "/rewards" ? { account: { availableMicrocredits: 0 }, membership: {}, tasks: [], generationTasks: tasks } : { products: [] };
+        const data = config.url === "/rewards" ? { account: { availableMicrocredits: 0 }, membership: {}, tasks: [{ id: "generation-image", name: "完成图片生成", description: "", amountMicrocredits: 1_000_000 }, { id: "generation-video", name: "完成视频生成", description: "", amountMicrocredits: 1_000_000 }, { id: "generation-text", name: "完成文本生成", description: "", amountMicrocredits: 1_000_000 }, { id: "generation-canvas", name: "完成画布生成", description: "", amountMicrocredits: 1_000_000 }], generationTasks: tasks } : { products: [] };
         return { data: { code: 0, data, msg: "" }, status: 200, statusText: "OK", headers: {}, config };
     };
     const host = document.createElement("div");
@@ -54,6 +54,10 @@ test.each(["empty", "pending", "claimed"])("rewards %s state always leads to cre
         await act(async () => { root.render(<MemoryRouter initialEntries={["/rewards"]}><App><RewardsPage /><RouteProbe /></App></MemoryRouter>); });
         expect(host.querySelector(".rewards-task-status")?.textContent).toBe(state === "empty" ? "完成第一次创作，成功后可领取 1 积分" : state === "pending" ? "有 1 项奖励待领取" : "当前奖励已全部领取");
         expect(host.textContent).toContain("生成费用按所选模型计费");
+        expect(host.querySelector('a[href="/toolbox/image"]')).not.toBeNull();
+        expect(host.querySelector('a[href="/toolbox/video"]')).not.toBeNull();
+        expect(host.querySelector('a[href="/create"]')).not.toBeNull();
+        expect(host.querySelector('a[href="/canvas"]')).not.toBeNull();
         const create = host.querySelector<HTMLAnchorElement>(".rewards-create-link");
         expect(create?.getAttribute("href")).toBe("/create");
         expect(create?.textContent).toContain(state === "claimed" ? "继续创作" : "去创作");
@@ -82,7 +86,7 @@ test("returning from creation refreshes rewards and disabled task center exposes
     useUserStore.setState({ features: { ...features, taskCenterEnabled: false } });
     let created = false;
     apiClient.defaults.adapter = async (config) => {
-        const data = config.url === "/rewards" ? { account: { availableMicrocredits: 0 }, membership: {}, tasks: [], generationTasks: created ? [{ id: "new-task", prompt: "刚完成的作品", claimed: false }] : [] } : { products: [] };
+        const data = config.url === "/rewards" ? { account: { availableMicrocredits: 0 }, membership: {}, tasks: [], generationTasks: created ? [{ id: "new-task", prompt: "刚完成的作品", category: "text", claimed: false }] : [] } : { products: [] };
         return { data: { code: 0, data, msg: "" }, status: 200, statusText: "OK", headers: {}, config };
     };
     function CreateRoute() {
@@ -256,7 +260,7 @@ test.each(["granted", "already-claimed", "failed"])("task reward reflects server
     apiClient.defaults.adapter = async (config) => {
         let data: unknown;
         if (config.url === "/rewards") {
-            data = { account: { userId: "owner", availableMicrocredits: claimed ? 1_000_000 : 0 }, membership: { userId: "owner", plan: "", startsAt: "", expiresAt: "" }, tasks: [], shareRewardMicrocredits: 2_000_000, shareClaimedToday: false, generationTasks: [{ id: "previous", prompt: "之前已领取的任务", claimed: true }, { id: "available", prompt: "服务端完成的任务", claimed }] };
+            data = { account: { userId: "owner", availableMicrocredits: claimed ? 1_000_000 : 0 }, membership: { userId: "owner", plan: "", startsAt: "", expiresAt: "" }, tasks: [], shareRewardMicrocredits: 2_000_000, shareClaimedToday: false, generationTasks: [{ id: "previous", prompt: "之前已领取的任务", category: "image", claimed: true }, { id: "available", prompt: "服务端完成的任务", category: "text", claimed }] };
         } else if (config.url === "/payments/products") {
             data = { products: [] };
         } else if (config.url === "/tasks") {

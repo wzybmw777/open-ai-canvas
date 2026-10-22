@@ -20,6 +20,7 @@ export type Membership = {
 export type GenerationTaskReward = {
     id: string;
     prompt: string;
+    category: "image" | "video" | "text" | "canvas";
     claimed: boolean;
 };
 

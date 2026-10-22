@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { defaultModelCapabilityConfig } from "../src/lib/model-capabilities";
 import { modelQuoteRequest } from "../src/lib/model-pricing";
 import { creationVideoConfig } from "../src/pages/create/creation-generation-config";
+import { runBackendCanvasGenerationTask } from "../src/lib/canvas/canvas-project-generation";
 import { prepareBackendGenerationTask } from "../src/services/api/generation-task";
 import { defaultConfig, type AiConfig } from "../src/stores/use-config-store";
 
@@ -46,6 +47,25 @@ test("创作台无声视频报价、提交与重试不携带全局音频和水�
     }
     expect(config.videoGenerateAudio).toBe("true");
     expect(config.videoWatermark).toBe("true");
+});
+
+test("关联画布项目的创作页任务仍按生成模式记录，不自动标记为画布生成", async () => {
+    const config = videoConfig({ supported: true, default: false });
+    const task = await prepareBackendGenerationTask({ projectId: "canvas-project", mode: "video", prompt: "小猫在奔跑", config });
+    const metadata = (task.input as Record<string, any>).metadata;
+    expect(metadata?.generationSurface).toBeUndefined();
+});
+
+test("画布生成入口显式标记 canvas 奖励类别", async () => {
+    const config = videoConfig({ supported: true, default: false });
+    let captured: any;
+    const task = { id: "task-1", type: "canvas_video", status: "queued", prompt: "小猫在奔跑", attempts: 0, createdAt: "now", updatedAt: "now", resultJson: JSON.stringify({ mode: "video", video: { dataUrl: "blob:video" } }) } as any;
+    await runBackendCanvasGenerationTask({ projectId: "canvas-project", nodeId: "node-1", mode: "video", prompt: "小猫在奔跑", config }, {
+        createTask: async (input) => { captured = input; return task; },
+        waitTask: async () => task,
+        createId: () => "client-id",
+    });
+    expect(captured.input.metadata.generationSurface).toBe("canvas");
 });
 
 test.each([false, true])("创作台支持同步音频时遵循模型默认值 %s", (audioDefault) => {

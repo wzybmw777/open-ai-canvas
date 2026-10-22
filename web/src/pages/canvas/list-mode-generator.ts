@@ -377,6 +377,7 @@ export async function handleListGenerate({
             referenceImages,
             referenceVideos,
             streamText: false,
+            metadata: { generationSurface: "canvas", source: "canvas-list-mode" },
         });
 
         const text = result.text || "";

@@ -68,7 +68,7 @@ export async function runBackendCanvasGenerationTask(
             referenceAudios,
             mask,
             signal,
-            metadata: { nodeId, ...(mode === "video" && !metadata?.videoEditOperation ? { videoEditOperation: "image_to_video" } : {}), ...metadata },
+            metadata: { nodeId, ...(mode === "video" && !metadata?.videoEditOperation ? { videoEditOperation: "image_to_video" } : {}), ...metadata, generationSurface: "canvas" },
             onTaskUpdate: onTaskCreated,
             clientOperationId,
             retryOf,

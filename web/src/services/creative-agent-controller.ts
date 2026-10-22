@@ -438,7 +438,7 @@ export class CreativeAgentController {
                 return { id: reference.id, name: reference.title || "参考图", type: reference.metadata?.mimeType || "image/png", storageKey, dataUrl: resourceFileUrl(resourceId) };
             });
             const config = { ...this.requestConfig(item.model), count: "1", ...(item.size ? { size: item.size } : {}), ...(item.seconds !== undefined ? { videoSeconds: String(item.seconds) } : {}), ...(item.quality ? item.mode === "video" ? { vquality: item.quality } : { quality: item.quality } : {}) };
-            const request = await prepareBackendGenerationTask({ projectId: this.run!.canvasId, mode: item.mode, prompt: node.metadata?.prompt || "", config, referenceImages, signal: this.abort.signal, metadata: { source: "creative-agent", creationRunId: this.run!.id, nodeId: node.id, conversationId: this.run!.id } });
+            const request = await prepareBackendGenerationTask({ projectId: this.run!.canvasId, mode: item.mode, prompt: node.metadata?.prompt || "", config, referenceImages, signal: this.abort.signal, metadata: { source: "creative-agent", generationSurface: "canvas", creationRunId: this.run!.id, nodeId: node.id, conversationId: this.run!.id } });
             request.input = { ...request.input, nodeId: node.id };
             const submission = await this.api.prepare(this.run!.id, { ...this.guard(), itemKey: `media:v${proposal.version}:${media.ref}:${media.attempt}`, proposalVersion: proposal.version, request }, this.abort.signal);
             this.upsertSubmission(submission); this.setMedia(media.ref, { submissionId: submission.id }); ids.push(submission.id);
