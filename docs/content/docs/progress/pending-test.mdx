@@ -4279,3 +4279,10 @@ SQLite 与 HTTP recorder 已验证；PostgreSQL 16／17、前端构建及浏览�
 - 已验证：`go test ./... -count=1 -timeout=20m`、`go vet ./...`、`go build ./...`、前端 2716 项测试、`bun run lint`、`bun run build` 通过；数据库与API迁移测试包含SQLite。四篇修改后的MDX逐篇编译及OpenAPI引用解析通过。
 - 环境阻塞：文档站 `bun run types:check` 在 MDX 扫描前失败，当前忽略的 `docs/node_modules/fdir/dist/index.mjs` 调用了 `Dirent.isPrevisy()`（Node Dirent 无此方法）；为避免改依赖，本轮未继续修补 node_modules。
 - [ ] 真实模型/收费生成与多次运行pass^k、provider缓存命中率、PostgreSQL 63迁移、浏览器记忆提案与历史撤销尚未人工验收。
+
+## 分镜关键帧组与视频时间轴
+
+- 已实现：分镜行新增关键帧图片提示词列表，数量由列表长度派生；关键帧支持任意数量、时间点、关联资产、增删、排序和复制，行与关键帧组双向同步。
+- 已实现：从分镜行右侧出口创建带时间轴的关键帧组节点，组内图片可独立编辑和重新生成；单帧、首尾帧和中间参考图按稳定顺序编译到视频输入。
+- [x] 关键帧契约、同步、时间轴展示、视频输入和复制/删除专项测试通过，前端 TypeScript 检查通过。
+- [ ] 用户确认真实画布中从分镜行创建关键帧组、逐帧修改提示词与资产、删除/排序关键帧、连接视频及重新生成过期视频的交互；尚未提交收费视频生成。

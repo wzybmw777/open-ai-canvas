@@ -23,7 +23,7 @@ describe("节点注册表——覆盖完整性", () => {
 
     test("仅技能与生成配置不进创建菜单", () => {
         const hidden = ALL_TYPES.filter((type) => !listCreatableNodeDefinitions().some((def) => def.type === type));
-        expect(hidden.sort()).toEqual([CanvasNodeType.Config, CanvasNodeType.Skill].sort());
+        expect(hidden.sort()).toEqual([CanvasNodeType.Config, CanvasNodeType.Skill, CanvasNodeType.KeyframeGroup].sort());
     });
 });
 
