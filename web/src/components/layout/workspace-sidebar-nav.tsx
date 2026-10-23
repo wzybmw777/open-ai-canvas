@@ -37,6 +37,10 @@ type WorkspaceNavGroup = {
     items: WorkspaceNavItem[];
 };
 
+export function isWatermarkNavigationVisible(features: Pick<FeatureAvailability, "watermarkRemovalEnabled">) {
+    return features.watermarkRemovalEnabled;
+}
+
 function toolItem(slug: NavigationToolSlug, to: string): WorkspaceNavItem {
     const tool = navigationTools.find((item) => item.slug === slug);
     return { id: slug, title: tool?.label ?? slug, icon: tool?.icon, to };
@@ -62,7 +66,7 @@ function buildNav(features: FeatureAvailability, locale: AppLocale): { groups: W
                 ...(features.pluginCenterEnabled ? [{ ...toolItem("plugins", "/plugins"), title: text("插件", "Plugins") }] : []),
                 ...(features.imageWorkbenchEnabled ? [{ id: "toolbox-image", title: text("图片生成", "Image generation"), icon: ImageIcon, to: "/toolbox/image" }] : []),
                 ...(features.videoWorkbenchEnabled ? [{ id: "toolbox-video", title: text("视频生成", "Video generation"), icon: Video, to: "/toolbox/video" }] : []),
-                ...(features.watermarkRemovalEnabled && (features.imageWorkbenchEnabled || features.videoWorkbenchEnabled) ? [{ id: "toolbox-watermark", title: text("AI 去水印", "AI watermark removal"), icon: Eraser, to: "/toolbox/watermark" }] : []),
+                ...(isWatermarkNavigationVisible(features) ? [{ id: "toolbox-watermark", title: text("AI 去水印", "AI watermark removal"), icon: Eraser, to: "/toolbox/watermark" }] : []),
             ],
         },
         ...(features.taskCenterEnabled ? [{ heading: text("记录", "Records"), items: [{ ...toolItem("tasks", "/tasks"), title: text("生成任务", "Generation tasks"), icon: HistoryIcon }] }] : []),
