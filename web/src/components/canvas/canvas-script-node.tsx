@@ -560,7 +560,14 @@ export function CanvasScriptEditor({
     const duplicateRow = (row: StoryboardRow) => {
         const index = rows.findIndex((item) => item.id === row.id);
         const next = [...rows];
-        next.splice(index + 1, 0, { ...row, id: `shot-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, imageNodeId: undefined, videoNodeId: undefined, status: "idle" });
+        const duplicatedKeyframes = (row.keyframePromptDescriptions || []).map((item, itemIndex) => ({
+            ...item,
+            id: `keyframe-${Date.now()}-${itemIndex}-${Math.random().toString(36).slice(2, 6)}`,
+            imageNodeId: undefined,
+            status: "idle" as const,
+            errorDetails: undefined,
+        }));
+        next.splice(index + 1, 0, { ...row, id: `shot-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, imageNodeId: undefined, videoNodeId: undefined, keyframeGroupNodeId: undefined, keyframePromptDescriptions: duplicatedKeyframes, status: "idle", errorDetails: undefined });
         onUpdateRows(next.map((item, rowIndex) => ({ ...item, shotNumber: rowIndex + 1 })));
     };
     const removeRow = (rowId: string) => onUpdateRows(rows.filter((row) => row.id !== rowId).map((row, index) => ({ ...row, shotNumber: index + 1 })));

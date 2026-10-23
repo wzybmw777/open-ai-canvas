@@ -81,7 +81,10 @@ export function effectiveStoryboardKeyframeAssets(row: Pick<StoryboardRow, "asse
 export function remapStoryboardKeyframeReferences(row: StoryboardRow, idMap: ReadonlyMap<string, string>): StoryboardRow {
     const keyframes = normalizeStoryboardKeyframes(row).map((item, index) => ({
         ...item,
-        id: createKeyframeId(),
+        // Child image nodes are copied together with the row. Deriving the new
+        // keyframe id from the copied image id keeps the row, group and image
+        // metadata linked without sharing the original identity.
+        id: item.imageNodeId && idMap.has(item.imageNodeId) ? `keyframe-${idMap.get(item.imageNodeId)}` : createKeyframeId(),
         order: index,
         imageNodeId: item.imageNodeId ? idMap.get(item.imageNodeId) : undefined,
         assetBindings: item.assetBindings.map((binding) => ({ ...binding, nodeId: idMap.get(binding.nodeId) || binding.nodeId })),

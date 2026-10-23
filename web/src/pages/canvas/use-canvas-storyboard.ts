@@ -121,6 +121,13 @@ export function useCanvasStoryboard({
                 const result = replaceStoryboardRowAssets(nextNodes, nextConnections, nodeId, row.id, row.assetBindings || []);
                 nextNodes = result.nodes;
                 nextConnections = result.connections;
+                const itemById = new Map(normalizeStoryboardKeyframes(row).map((item) => [item.id, item]));
+                nextNodes = nextNodes.map((node) => {
+                    const item = node.metadata?.storyboardNodeId === nodeId && node.metadata?.rowId === row.id && node.metadata?.keyframeId ? itemById.get(node.metadata.keyframeId) : undefined;
+                    if (item && node.type === CanvasNodeType.Image) return { ...node, metadata: { ...node.metadata, assetBindings: effectiveStoryboardKeyframeAssets(row, item), content: undefined, storageKey: undefined, status: NODE_STATUS_IDLE, needsRegeneration: true } };
+                    if (node.id === row.videoNodeId && node.type === CanvasNodeType.Video) return { ...node, metadata: { ...node.metadata, needsRegeneration: true } };
+                    return node;
+                });
             }
             nodesRef.current = nextNodes;
             connectionsRef.current = nextConnections;
@@ -131,8 +138,14 @@ export function useCanvasStoryboard({
             .filter((connection) => connection.fromNodeId !== nodeId && connection.toNodeId !== nodeId || !connection.storyboardRowId || storyboardRowIds.has(connection.storyboardRowId))
             .filter((connection) => connection.fromNodeId !== nodeId || !connection.fromHandleId?.startsWith("row:") || rowIds.has(connection.fromHandleId))
             .filter((connection) => connection.toNodeId !== nodeId || !connection.toHandleId?.startsWith("row:") || rowIds.has(connection.toHandleId)));
-        if (!changedBindings.length) updateScriptRows(nodeId, () => nextRows);
-    }, [connectionsRef, nodesRef, setConnections, setNodes, updateScriptRows]);
+        if (!changedBindings.length) {
+            const nextNodes = nodesRef.current.map((node) => node.id === nodeId
+                ? { ...node, metadata: { ...node.metadata, storyboard: { ...node.metadata?.storyboard!, rows: nextRows } } }
+                : node);
+            nodesRef.current = nextNodes;
+            setNodes(nextNodes);
+        }
+    }, [connectionsRef, nodesRef, setConnections, setNodes]);
 
     const addScriptRow = useCallback((nodeId: string) => {
         updateScriptRows(nodeId, (rows) => [...rows, createStoryboardRow(rows.length + 1)]);
@@ -151,11 +164,33 @@ export function useCanvasStoryboard({
         const script = nodesRef.current.find((node) => node.id === nodeId && node.type === CanvasNodeType.Script);
         const currentRow = script?.metadata?.storyboard?.rows.find((row) => row.id === rowId);
         if (!script || !currentRow) return;
-        const nextRow = updater(currentRow);
-        const nextItems = normalizeStoryboardKeyframes(nextRow);
+        let nextRow = updater(currentRow);
+        let nextItems = normalizeStoryboardKeyframes(nextRow);
         let nextNodes = nodesRef.current.map((node) => node.id === nodeId
             ? { ...node, metadata: { ...node.metadata, storyboard: { ...node.metadata?.storyboard!, rows: (node.metadata?.storyboard?.rows || []).map((row) => row.id === rowId ? nextRow : row) } } }
             : node);
+        const group = nextRow.keyframeGroupNodeId ? nextNodes.find((node) => node.id === nextRow.keyframeGroupNodeId && node.type === CanvasNodeType.KeyframeGroup) : undefined;
+        if (group) {
+            const imageSpec = NODE_DEFAULT_SIZE[CanvasNodeType.Image];
+            const materializedItems = nextItems.map((item, index) => {
+                const existing = item.imageNodeId ? nextNodes.find((node) => node.id === item.imageNodeId && node.type === CanvasNodeType.Image) : undefined;
+                const previous = normalizeStoryboardKeyframes(currentRow).find((candidate) => candidate.id === item.id);
+                const changed = Boolean(previous && (previous.prompt !== item.prompt || JSON.stringify(previous.assetBindings) !== JSON.stringify(item.assetBindings) || previous.timeRatio !== item.timeRatio));
+                const metadata = existing
+                    ? { ...existing.metadata, prompt: item.prompt, composerContent: item.prompt, assetBindings: effectiveStoryboardKeyframeAssets(nextRow, item), ...(changed ? { status: "idle" as const, content: undefined, storageKey: undefined, needsRegeneration: true } : {}) }
+                    : { prompt: item.prompt, composerContent: item.prompt, assetBindings: effectiveStoryboardKeyframeAssets(nextRow, item), workflowKind: "shot" as const, workflowTitle: `镜头 ${nextRow.shotNumber} 关键帧 ${index + 1}`, storyboardNodeId: nodeId, rowId, keyframeGroupNodeId: group.id, keyframeId: item.id, shotIndex: nextRow.shotNumber, status: NODE_STATUS_IDLE };
+                const image = existing ? { ...existing, metadata } : createCanvasNode(CanvasNodeType.Image, { x: group.position.x + group.width + imageSpec.width / 2 + 100, y: group.position.y + index * (imageSpec.height + 28) }, metadata);
+                image.title = `镜头 ${nextRow.shotNumber} · 关键帧 ${index + 1}`;
+                if (!existing) nextNodes.push(image);
+                else nextNodes = nextNodes.map((node) => node.id === image.id ? image : node);
+                return { ...item, imageNodeId: image.id };
+            });
+            nextItems = materializedItems;
+            nextRow = { ...nextRow, keyframePromptDescriptions: materializedItems };
+            nextNodes = nextNodes.map((node) => node.id === nodeId
+                ? { ...node, metadata: { ...node.metadata, storyboard: { ...node.metadata?.storyboard!, rows: (node.metadata?.storyboard?.rows || []).map((row) => row.id === rowId ? nextRow : row) } } }
+                : node);
+        }
         const itemById = new Map(nextItems.map((item) => [item.id, item]));
         nextNodes = nextNodes.map((node) => {
             const keyframeId = node.metadata?.keyframeId;
@@ -245,9 +280,19 @@ export function useCanvasStoryboard({
 
     const removeScriptRow = useCallback((nodeId: string, rowId: string) => {
         const node = nodesRef.current.find((item) => item.id === nodeId);
+        const removedRow = node?.metadata?.storyboard?.rows.find((row) => row.id === rowId);
+        const ownedIds = new Set<string>([removedRow?.imageNodeId, removedRow?.videoNodeId, removedRow?.keyframeGroupNodeId, ...(removedRow?.keyframePromptDescriptions || []).map((item) => item.imageNodeId)].filter((id): id is string => Boolean(id)));
         const rows = (node?.metadata?.storyboard?.rows || []).filter((row) => row.id !== rowId).map((row, index) => ({ ...row, shotNumber: index + 1 }));
         replaceScriptRows(nodeId, rows);
-    }, [nodesRef, replaceScriptRows]);
+        if (ownedIds.size) {
+            const nextNodes = nodesRef.current.filter((candidate) => !ownedIds.has(candidate.id));
+            const nextConnections = connectionsRef.current.filter((connection) => !ownedIds.has(connection.fromNodeId) && !ownedIds.has(connection.toNodeId));
+            nodesRef.current = nextNodes;
+            connectionsRef.current = nextConnections;
+            setNodes(nextNodes);
+            setConnections(nextConnections);
+        }
+    }, [connectionsRef, nodesRef, replaceScriptRows, setConnections, setNodes]);
 
     const generateScriptRows = useCallback(async (nodeId: string, prompt: string, callerSignal?: AbortSignal) => {
         const scriptNode = nodesRef.current.find((node) => node.id === nodeId && node.type === CanvasNodeType.Script);
@@ -613,15 +658,15 @@ export function useCanvasStoryboard({
         let scriptNode = nodesRef.current.find((node) => node.id === nodeId && node.type === CanvasNodeType.Script);
         let rows = (scriptNode?.metadata?.storyboard?.rows || []).filter((row) => rowIds.includes(row.id));
         if (!scriptNode || !rows.length) return;
-        rows.filter((row) => normalizeStoryboardKeyframes(row).length && !row.keyframeGroupNodeId).forEach((row) => ensureStoryboardKeyframeGroup(nodeId, row.id));
+        rows.filter((row) => normalizeStoryboardKeyframes(row).length).forEach((row) => ensureStoryboardKeyframeGroup(nodeId, row.id));
         scriptNode = nodesRef.current.find((node) => node.id === nodeId && node.type === CanvasNodeType.Script);
         rows = (scriptNode?.metadata?.storyboard?.rows || []).filter((row) => rowIds.includes(row.id));
         if (!scriptNode || !rows.length) return;
         const readyRows = rows.filter((row) => {
             if (row.keyframeGroupNodeId && normalizeStoryboardKeyframes(row).length) {
-                return normalizeStoryboardKeyframes(row).every((item) => item.imageNodeId && nodesRef.current.some((node) => node.id === item.imageNodeId && node.type === CanvasNodeType.Image && node.metadata?.content));
+                return normalizeStoryboardKeyframes(row).every((item) => item.imageNodeId && nodesRef.current.some((node) => node.id === item.imageNodeId && node.type === CanvasNodeType.Image && (node.metadata?.content || node.metadata?.storageKey) && node.metadata?.status !== "error"));
             }
-            return Boolean(row.imageNodeId && nodesRef.current.some((node) => node.id === row.imageNodeId && node.type === CanvasNodeType.Image && node.metadata?.content));
+            return Boolean(row.imageNodeId && nodesRef.current.some((node) => node.id === row.imageNodeId && node.type === CanvasNodeType.Image && (node.metadata?.content || node.metadata?.storageKey) && node.metadata?.status !== "error"));
         });
         if (!readyRows.length) return message.warning("请先生成并检查选中镜头的首帧");
         if (readyRows.length !== rows.length) return message.warning(`${rows.length - readyRows.length} 个选中镜头还没有可用首帧，请全部生成并检查后再确认`);

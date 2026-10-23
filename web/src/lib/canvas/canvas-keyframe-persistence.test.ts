@@ -30,5 +30,7 @@ test("复制分镜行会映射组与图片节点，并生成新的关键帧 ID",
     const copiedRow = copied.storyboard?.rows[0];
     assert.equal(copiedRow?.keyframeGroupNodeId, "group-2");
     assert.equal(copiedRow?.keyframePromptDescriptions?.[0]?.imageNodeId, "image-2");
-    assert.notEqual(copiedRow?.keyframePromptDescriptions?.[0]?.id, "kf-1");
+    assert.equal(copiedRow?.keyframePromptDescriptions?.[0]?.id, "keyframe-image-2");
+    const copiedImage = isolateCopiedNodeMetadata(node("image-1", CanvasNodeType.Image, { keyframeId: "kf-1" }), new Map([["image-1", "image-2"]]));
+    assert.equal(copiedImage.keyframeId, "keyframe-image-2");
 });

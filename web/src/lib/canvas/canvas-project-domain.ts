@@ -346,8 +346,10 @@ export function attachNodeToStoryboardRow(nodes: CanvasNodeData[], connection: P
         if (groupScript && groupRow) {
             const keyframes = sortStoryboardKeyframes(normalizeStoryboardKeyframes(groupRow));
             const imageIds = keyframes.map((item) => item.imageNodeId).filter((id): id is string => Boolean(id));
+            const prompt = (groupRow.videoMotionPrompt || groupRow.plotDescription).trim();
+            const composerContent = storyboardComposerContent(prompt, imageIds, nodes);
             return nodes.map((node) => {
-                if (node.id === toNode.id) return { ...node, metadata: { ...node.metadata, videoStartFrameNodeId: imageIds[0], videoEndFrameNodeId: imageIds.length > 1 ? imageIds.at(-1) : imageIds[0], keyframeGroupNodeId: fromNode.id, keyframeIds: keyframes.map((item) => item.id), videoEditOperation: "image_to_video" as const, generationMode: "video" as const, seconds: String(groupRow.durationSeconds), needsRegeneration: true } };
+                if (node.id === toNode.id) return { ...node, title: `镜头 ${groupRow.shotNumber} · 视频`, metadata: { ...node.metadata, prompt, composerContent, ...storyboardPromptTemplateMetadata(groupRow, "video"), workflowKind: "shot" as const, workflowTitle: `镜头 ${groupRow.shotNumber} 视频`, shotIndex: groupRow.shotNumber, videoStartFrameNodeId: imageIds[0], videoEndFrameNodeId: imageIds.length > 1 ? imageIds.at(-1) : imageIds[0], keyframeGroupNodeId: fromNode.id, keyframeIds: keyframes.map((item) => item.id), videoEditOperation: "image_to_video" as const, generationMode: "video" as const, seconds: String(groupRow.durationSeconds), needsRegeneration: true } };
                 if (node.id === groupScript.id) return { ...node, metadata: { ...node.metadata, storyboard: { ...node.metadata?.storyboard!, rows: (node.metadata?.storyboard?.rows || []).map((item) => item.id === groupRow.id ? { ...item, videoNodeId: toNode.id } : item) } } };
                 return node;
             });
@@ -526,6 +528,15 @@ export function removeCanvasNodes(nodes: CanvasNodeData[], requestedIds: Set<str
     nodes.forEach((node) => {
         if (requestedIds.has(node.id)) node.metadata?.batchChildIds?.forEach((childId) => removedIds.add(childId));
         if (requestedIds.has(node.id)) node.metadata?.experimentalLayerPlan?.requests.forEach((request) => removedIds.add(request.nodeId));
+        if (requestedIds.has(node.id) && node.type === CanvasNodeType.KeyframeGroup) {
+            nodes.filter((candidate) => candidate.metadata?.keyframeGroupNodeId === node.id).forEach((candidate) => removedIds.add(candidate.id));
+        }
+        if (requestedIds.has(node.id) && node.type === CanvasNodeType.Script) {
+            node.metadata?.storyboard?.rows.forEach((row) => {
+                if (row.keyframeGroupNodeId) removedIds.add(row.keyframeGroupNodeId);
+                row.keyframePromptDescriptions?.forEach((item) => { if (item.imageNodeId) removedIds.add(item.imageNodeId); });
+            });
+        }
     });
     const remainingNodes = nodes.filter((node) => !removedIds.has(node.id));
     const cleanedNodes = remainingNodes.map((node) => {

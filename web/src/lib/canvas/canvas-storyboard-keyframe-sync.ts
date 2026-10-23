@@ -44,7 +44,8 @@ export function reorderStoryboardKeyframes(row: StoryboardRow, orderedIds: strin
         seen.add(id);
         ordered.push(item);
     }
-    const next = ordered.map((item, order) => ({ ...item, order }));
+    const lastIndex = Math.max(0, ordered.length - 1);
+    const next = ordered.map((item, order) => ({ ...item, order, timeRatio: lastIndex === 0 ? 0 : order / lastIndex }));
     return { ...row, keyframePromptDescriptions: next };
 }
 

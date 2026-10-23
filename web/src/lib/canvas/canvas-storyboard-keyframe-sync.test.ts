@@ -30,6 +30,7 @@ test("新增、删除和排序保持稳定 ID 与派生数量", () => {
     const insertedId = appended.keyframePromptDescriptions?.[2]?.id || "";
     const reordered = reorderStoryboardKeyframes(appended, [insertedId, "a", "b"]);
     assert.deepEqual(reordered.keyframePromptDescriptions?.map((item) => item.id), [insertedId, "a", "b"]);
+    assert.deepEqual(reordered.keyframePromptDescriptions?.map((item) => item.timeRatio), [0, 0.5, 1]);
     const removed = removeStoryboardKeyframe(reordered, "a");
     assert.equal(removed.keyframePromptDescriptions?.length, 2);
     assert.deepEqual(removed.keyframePromptDescriptions?.map((item) => item.order), [0, 1]);

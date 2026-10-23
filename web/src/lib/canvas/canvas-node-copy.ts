@@ -106,11 +106,14 @@ export function isolateCopiedNodeMetadata(node: CanvasNodeData, idMap: ReadonlyM
     metadata.videoStartFrameNodeId = remapReferenceId(node.metadata?.videoStartFrameNodeId, idMap);
     metadata.videoEndFrameNodeId = remapReferenceId(node.metadata?.videoEndFrameNodeId, idMap);
     metadata.keyframeGroupNodeId = remapOwnedNodeId(node.metadata?.keyframeGroupNodeId, idMap);
-    metadata.keyframeIds = node.metadata?.keyframeIds ? [...node.metadata.keyframeIds] : undefined;
+    // The copied storyboard row is the source of truth for keyframe ids. A
+    // copied group/video must not retain the original array, otherwise it can
+    // point at the source row until the next video generation pass.
+    metadata.keyframeIds = node.metadata?.keyframeGroupNodeId ? undefined : node.metadata?.keyframeIds ? [...node.metadata.keyframeIds] : undefined;
     metadata.needsRegeneration = node.metadata?.keyframeGroupNodeId ? true : node.metadata?.needsRegeneration;
     metadata.storyboardNodeId = remapReferenceId(node.metadata?.storyboardNodeId, idMap);
     metadata.rowId = node.metadata?.rowId;
-    metadata.keyframeId = node.metadata?.keyframeId;
+    metadata.keyframeId = node.metadata?.keyframeId && idMap.has(node.id) ? `keyframe-${idMap.get(node.id)}` : node.metadata?.keyframeId;
     metadata.previsPreviewNodeId = remapOwnedNodeId(node.metadata?.previsPreviewNodeId, idMap);
     metadata.previsDepthNodeId = remapOwnedNodeId(node.metadata?.previsDepthNodeId, idMap);
     metadata.previsDepthVideoNodeId = remapOwnedNodeId(node.metadata?.previsDepthVideoNodeId, idMap);

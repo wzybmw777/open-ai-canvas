@@ -439,7 +439,13 @@ export function useCanvasConnectionController({
         const toAnchorRatio = connection.toNodeId === pending.connection.nodeId ? pending.connection.anchorRatio : 0.5;
         const connected = { ...connection, fromHandleId, toHandleId, fromAnchorRatio, toAnchorRatio };
         setNodes((currentNodes) => attachNodeToStoryboardRow([...currentNodes, newNode], connected));
-        setConnections((currentConnections) => [...currentConnections, { id: nanoid(), ...connected }]);
+        const sourceGroup = nodesRef.current.find((node) => node.id === connected.fromNodeId && node.type === CanvasNodeType.KeyframeGroup);
+        const sourceGroupScript = sourceGroup?.metadata?.storyboardNodeId ? nodesRef.current.find((node) => node.id === sourceGroup?.metadata?.storyboardNodeId && node.type === CanvasNodeType.Script) : undefined;
+        const sourceGroupRow = sourceGroupScript?.metadata?.storyboard?.rows.find((row) => row.id === sourceGroup?.metadata?.rowId);
+        const childConnections = sourceGroup && newNode.type === CanvasNodeType.Video && sourceGroupRow
+            ? normalizeStoryboardKeyframes(sourceGroupRow).flatMap((item) => item.imageNodeId ? [{ id: nanoid(), fromNodeId: item.imageNodeId, toNodeId: newNode.id, relation: "storyboard-asset-reference" as const }] : [])
+            : [];
+        setConnections((currentConnections) => [...currentConnections, { id: nanoid(), ...connected }, ...childConnections.filter((child) => !currentConnections.some((connection) => connection.fromNodeId === child.fromNodeId && connection.toNodeId === child.toNodeId))]);
         setSelectedNodeIds(new Set([newNode.id]));
         setSelectedConnectionId(null);
         if (nodeType === CanvasNodeType.Drawing) setDrawingNodeId(newNode.id);

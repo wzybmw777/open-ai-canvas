@@ -1,4 +1,4 @@
-import { Plus, RefreshCw, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, RefreshCw, Trash2 } from "lucide-react";
 
 import { CachedResourceImage } from "@/components/cached-resource-image";
 import { normalizeStoryboardKeyframes, sortStoryboardKeyframes } from "@/lib/canvas/canvas-storyboard-keyframes";
@@ -63,7 +63,7 @@ function stateLabel(item: KeyframeGroupPresentationItem) {
     return "待生成";
 }
 
-export function CanvasKeyframeGroupNodeContent({ row, imageNodes, theme, readOnly = false, onUpdateKeyframe, onAddKeyframe, onRemoveKeyframe, onRegenerateKeyframe }: CanvasKeyframeGroupNodeContentProps) {
+export function CanvasKeyframeGroupNodeContent({ row, imageNodes, theme, readOnly = false, onUpdateKeyframe, onAddKeyframe, onRemoveKeyframe, onReorderKeyframes, onRegenerateKeyframe }: CanvasKeyframeGroupNodeContentProps) {
     const items = buildKeyframeGroupPresentation(row, imageNodes);
     const orderedIds = items.map((item) => item.keyframeId);
     return (
@@ -101,6 +101,10 @@ export function CanvasKeyframeGroupNodeContent({ row, imageNodes, theme, readOnl
                             <div className="canvas-keyframe-group__card-meta">{item.seconds.toFixed(1)}s · {item.isFirst && item.isLast ? "首尾" : item.isFirst ? "起始" : item.isLast ? "结束" : "过程"}</div>
                             {readOnly ? <div className="canvas-keyframe-group__prompt">{item.prompt || "未填写提示词"}</div> : <textarea className="canvas-keyframe-group__prompt-input" value={item.prompt} onChange={(event) => onUpdateKeyframe?.(item.keyframeId, { prompt: event.target.value, promptTemplateVariables: undefined })} aria-label={`关键帧 ${item.seconds.toFixed(1)} 秒提示词`} rows={2} />}
                             {!readOnly ? <div className="canvas-keyframe-group__actions">
+                                {onReorderKeyframes ? <>
+                                    <button type="button" onClick={() => onReorderKeyframes([...orderedIds.slice(0, orderedIds.indexOf(item.keyframeId) - 1), item.keyframeId, ...orderedIds.slice(orderedIds.indexOf(item.keyframeId) - 1, orderedIds.indexOf(item.keyframeId)), ...orderedIds.slice(orderedIds.indexOf(item.keyframeId) + 1)])} disabled={orderedIds.indexOf(item.keyframeId) <= 0} aria-label="关键帧上移"><ChevronUp size={13} /></button>
+                                    <button type="button" onClick={() => onReorderKeyframes([...orderedIds.slice(0, orderedIds.indexOf(item.keyframeId)), ...orderedIds.slice(orderedIds.indexOf(item.keyframeId) + 1, orderedIds.indexOf(item.keyframeId) + 2), item.keyframeId, ...orderedIds.slice(orderedIds.indexOf(item.keyframeId) + 2)])} disabled={orderedIds.indexOf(item.keyframeId) >= orderedIds.length - 1} aria-label="关键帧下移"><ChevronDown size={13} /></button>
+                                </> : null}
                                 <button type="button" onClick={() => onRegenerateKeyframe?.(item.keyframeId)} aria-label={`重新生成 ${item.seconds.toFixed(1)} 秒关键帧`}><RefreshCw size={13} />生成</button>
                                 <button type="button" onClick={() => onRemoveKeyframe?.(item.keyframeId)} aria-label={`删除 ${item.seconds.toFixed(1)} 秒关键帧`}><Trash2 size={13} />删除</button>
                             </div> : null}
@@ -108,7 +112,7 @@ export function CanvasKeyframeGroupNodeContent({ row, imageNodes, theme, readOnl
                     </div>
                 ))}
             </div>
-            {orderedIds.length > 1 ? <div className="canvas-keyframe-group__footer">拖动关键帧可调整顺序；中间图片作为视频参考图</div> : null}
+            {orderedIds.length > 1 ? <div className="canvas-keyframe-group__footer">使用上移/下移调整顺序；中间图片作为视频参考图</div> : null}
         </div>
     );
 }

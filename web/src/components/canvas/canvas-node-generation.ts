@@ -76,7 +76,10 @@ export function buildStoryboardKeyframeVideoInput(groupNode: CanvasNodeData, nod
     const keyframes = sortStoryboardKeyframes(normalizeStoryboardKeyframes(row));
     if (!keyframes.length) throw new Error("关键帧组没有可用图片");
     const nodeById = new Map(nodes.map((node) => [node.id, node]));
-    const orderedImageNodeIds = keyframes.map((item) => item.imageNodeId).filter((id): id is string => Boolean(id && nodeById.get(id)?.type === CanvasNodeType.Image));
+    const orderedImageNodeIds = keyframes.map((item) => item.imageNodeId).filter((id): id is string => {
+        const image = id ? nodeById.get(id) : undefined;
+        return Boolean(image?.type === CanvasNodeType.Image && (image.metadata?.content || image.metadata?.storageKey) && image.metadata?.status !== "error");
+    });
     if (orderedImageNodeIds.length !== keyframes.length) throw new Error("关键帧组中有图片尚未生成或已丢失");
     return {
         orderedImageNodeIds,
