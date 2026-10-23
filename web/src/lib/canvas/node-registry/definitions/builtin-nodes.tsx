@@ -167,6 +167,12 @@ const BUILTIN_NODE_TRAITS = {
         resourceKind: () => "image",
         inputKind: "image",
     },
+    [CanvasNodeType.KeyframeGroup]: {
+        label: "关键帧组",
+        icon: <Clapperboard />,
+        minSize: { width: 620, height: 280 },
+        showInCreateMenu: false,
+    },
 } satisfies Record<string, Omit<CanvasNodeDefinition, "type" | "defaultTitle" | "defaultSize" | "defaultMetadata">>;
 
 export const BUILTIN_NODE_DEFINITIONS: CanvasNodeDefinition[] = (Object.keys(BUILTIN_NODE_TRAITS) as CanvasNodeType[]).map((type) => {

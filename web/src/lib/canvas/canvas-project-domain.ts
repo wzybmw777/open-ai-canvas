@@ -68,6 +68,7 @@ export function createStoryboardRow(shotNumber: number, patch: Partial<Storyboar
         continuityOut: "",
         negativePrompt: "",
         assetBindings: [],
+        keyframePromptDescriptions: [],
         status: "idle",
         ...patch,
     };

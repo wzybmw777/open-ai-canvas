@@ -1,4 +1,5 @@
 import { resetGenerationTaskMetadata } from "@/lib/canvas/canvas-project-generation";
+import { remapStoryboardKeyframeReferences } from "@/lib/canvas/canvas-storyboard-keyframes";
 import { CanvasNodeType, type CanvasNodeData, type CanvasNodeMetadata, type StoryboardRow } from "@/types/canvas";
 
 const COPY_TITLE_SUFFIX = /^(.*)_copy(\d+)$/i;
@@ -29,16 +30,17 @@ function remapReferenceIds(nodeIds: string[] | undefined, idMap: ReadonlyMap<str
 }
 
 function copyStoryboardRow(row: StoryboardRow, idMap: ReadonlyMap<string, string>): StoryboardRow {
-    const imageNodeId = remapOwnedNodeId(row.imageNodeId, idMap);
-    const videoNodeId = remapOwnedNodeId(row.videoNodeId, idMap);
-    const hasCopiedOutput = Boolean(imageNodeId || videoNodeId);
+    const remapped = remapStoryboardKeyframeReferences(row, idMap);
+    const imageNodeId = remapped.imageNodeId;
+    const videoNodeId = remapped.videoNodeId;
+    const hasCopiedOutput = Boolean(imageNodeId || videoNodeId || remapped.keyframeGroupNodeId);
     return {
-        ...row,
+        ...remapped,
         characters: (row.characters || []).map((character) => ({
             ...character,
             characterImageNodeId: remapReferenceId(character.characterImageNodeId, idMap),
         })),
-        assetBindings: (row.assetBindings || []).map((binding) => ({ ...binding, nodeId: remapReferenceId(binding.nodeId, idMap)! })),
+        assetBindings: (remapped.assetBindings || []).map((binding) => ({ ...binding, nodeId: remapReferenceId(binding.nodeId, idMap)! })),
         imageNodeId,
         videoNodeId,
         status: hasCopiedOutput ? row.status : "idle",

@@ -41,6 +41,7 @@ export enum CanvasNodeType {
     ColorGrade = "colorgrade",
     MediaConversion = "media-conversion",
     BatchTable = "batch-table",
+    KeyframeGroup = "keyframe-group",
 }
 
 /** Runtime IDs contributed by plugins share the persisted node type field. */
@@ -97,6 +98,20 @@ export type StoryboardAssetBinding = {
     priority: number;
 };
 
+export type StoryboardKeyframePromptDescription = {
+    id: string;
+    order: number;
+    timeRatio: number;
+    prompt: string;
+    assetBindings: StoryboardAssetBinding[];
+    imageNodeId?: string;
+    status?: CanvasNodeStatus;
+    errorDetails?: string;
+    promptTemplateVariables?: Record<string, string>;
+};
+
+export type StoryboardKeyframePromptDescriptionInput = Partial<StoryboardKeyframePromptDescription> & Pick<StoryboardKeyframePromptDescription, "prompt" | "assetBindings">;
+
 export type StoryboardCharacterReference = {
     characterName: string;
     characterAssetId?: string;
@@ -131,6 +146,10 @@ export type StoryboardRow = {
     continuityOut: string;
     negativePrompt: string;
     assetBindings: StoryboardAssetBinding[];
+    /** 关键帧图片提示词描述；关键帧数量由此数组长度派生。 */
+    keyframePromptDescriptions?: StoryboardKeyframePromptDescriptionInput[];
+    /** 由该分镜行输出创建的关键帧组节点。 */
+    keyframeGroupNodeId?: string;
     /** 原视频拆解时的时间范围，用于自动抽取关键帧。 */
     sourceStartMs?: number;
     sourceEndMs?: number;
@@ -518,6 +537,13 @@ export type CanvasNodeMetadata = {
     videoCameraMovePrompt?: string;
     videoStartFrameNodeId?: string;
     videoEndFrameNodeId?: string;
+    /** 关键帧组视频来源及其稳定输入身份。 */
+    keyframeGroupNodeId?: string;
+    keyframeIds?: string[];
+    needsRegeneration?: boolean;
+    storyboardNodeId?: string;
+    rowId?: string;
+    keyframeId?: string;
     videoFrameSourceNodeId?: string;
     videoFrameTimeMs?: number;
     versionOfNodeId?: string;

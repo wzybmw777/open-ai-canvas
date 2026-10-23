@@ -28,6 +28,7 @@ export const NODE_DEFAULT_SIZE = {
     [CanvasNodeType.ColorGrade]: { width: 420, height: 360, title: "调色" },
     [CanvasNodeType.MediaConversion]: { width: 480, height: 460, title: "转换" },
     [CanvasNodeType.BatchTable]: { width: 1280, height: 560, title: "批量创作表" },
+    [CanvasNodeType.KeyframeGroup]: { width: 760, height: 360, title: "关键帧组" },
 } satisfies Record<CanvasNodeType, { width: number; height: number; title: string }>;
 
 export const NODE_SPECS = {
@@ -120,6 +121,10 @@ export const NODE_SPECS = {
                 rows: [],
             },
         },
+    },
+    [CanvasNodeType.KeyframeGroup]: {
+        ...NODE_DEFAULT_SIZE[CanvasNodeType.KeyframeGroup],
+        metadata: { status: "idle", workflowKind: "shot" },
     },
 } satisfies Record<CanvasNodeType, CanvasNodeSpec>;
 
