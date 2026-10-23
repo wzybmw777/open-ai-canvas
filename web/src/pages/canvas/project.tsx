@@ -2016,7 +2016,7 @@ function CanvasViewportPage() {
         });
     }, [projectLoaded, setNodes]);
 
-    const { addScriptRow, createAndGenerateScriptVideos, createScriptActionBoards, createScriptImageNodes, createScriptVideoNodes, generateScriptImages, generateScriptRows, generateScriptVideos, removeScriptRow, replaceScriptRows, updateScriptRow } =
+    const { addScriptRow, appendStoryboardKeyframe, createAndGenerateScriptVideos, createScriptActionBoards, createScriptImageNodes, createScriptVideoNodes, ensureStoryboardKeyframeGroup, generateScriptImages, generateScriptRows, generateScriptVideos, removeScriptRow, removeStoryboardKeyframe, reorderStoryboardKeyframes, replaceScriptRows, updateScriptRow, updateStoryboardKeyframe } =
         useCanvasStoryboard({
             projectId,
             addedSkills,
@@ -2386,7 +2386,21 @@ function CanvasViewportPage() {
                 const row = sourceScript?.metadata?.storyboard?.rows.find((candidate) => candidate.id === contentNode.metadata?.rowId);
                 if (!row) return <div className="flex size-full items-center justify-center p-4 text-xs" style={{ color: theme.node.muted }}>分镜行已不存在</div>;
                 const imageNodes = (row.keyframePromptDescriptions || []).flatMap((keyframe) => keyframe.imageNodeId ? nodesRef.current.filter((candidate) => candidate.id === keyframe.imageNodeId) : []);
-                return <CanvasKeyframeGroupNodeContent node={contentNode} row={row} imageNodes={imageNodes} theme={theme} readOnly={Boolean(contentNode.metadata?.locked)} />;
+                return <CanvasKeyframeGroupNodeContent
+                    node={contentNode}
+                    row={row}
+                    imageNodes={imageNodes}
+                    theme={theme}
+                    readOnly={Boolean(contentNode.metadata?.locked)}
+                    onUpdateKeyframe={(keyframeId, patch) => updateStoryboardKeyframe(contentNode.metadata!.storyboardNodeId!, contentNode.metadata!.rowId!, keyframeId, patch)}
+                    onAddKeyframe={(afterKeyframeId) => appendStoryboardKeyframe(contentNode.metadata!.storyboardNodeId!, contentNode.metadata!.rowId!, {}, afterKeyframeId)}
+                    onRemoveKeyframe={(keyframeId) => removeStoryboardKeyframe(contentNode.metadata!.storyboardNodeId!, contentNode.metadata!.rowId!, keyframeId)}
+                    onReorderKeyframes={(orderedIds) => reorderStoryboardKeyframes(contentNode.metadata!.storyboardNodeId!, contentNode.metadata!.rowId!, orderedIds)}
+                    onRegenerateKeyframe={(keyframeId) => {
+                        const imageId = row.keyframePromptDescriptions?.find((item) => item.id === keyframeId)?.imageNodeId;
+                        if (imageId) void handleRetryNode(nodesRef.current.find((candidate) => candidate.id === imageId) || contentNode);
+                    }}
+                />;
             }
             if (contentNode.metadata?.previsSceneId) {
                 return (
@@ -2421,6 +2435,7 @@ function CanvasViewportPage() {
             addBatchReferenceColumn,
             addBatchRow,
             addScriptRow,
+            appendStoryboardKeyframe,
             configInputsById,
             connections,
             createAndGenerateScriptVideos,
@@ -2428,6 +2443,7 @@ function CanvasViewportPage() {
             createStoryboardFromBatchTable,
             createScriptImageNodes,
             createScriptVideoNodes,
+            ensureStoryboardKeyframeGroup,
             currentProject?.previsScenes,
             batchReferences,
             focusCanvasImageNode,
@@ -2450,11 +2466,15 @@ function CanvasViewportPage() {
             reorderBatchReferenceColumns,
             replaceCanvasNodeMedia,
             removeScriptRow,
+            removeStoryboardKeyframe,
+            reorderStoryboardKeyframes,
             retryFailedBatchItems,
+            handleRetryNode,
             runningNodeId,
             stopRemainingBatchItems,
             theme,
             updateBatchRow,
+            updateStoryboardKeyframe,
             updateScriptRow,
             viewport.k,
             workspaceMode,
@@ -3461,6 +3481,10 @@ function CanvasViewportPage() {
                                     else void createAndGenerateScriptVideos(activeScriptNode.id, rowIds);
                                 }}
                                 onVideoInputModeChange={(storyboardVideoInputMode) => activeScriptNode && handleConfigNodeChange(activeScriptNode.id, { storyboardVideoInputMode })}
+                                onUpdateKeyframe={(rowId, keyframeId, patch) => activeScriptNode && updateStoryboardKeyframe(activeScriptNode.id, rowId, keyframeId, patch)}
+                                onAddKeyframe={(rowId, afterKeyframeId) => activeScriptNode && appendStoryboardKeyframe(activeScriptNode.id, rowId, {}, afterKeyframeId)}
+                                onRemoveKeyframe={(rowId, keyframeId) => activeScriptNode && removeStoryboardKeyframe(activeScriptNode.id, rowId, keyframeId)}
+                                onReorderKeyframes={(rowId, orderedIds) => activeScriptNode && reorderStoryboardKeyframes(activeScriptNode.id, rowId, orderedIds)}
                             />
 
                             {previsNodeId && activePrevisScene ? (

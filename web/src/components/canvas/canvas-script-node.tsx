@@ -10,6 +10,7 @@ import { ChevronDown, ChevronUp, Clapperboard, Copy, Expand, Film, Grid3X3, Imag
 
 import { CanvasResourceMentionTextarea } from "@/components/canvas/canvas-resource-mention-textarea";
 import { StoryboardAssetsCell } from "@/components/canvas/storyboard-assets-cell";
+import { CanvasStoryboardKeyframeEditor } from "@/components/canvas/canvas-storyboard-keyframe-editor";
 import { ModelPicker } from "@/components/model-picker";
 import { buildGenerationConfig } from "@/lib/canvas/canvas-project-generation";
 import type { CanvasResourceReference } from "@/lib/canvas/canvas-resource-references";
@@ -27,6 +28,7 @@ import type {
     CanvasWorkspaceMode,
     StoryboardColumn,
     StoryboardRow,
+    StoryboardKeyframePromptDescription,
     StoryboardShotCount,
     StoryboardShotDuration,
     StoryboardVideoInputMode,
@@ -39,7 +41,7 @@ const STORYBOARD_PROMPT_MIN_HEIGHT = 40;
 const STORYBOARD_PROMPT_MAX_HEIGHT = 116;
 const SCRIPT_GRID_TEMPLATE = "64px 76px minmax(300px, 1.55fr) minmax(220px, 1fr) 180px";
 const EMPTY_STORYBOARD_ROWS: StoryboardRow[] = [];
-const DEFAULT_STORYBOARD_COLUMNS: StoryboardColumn[] = ["shotNumber", "durationSeconds", "videoMotionPrompt", "dialogue", "assets"];
+const DEFAULT_STORYBOARD_COLUMNS: StoryboardColumn[] = ["shotNumber", "durationSeconds", "videoMotionPrompt", "dialogue", "assets", "keyframes"];
 const LEGACY_STORYBOARD_COLUMNS: StoryboardColumn[] = ["shotNumber", "durationSeconds", "plotDescription", "dialogue"];
 const PREVIOUS_DEFAULT_STORYBOARD_COLUMNS: StoryboardColumn[] = ["shotNumber", "plotDescription", "videoMotionPrompt", "dialogue"];
 
@@ -72,6 +74,7 @@ const columnOptions: Array<{ label: string; value: StoryboardColumn }> = [
     { label: "关联资产", value: "assets" },
     { label: "连续性出口", value: "continuityOut" },
     { label: "负面要求", value: "negativePrompt" },
+    { label: "关键帧", value: "keyframes" },
 ];
 
 export function CanvasScriptNodeContent({
@@ -500,6 +503,10 @@ export function CanvasScriptEditor({
     onGenerateImages,
     onGenerateVideos,
     onVideoInputModeChange,
+    onUpdateKeyframe,
+    onAddKeyframe,
+    onRemoveKeyframe,
+    onReorderKeyframes,
 }: {
     node: CanvasNodeData | null;
     nodes: CanvasNodeData[];
@@ -512,6 +519,10 @@ export function CanvasScriptEditor({
     onGenerateImages: (rowIds: string[]) => void;
     onGenerateVideos: (rowIds: string[]) => void;
     onVideoInputModeChange: (mode: StoryboardVideoInputMode) => void;
+    onUpdateKeyframe: (rowId: string, keyframeId: string, patch: Partial<StoryboardKeyframePromptDescription>) => void;
+    onAddKeyframe: (rowId: string, afterKeyframeId?: string) => void;
+    onRemoveKeyframe: (rowId: string, keyframeId: string) => void;
+    onReorderKeyframes: (rowId: string, orderedIds: string[]) => void;
 }) {
     const [query, setQuery] = useState("");
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -560,7 +571,7 @@ export function CanvasScriptEditor({
             title: option.label,
             dataIndex: option.value,
             key: option.value,
-            width: option.value === "shotNumber" ? 72 : option.value === "durationSeconds" ? 100 : option.value === "assets" ? 220 : option.value === "plotDescription" || option.value === "dialogue" || option.value === "timeBeats" || option.value.endsWith("Prompt") ? 260 : 170,
+            width: option.value === "shotNumber" ? 72 : option.value === "durationSeconds" ? 100 : option.value === "assets" ? 220 : option.value === "keyframes" ? 460 : option.value === "plotDescription" || option.value === "dialogue" || option.value === "timeBeats" || option.value.endsWith("Prompt") ? 260 : 170,
             fixed: option.value === "shotNumber" ? ("left" as const) : undefined,
             render: (_: unknown, row: StoryboardRow) =>
                 option.value === "shotNumber" ? (
@@ -569,6 +580,16 @@ export function CanvasScriptEditor({
                     <InputNumber min={1} max={60} value={row.durationSeconds} addonAfter="s" onChange={(value) => updateRow(row.id, { durationSeconds: Number(value) || 1 })} />
                 ) : option.value === "assets" ? (
                     <StoryboardAssetsCell bindings={row.assetBindings || []} nodes={nodes} limit={3} disabled={node?.metadata?.locked} onEdit={() => onEditAssets(row.id)} onChange={(assetBindings) => updateRow(row.id, { assetBindings })} onOpenProjectAssets={() => onOpenProjectAssets(row.id)} />
+                ) : option.value === "keyframes" ? (
+                    <CanvasStoryboardKeyframeEditor
+                        row={row}
+                        nodes={nodes}
+                        disabled={Boolean(node?.metadata?.locked)}
+                        onUpdate={(keyframeId, patch) => onUpdateKeyframe(row.id, keyframeId, patch)}
+                        onAdd={(afterKeyframeId) => onAddKeyframe(row.id, afterKeyframeId)}
+                        onRemove={(keyframeId) => onRemoveKeyframe(row.id, keyframeId)}
+                        onReorder={(orderedIds) => onReorderKeyframes(row.id, orderedIds)}
+                    />
                 ) : option.value === "shotSize" ? (
                     <Select
                         className="w-full"

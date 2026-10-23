@@ -22,6 +22,8 @@ import {
 } from "@/lib/canvas/canvas-project-domain";
 import { buildNodeMentionReferences } from "@/lib/canvas/canvas-resource-references";
 import { buildStoryboardAssetCatalog } from "@/lib/canvas/canvas-storyboard-assets";
+import { effectiveStoryboardKeyframeAssets, normalizeStoryboardKeyframes } from "@/lib/canvas/canvas-storyboard-keyframes";
+import { appendStoryboardKeyframe as appendStoryboardKeyframeRow, removeStoryboardKeyframe as removeStoryboardKeyframeRow, reorderStoryboardKeyframes as reorderStoryboardKeyframesRow, updateStoryboardKeyframe as updateStoryboardKeyframeRow } from "@/lib/canvas/canvas-storyboard-keyframe-sync";
 import { resolveStoryboardGenerationContext } from "@/lib/canvas/canvas-storyboard-context";
 import { reconcileStoryboardTargetConnections, replaceStoryboardRowAssets, storyboardComposerContent, storyboardRowReferenceNodeIds } from "@/lib/canvas/canvas-storyboard-materializer";
 import { generationErrorMessage } from "@/lib/generation-error";
@@ -37,6 +39,7 @@ import {
     type CanvasConnection,
     type CanvasGenerationBatchMode,
     type CanvasNodeData,
+    type StoryboardKeyframePromptDescription,
     type StoryboardRow,
 } from "@/types/canvas";
 
@@ -142,6 +145,86 @@ export function useCanvasStoryboard({
         }
         updateScriptRows(nodeId, (rows) => rows.map((row) => row.id === rowId ? invalidateEditedPromptVariables(row, { ...row, ...patch }) : row));
     }, [nodesRef, replaceScriptRows, updateScriptRows]);
+
+    const mutateStoryboardKeyframe = useCallback((nodeId: string, rowId: string, updater: (row: StoryboardRow) => StoryboardRow) => {
+        const script = nodesRef.current.find((node) => node.id === nodeId && node.type === CanvasNodeType.Script);
+        const currentRow = script?.metadata?.storyboard?.rows.find((row) => row.id === rowId);
+        if (!script || !currentRow) return;
+        const nextRow = updater(currentRow);
+        const nextItems = normalizeStoryboardKeyframes(nextRow);
+        let nextNodes = nodesRef.current.map((node) => node.id === nodeId
+            ? { ...node, metadata: { ...node.metadata, storyboard: { ...node.metadata?.storyboard!, rows: (node.metadata?.storyboard?.rows || []).map((row) => row.id === rowId ? nextRow : row) } } }
+            : node);
+        const itemById = new Map(nextItems.map((item) => [item.id, item]));
+        nextNodes = nextNodes.map((node) => {
+            const keyframeId = node.metadata?.keyframeId;
+            const item = keyframeId ? itemById.get(keyframeId) : undefined;
+            if (!item || node.metadata?.storyboardNodeId !== nodeId || node.metadata?.rowId !== rowId) return node;
+            return { ...node, metadata: { ...node.metadata, prompt: item.prompt, composerContent: item.prompt, assetBindings: effectiveStoryboardKeyframeAssets(nextRow, item), promptTemplateVariables: item.promptTemplateVariables } };
+        });
+        if (nextRow.keyframeGroupNodeId) {
+            nextNodes = nextNodes.map((node) => node.id === nextRow.keyframeGroupNodeId ? { ...node, metadata: { ...node.metadata, keyframeIds: nextItems.map((item) => item.id) } } : node);
+        }
+        if (nextRow.videoNodeId) {
+            nextNodes = nextNodes.map((node) => node.id === nextRow.videoNodeId && node.type === CanvasNodeType.Video ? { ...node, metadata: { ...node.metadata, needsRegeneration: true } } : node);
+        }
+        nodesRef.current = nextNodes;
+        setNodes(nextNodes);
+    }, [nodesRef, setNodes]);
+
+    const updateStoryboardKeyframe = useCallback((nodeId: string, rowId: string, keyframeId: string, patch: Partial<StoryboardKeyframePromptDescription>) => {
+        mutateStoryboardKeyframe(nodeId, rowId, (row) => updateStoryboardKeyframeRow(row, keyframeId, patch));
+    }, [mutateStoryboardKeyframe]);
+
+    const appendStoryboardKeyframe = useCallback((nodeId: string, rowId: string, patch: Partial<StoryboardKeyframePromptDescription> = {}, afterKeyframeId?: string) => {
+        mutateStoryboardKeyframe(nodeId, rowId, (row) => appendStoryboardKeyframeRow(row, patch, afterKeyframeId));
+    }, [mutateStoryboardKeyframe]);
+
+    const removeStoryboardKeyframe = useCallback((nodeId: string, rowId: string, keyframeId: string) => {
+        mutateStoryboardKeyframe(nodeId, rowId, (row) => removeStoryboardKeyframeRow(row, keyframeId));
+    }, [mutateStoryboardKeyframe]);
+
+    const reorderStoryboardKeyframes = useCallback((nodeId: string, rowId: string, orderedIds: string[]) => {
+        mutateStoryboardKeyframe(nodeId, rowId, (row) => reorderStoryboardKeyframesRow(row, orderedIds));
+    }, [mutateStoryboardKeyframe]);
+
+    const ensureStoryboardKeyframeGroup = useCallback((nodeId: string, rowId: string) => {
+        const script = nodesRef.current.find((node) => node.id === nodeId && node.type === CanvasNodeType.Script);
+        const row = script?.metadata?.storyboard?.rows.find((item) => item.id === rowId);
+        const items = row ? normalizeStoryboardKeyframes(row) : [];
+        if (!script || !row) return;
+        if (!items.length) {
+            message.warning("请先在分镜行添加关键帧图片提示词");
+            return;
+        }
+        const groupSpec = NODE_DEFAULT_SIZE[CanvasNodeType.KeyframeGroup];
+        const imageSpec = NODE_DEFAULT_SIZE[CanvasNodeType.Image];
+        let nextNodes = [...nodesRef.current];
+        let nextConnections = [...connectionsRef.current];
+        const existingGroup = row.keyframeGroupNodeId ? nextNodes.find((node) => node.id === row.keyframeGroupNodeId && node.type === CanvasNodeType.KeyframeGroup) : undefined;
+        const groupNode = existingGroup || createCanvasNode(CanvasNodeType.KeyframeGroup, { x: script.position.x + script.width + groupSpec.width / 2 + 120, y: script.position.y + row.shotNumber * (groupSpec.height + 32) }, { storyboardNodeId: nodeId, rowId, keyframeIds: items.map((item) => item.id), workflowKind: "shot", status: NODE_STATUS_IDLE });
+        if (!existingGroup) nextNodes.push(groupNode);
+        const imageNodes: CanvasNodeData[] = [];
+        const nextItems = items.map((item, index) => {
+            const existingImage = item.imageNodeId ? nextNodes.find((node) => node.id === item.imageNodeId && node.type === CanvasNodeType.Image) : undefined;
+            const imageNode = existingImage || createCanvasNode(CanvasNodeType.Image, { x: groupNode.position.x + groupSpec.width + imageSpec.width / 2 + 100, y: groupNode.position.y + index * (imageSpec.height + 28) }, { prompt: item.prompt, composerContent: item.prompt, assetBindings: effectiveStoryboardKeyframeAssets(row, item), workflowKind: "shot", workflowTitle: `镜头 ${row.shotNumber} 关键帧 ${index + 1}`, storyboardNodeId: nodeId, rowId, keyframeGroupNodeId: groupNode.id, keyframeId: item.id, shotIndex: row.shotNumber, status: NODE_STATUS_IDLE });
+            const syncedImage = { ...imageNode, title: `镜头 ${row.shotNumber} · 关键帧 ${index + 1}`, metadata: { ...imageNode.metadata, prompt: item.prompt, composerContent: item.prompt, assetBindings: effectiveStoryboardKeyframeAssets(row, item), storyboardNodeId: nodeId, rowId, keyframeGroupNodeId: groupNode.id, keyframeId: item.id, shotIndex: row.shotNumber } };
+            if (!existingImage) nextNodes.push(syncedImage);
+            else nextNodes = nextNodes.map((node) => node.id === syncedImage.id ? syncedImage : node);
+            imageNodes.push(syncedImage);
+            return { ...item, imageNodeId: syncedImage.id, order: index };
+        });
+        const nextRow = { ...row, keyframeGroupNodeId: groupNode.id, keyframePromptDescriptions: nextItems };
+        nextNodes = nextNodes.map((node) => node.id === nodeId ? { ...node, metadata: { ...node.metadata, storyboard: { ...node.metadata?.storyboard!, rows: (node.metadata?.storyboard?.rows || []).map((item) => item.id === rowId ? nextRow : item) } } } : node);
+        nextNodes = nextNodes.map((node) => node.id === groupNode.id ? { ...node, metadata: { ...node.metadata, storyboardNodeId: nodeId, rowId, keyframeIds: nextItems.map((item) => item.id) } } : node);
+        nextConnections = reconcileStoryboardTargetConnections(nextConnections, script, nextRow, groupNode.id, []);
+        nodesRef.current = nextNodes;
+        connectionsRef.current = nextConnections;
+        setNodes(nextNodes);
+        setConnections(nextConnections);
+        setSelectedNodeIds(new Set([groupNode.id]));
+        return { groupNode: nextNodes.find((node) => node.id === groupNode.id) || groupNode, imageNodes, connections: nextConnections };
+    }, [connectionsRef, message, nodesRef, setConnections, setNodes, setSelectedNodeIds]);
 
     const removeScriptRow = useCallback((nodeId: string, rowId: string) => {
         const node = nodesRef.current.find((item) => item.id === nodeId);
@@ -566,6 +649,7 @@ export function useCanvasStoryboard({
 
     return {
         addScriptRow,
+        appendStoryboardKeyframe,
         createAndGenerateScriptVideos,
         createScriptActionBoards,
         createScriptImageNodes,
@@ -574,7 +658,11 @@ export function useCanvasStoryboard({
         generateScriptRows,
         generateScriptVideos,
         removeScriptRow,
+        removeStoryboardKeyframe,
+        reorderStoryboardKeyframes,
         replaceScriptRows,
+        ensureStoryboardKeyframeGroup,
+        updateStoryboardKeyframe,
         updateScriptRow,
         updateScriptRows,
     };

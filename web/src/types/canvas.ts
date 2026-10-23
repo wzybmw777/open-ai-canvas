@@ -88,7 +88,8 @@ export type StoryboardColumn =
     | "videoMotionPrompt"
     | "assets"
     | "continuityOut"
-    | "negativePrompt";
+    | "negativePrompt"
+    | "keyframes";
 
 export type StoryboardAssetRole = "character" | "environment" | "wardrobe" | "prop" | "weapon" | "style" | "motion" | "audio";
 
