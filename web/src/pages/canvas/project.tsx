@@ -79,6 +79,7 @@ import { getProject, listCharacters, type ProjectAsset } from "@/services/api/pr
 import { CanvasZoomControls } from "@/components/canvas/canvas-zoom-controls";
 import { CanvasShareModal } from "@/components/canvas/canvas-share-modal";
 import { CanvasScriptEditor, CanvasScriptNodeContent } from "@/components/canvas/canvas-script-node";
+import { CanvasKeyframeGroupNodeContent } from "@/components/canvas/canvas-keyframe-group-node";
 import { StoryboardAssetPickerModal } from "@/components/canvas/storyboard-asset-picker-modal";
 import { bindingForConnectedNode, replaceStoryboardRowAssets, storyboardRowReferenceNodeIds } from "@/lib/canvas/canvas-storyboard-materializer";
 import { normalizeStoryboardAssetBindings } from "@/lib/canvas/canvas-storyboard-assets";
@@ -2379,6 +2380,13 @@ function CanvasViewportPage() {
                         onScrollTopChange={(scrollTop) => setScriptScrollTopById((current) => (current[contentNode.id] === scrollTop ? current : { ...current, [contentNode.id]: scrollTop }))}
                     />
                 );
+            }
+            if (contentNode.type === CanvasNodeType.KeyframeGroup) {
+                const sourceScript = contentNode.metadata?.storyboardNodeId ? nodesRef.current.find((candidate) => candidate.id === contentNode.metadata?.storyboardNodeId && candidate.type === CanvasNodeType.Script) : undefined;
+                const row = sourceScript?.metadata?.storyboard?.rows.find((candidate) => candidate.id === contentNode.metadata?.rowId);
+                if (!row) return <div className="flex size-full items-center justify-center p-4 text-xs" style={{ color: theme.node.muted }}>分镜行已不存在</div>;
+                const imageNodes = (row.keyframePromptDescriptions || []).flatMap((keyframe) => keyframe.imageNodeId ? nodesRef.current.filter((candidate) => candidate.id === keyframe.imageNodeId) : []);
+                return <CanvasKeyframeGroupNodeContent node={contentNode} row={row} imageNodes={imageNodes} theme={theme} readOnly={Boolean(contentNode.metadata?.locked)} />;
             }
             if (contentNode.metadata?.previsSceneId) {
                 return (

@@ -71,6 +71,7 @@ export function CanvasNodeContent(props: CanvasNodeContentProps) {
     const hasCustomContent =
         props.node.type === CanvasNodeType.Config ||
         props.node.type === CanvasNodeType.Script ||
+        props.node.type === CanvasNodeType.KeyframeGroup ||
         props.node.type === CanvasNodeType.BatchTable ||
         Boolean(props.node.metadata?.previsSceneId) ||
         (props.node.metadata?.workflowKind === "character" && Boolean(props.node.metadata.characterAssetId)) ||
