@@ -234,7 +234,12 @@ export function useCanvasConnectionController({
         if (exists) {
             setConnections((currentConnections) => currentConnections.map((item) => item.id === exists.id ? { ...item, fromAnchorRatio, toAnchorRatio } : item));
         } else {
-            setConnections((currentConnections) => [...currentConnections, { id: `conn-${Date.now()}`, fromNodeId, toNodeId, fromHandleId, toHandleId, fromAnchorRatio, toAnchorRatio }]);
+            const group = nodesRef.current.find((node) => node.id === fromNodeId && node.type === CanvasNodeType.KeyframeGroup);
+            const target = nodesRef.current.find((node) => node.id === toNodeId && node.type === CanvasNodeType.Video);
+            const groupScript = group?.metadata?.storyboardNodeId ? nodesRef.current.find((node) => node.id === group.metadata?.storyboardNodeId && node.type === CanvasNodeType.Script) : undefined;
+            const groupRow = groupScript?.metadata?.storyboard?.rows.find((row) => row.id === group?.metadata?.rowId);
+            const childConnections = group && target && groupRow ? normalizeStoryboardKeyframes(groupRow).flatMap((item) => item.imageNodeId ? [{ id: `conn-${Date.now()}-${item.id}`, fromNodeId: item.imageNodeId, toNodeId, relation: "storyboard-asset-reference" as const }] : []) : [];
+            setConnections((currentConnections) => [...currentConnections, { id: `conn-${Date.now()}`, fromNodeId, toNodeId, fromHandleId, toHandleId, fromAnchorRatio, toAnchorRatio }, ...childConnections.filter((child) => !currentConnections.some((connection) => connection.fromNodeId === child.fromNodeId && connection.toNodeId === child.toNodeId))]);
             setNodes((currentNodes) => attachNodeToStoryboardRow(currentNodes, { fromNodeId, toNodeId, fromHandleId, toHandleId }));
         }
         setContextMenu(null);

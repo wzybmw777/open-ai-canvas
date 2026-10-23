@@ -12,6 +12,7 @@ import { canvasNodeMentionToken, canvasResourceMentionToken, type CanvasResource
 import { getNodeDefinition } from "@/lib/canvas/node-registry";
 import { batchReferenceHandleY } from "@/lib/canvas/canvas-batch-table";
 import { reconcileImageBatchRoot } from "@/lib/canvas/canvas-image-batch-retry";
+import { normalizeStoryboardKeyframes, sortStoryboardKeyframes } from "@/lib/canvas/canvas-storyboard-keyframes";
 import { scopedLocalStorage } from "@/lib/user-scope";
 import type { GenerationTask } from "@/services/api/task-center";
 import { synchronizeGenerationSpec } from "@/lib/canvas/generation-contract";
@@ -337,6 +338,21 @@ export function attachNodeToStoryboardRow(nodes: CanvasNodeData[], connection: P
     const linkedNodeId = scriptNodeId === connection.fromNodeId ? connection.toNodeId : connection.fromNodeId;
     const linkedNode = nodes.find((node) => node.id === linkedNodeId);
     const scriptNode = nodes.find((node) => node.id === scriptNodeId && node.type === CanvasNodeType.Script);
+    const fromNode = nodes.find((node) => node.id === connection.fromNodeId);
+    const toNode = nodes.find((node) => node.id === connection.toNodeId);
+    if (fromNode?.type === CanvasNodeType.KeyframeGroup && toNode?.type === CanvasNodeType.Video && fromNode.metadata?.storyboardNodeId && fromNode.metadata.rowId) {
+        const groupScript = nodes.find((node) => node.id === fromNode.metadata?.storyboardNodeId && node.type === CanvasNodeType.Script);
+        const groupRow = groupScript?.metadata?.storyboard?.rows.find((item) => item.id === fromNode.metadata?.rowId);
+        if (groupScript && groupRow) {
+            const keyframes = sortStoryboardKeyframes(normalizeStoryboardKeyframes(groupRow));
+            const imageIds = keyframes.map((item) => item.imageNodeId).filter((id): id is string => Boolean(id));
+            return nodes.map((node) => {
+                if (node.id === toNode.id) return { ...node, metadata: { ...node.metadata, videoStartFrameNodeId: imageIds[0], videoEndFrameNodeId: imageIds.length > 1 ? imageIds.at(-1) : imageIds[0], keyframeGroupNodeId: fromNode.id, keyframeIds: keyframes.map((item) => item.id), videoEditOperation: "image_to_video" as const, generationMode: "video" as const, seconds: String(groupRow.durationSeconds), needsRegeneration: true } };
+                if (node.id === groupScript.id) return { ...node, metadata: { ...node.metadata, storyboard: { ...node.metadata?.storyboard!, rows: (node.metadata?.storyboard?.rows || []).map((item) => item.id === groupRow.id ? { ...item, videoNodeId: toNode.id } : item) } } };
+                return node;
+            });
+        }
+    }
     if (!scriptNodeId || !linkedNode || !scriptNode) return nodes;
     const row = rowId ? scriptNode.metadata?.storyboard?.rows.find((item) => item.id === rowId) : undefined;
     const videoPrompt = row ? (row.videoMotionPrompt || row.plotDescription).trim() : "";

@@ -27,6 +27,7 @@ import { appendStoryboardKeyframe as appendStoryboardKeyframeRow, removeStoryboa
 import { resolveStoryboardGenerationContext } from "@/lib/canvas/canvas-storyboard-context";
 import { reconcileStoryboardTargetConnections, replaceStoryboardRowAssets, storyboardComposerContent, storyboardRowReferenceNodeIds } from "@/lib/canvas/canvas-storyboard-materializer";
 import { generationErrorMessage } from "@/lib/generation-error";
+import { buildStoryboardKeyframeVideoInput } from "@/components/canvas/canvas-node-generation";
 import { navigateToSettings } from "@/lib/settings-navigation";
 import type { Skill } from "@/services/api/skills";
 import { createGenerationTask, waitForGenerationTask } from "@/services/api/task-center";
@@ -594,9 +595,18 @@ export function useCanvasStoryboard({
 
     const generateScriptVideos = useCallback(async (nodeId: string, rowIds: string[]) => {
         let scriptNode = nodesRef.current.find((node) => node.id === nodeId && node.type === CanvasNodeType.Script);
-        const rows = (scriptNode?.metadata?.storyboard?.rows || []).filter((row) => rowIds.includes(row.id));
+        let rows = (scriptNode?.metadata?.storyboard?.rows || []).filter((row) => rowIds.includes(row.id));
         if (!scriptNode || !rows.length) return;
-        const readyRows = rows.filter((row) => row.imageNodeId && nodesRef.current.some((node) => node.id === row.imageNodeId && node.type === CanvasNodeType.Image && node.metadata?.content));
+        rows.filter((row) => normalizeStoryboardKeyframes(row).length && !row.keyframeGroupNodeId).forEach((row) => ensureStoryboardKeyframeGroup(nodeId, row.id));
+        scriptNode = nodesRef.current.find((node) => node.id === nodeId && node.type === CanvasNodeType.Script);
+        rows = (scriptNode?.metadata?.storyboard?.rows || []).filter((row) => rowIds.includes(row.id));
+        if (!scriptNode || !rows.length) return;
+        const readyRows = rows.filter((row) => {
+            if (row.keyframeGroupNodeId && normalizeStoryboardKeyframes(row).length) {
+                return normalizeStoryboardKeyframes(row).every((item) => item.imageNodeId && nodesRef.current.some((node) => node.id === item.imageNodeId && node.type === CanvasNodeType.Image && node.metadata?.content));
+            }
+            return Boolean(row.imageNodeId && nodesRef.current.some((node) => node.id === row.imageNodeId && node.type === CanvasNodeType.Image && node.metadata?.content));
+        });
         if (!readyRows.length) return message.warning("请先生成并检查选中镜头的首帧");
         if (readyRows.length !== rows.length) return message.warning(`${rows.length - readyRows.length} 个选中镜头还没有可用首帧，请全部生成并检查后再确认`);
         const videoModel = effectiveConfig.videoModel || effectiveConfig.model;
@@ -624,12 +634,17 @@ export function useCanvasStoryboard({
         currentRows.forEach((row, index) => {
             const prompt = (row.videoMotionPrompt || row.plotDescription).trim();
             const existing = row.videoNodeId ? nextNodes.find((node) => node.id === row.videoNodeId && node.type === CanvasNodeType.Video) : undefined;
-            const referenceIds = storyboardRowReferenceNodeIds(currentScriptNode, row, nextNodes, nextConnections, true, existing?.id);
+            const group = row.keyframeGroupNodeId ? nextNodes.find((node) => node.id === row.keyframeGroupNodeId && node.type === CanvasNodeType.KeyframeGroup) : undefined;
+            const keyframeInput = group ? buildStoryboardKeyframeVideoInput(group, nextNodes, nextConnections, row) : undefined;
+            const referenceIds = Array.from(new Set([
+                ...storyboardRowReferenceNodeIds(currentScriptNode, row, nextNodes, nextConnections, true, existing?.id),
+                ...(keyframeInput?.referenceNodeIds || []),
+            ]));
             const composerContent = storyboardComposerContent(prompt, referenceIds, nextNodes);
             const existingMetadata = existing?.metadata?.content ? existing.metadata : resetGenerationTaskMetadata(existing?.metadata);
             const videoNode = existing
-                ? { ...existing, metadata: { ...existingMetadata, prompt, composerContent, model: videoModel, ...storyboardPromptTemplateMetadata(row, "video"), workflowKind: "shot" as const, workflowTitle: `镜头 ${row.shotNumber} 视频`, shotIndex: row.shotNumber, generationMode: "video" as const, videoEditOperation: "image_to_video" as const, videoStartFrameNodeId: row.imageNodeId, seconds: String(row.durationSeconds) } }
-                : createCanvasNode(CanvasNodeType.Video, { x: startX, y: currentScriptNode.position.y + index * (videoSpec.height + 36) + videoSpec.height / 2 }, { prompt, composerContent, model: videoModel, ...storyboardPromptTemplateMetadata(row, "video"), workflowKind: "shot", workflowTitle: `镜头 ${row.shotNumber} 视频`, shotIndex: row.shotNumber, generationMode: "video", videoEditOperation: "image_to_video", videoStartFrameNodeId: row.imageNodeId, status: NODE_STATUS_IDLE, seconds: String(row.durationSeconds) });
+                ? { ...existing, metadata: { ...existingMetadata, prompt, composerContent, model: videoModel, ...storyboardPromptTemplateMetadata(row, "video"), workflowKind: "shot" as const, workflowTitle: `镜头 ${row.shotNumber} 视频`, shotIndex: row.shotNumber, generationMode: "video" as const, videoEditOperation: "image_to_video" as const, videoStartFrameNodeId: keyframeInput?.startFrameNodeId || row.imageNodeId, videoEndFrameNodeId: keyframeInput?.endFrameNodeId, keyframeGroupNodeId: group?.id, keyframeIds: keyframeInput ? normalizeStoryboardKeyframes(row).map((item) => item.id) : undefined, needsRegeneration: false, seconds: String(row.durationSeconds) } }
+                : createCanvasNode(CanvasNodeType.Video, { x: startX, y: currentScriptNode.position.y + index * (videoSpec.height + 36) + videoSpec.height / 2 }, { prompt, composerContent, model: videoModel, ...storyboardPromptTemplateMetadata(row, "video"), workflowKind: "shot", workflowTitle: `镜头 ${row.shotNumber} 视频`, shotIndex: row.shotNumber, generationMode: "video", videoEditOperation: "image_to_video", videoStartFrameNodeId: keyframeInput?.startFrameNodeId || row.imageNodeId, videoEndFrameNodeId: keyframeInput?.endFrameNodeId, keyframeGroupNodeId: group?.id, keyframeIds: keyframeInput ? normalizeStoryboardKeyframes(row).map((item) => item.id) : undefined, needsRegeneration: false, status: NODE_STATUS_IDLE, seconds: String(row.durationSeconds) });
             if (!existing) {
                 videoNode.title = `镜头 ${row.shotNumber} · 视频`;
                 nextNodes.push(videoNode);
@@ -638,6 +653,7 @@ export function useCanvasStoryboard({
                 nextNodes[existingIndex] = videoNode;
             }
             nextConnections = reconcileStoryboardTargetConnections(nextConnections, currentScriptNode, row, videoNode.id, referenceIds);
+            if (group && !nextConnections.some((connection) => connection.fromNodeId === group.id && connection.toNodeId === videoNode.id)) nextConnections.push({ id: nanoid(), fromNodeId: group.id, toNodeId: videoNode.id });
             targets.push({ row, node: videoNode, prompt });
         });
         nodesRef.current = nextNodes;
@@ -645,7 +661,7 @@ export function useCanvasStoryboard({
         setNodes(nextNodes);
         setConnections(nextConnections);
         if (enqueueGenerationBatch(nodeId, "storyboard_video", targets.map((target) => ({ rowId: target.row.id, nodeId: target.node.id })))) message.success("镜头视频已加入生成队列");
-    }, [connectionsRef, confirmGenerationSubmission, createScriptVideoNodes, effectiveConfig, enqueueGenerationBatch, isAiConfigReady, message, nodesRef, setConnections, setNodes]);
+    }, [connectionsRef, confirmGenerationSubmission, createScriptVideoNodes, effectiveConfig, enqueueGenerationBatch, ensureStoryboardKeyframeGroup, isAiConfigReady, message, nodesRef, setConnections, setNodes]);
 
     return {
         addScriptRow,

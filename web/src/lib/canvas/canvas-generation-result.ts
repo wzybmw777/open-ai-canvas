@@ -80,8 +80,13 @@ export function commitCanvasGenerationResult(current: CanvasNodeData[], before: 
         };
     });
     const existingIds = new Set(current.map((node) => node.id));
-    return [
+    const committedNodes = [
         ...committedWithAdditional,
         ...additionalNodes.filter((node) => !existingIds.has(node.id)).map((node) => ({ ...node, position: { x: node.position.x + merged.position.x - result.position.x, y: node.position.y + merged.position.y - result.position.y } })),
     ];
+    const keyframeGroupNodeId = merged.metadata?.keyframeGroupNodeId;
+    if (merged.type === "image" && keyframeGroupNodeId) {
+        return committedNodes.map((node) => node.type === "video" && node.metadata?.keyframeGroupNodeId === keyframeGroupNodeId ? { ...node, metadata: { ...node.metadata, needsRegeneration: true } } : node);
+    }
+    return committedNodes;
 }

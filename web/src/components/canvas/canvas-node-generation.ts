@@ -19,6 +19,8 @@ import { nodeGenerationPrompt } from "@/lib/canvas/generation-contract";
 import type { ModelReferenceLimits } from "@/lib/model-selection";
 import type { Asset } from "@/stores/use-asset-store";
 import { resourceIdFromStorageKey } from "@/services/api/resources";
+import { normalizeStoryboardKeyframes, sortStoryboardKeyframes } from "@/lib/canvas/canvas-storyboard-keyframes";
+import type { StoryboardRow } from "@/types/canvas";
 
 export type CharacterGenerationReference = {
     nodeId: string;
@@ -68,6 +70,21 @@ export type NodeGenerationInput = {
     audio?: ReferenceAudio;
     character?: CharacterGenerationReference;
 };
+
+export function buildStoryboardKeyframeVideoInput(groupNode: CanvasNodeData, nodes: CanvasNodeData[], _connections: CanvasConnection[], row: StoryboardRow) {
+    if (groupNode.type !== CanvasNodeType.KeyframeGroup) throw new Error("关键帧组节点类型不正确");
+    const keyframes = sortStoryboardKeyframes(normalizeStoryboardKeyframes(row));
+    if (!keyframes.length) throw new Error("关键帧组没有可用图片");
+    const nodeById = new Map(nodes.map((node) => [node.id, node]));
+    const orderedImageNodeIds = keyframes.map((item) => item.imageNodeId).filter((id): id is string => Boolean(id && nodeById.get(id)?.type === CanvasNodeType.Image));
+    if (orderedImageNodeIds.length !== keyframes.length) throw new Error("关键帧组中有图片尚未生成或已丢失");
+    return {
+        orderedImageNodeIds,
+        startFrameNodeId: orderedImageNodeIds[0],
+        endFrameNodeId: orderedImageNodeIds.length > 1 ? orderedImageNodeIds[orderedImageNodeIds.length - 1] : orderedImageNodeIds[0],
+        referenceNodeIds: orderedImageNodeIds.length > 2 ? orderedImageNodeIds.slice(1, -1) : [],
+    };
+}
 
 export function buildNodeGenerationContext(nodeId: string, nodes: CanvasNodeData[], connections: CanvasConnection[], prompt: string, assets: Asset[], promptOnly = false): NodeGenerationContext {
     const pendingConversion = findPendingMediaConversionInput(nodeId, nodes, connections);

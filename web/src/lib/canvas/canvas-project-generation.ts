@@ -341,6 +341,9 @@ export function buildVideoGenerationMetadata(
         videoCameraMovePrompt: metadata?.videoCameraMovePrompt,
         videoStartFrameNodeId: startFrame,
         videoEndFrameNodeId: endFrame,
+        keyframeGroupNodeId: metadata?.keyframeGroupNodeId,
+        keyframeIds: metadata?.keyframeIds,
+        needsRegeneration: metadata?.needsRegeneration,
     };
 }
 
