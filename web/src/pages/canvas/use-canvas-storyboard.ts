@@ -182,8 +182,24 @@ export function useCanvasStoryboard({
     }, [mutateStoryboardKeyframe]);
 
     const removeStoryboardKeyframe = useCallback((nodeId: string, rowId: string, keyframeId: string) => {
+        const currentRow = nodesRef.current.find((node) => node.id === nodeId)?.metadata?.storyboard?.rows.find((row) => row.id === rowId);
+        const removedImageId = normalizeStoryboardKeyframes(currentRow || { keyframePromptDescriptions: [], imageGenerationPrompt: "", plotDescription: "" }).find((item) => item.id === keyframeId)?.imageNodeId;
         mutateStoryboardKeyframe(nodeId, rowId, (row) => removeStoryboardKeyframeRow(row, keyframeId));
-    }, [mutateStoryboardKeyframe]);
+        if (!removedImageId) return;
+        const referenced = connectionsRef.current.some((connection) => connection.fromNodeId === removedImageId || connection.toNodeId === removedImageId);
+        const nextNodes = nodesRef.current.flatMap((node) => {
+            if (node.id !== removedImageId || node.type !== CanvasNodeType.Image) return [node];
+            if (referenced) return [{ ...node, metadata: { ...node.metadata, storyboardNodeId: undefined, rowId: undefined, keyframeGroupNodeId: undefined, keyframeId: undefined } }];
+            return [];
+        });
+        if (nextNodes.length !== nodesRef.current.length) {
+            const nextConnections = connectionsRef.current.filter((connection) => connection.fromNodeId !== removedImageId && connection.toNodeId !== removedImageId);
+            nodesRef.current = nextNodes;
+            connectionsRef.current = nextConnections;
+            setNodes(nextNodes);
+            setConnections(nextConnections);
+        }
+    }, [connectionsRef, mutateStoryboardKeyframe, nodesRef, setConnections, setNodes]);
 
     const reorderStoryboardKeyframes = useCallback((nodeId: string, rowId: string, orderedIds: string[]) => {
         mutateStoryboardKeyframe(nodeId, rowId, (row) => reorderStoryboardKeyframesRow(row, orderedIds));

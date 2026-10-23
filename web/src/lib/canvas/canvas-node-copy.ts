@@ -105,6 +105,12 @@ export function isolateCopiedNodeMetadata(node: CanvasNodeData, idMap: ReadonlyM
     metadata.referenceAssetNodeIds = node.metadata?.referenceAssetNodeIds?.map((nodeId) => remapOwnedNodeId(nodeId, idMap)).filter((nodeId): nodeId is string => Boolean(nodeId));
     metadata.videoStartFrameNodeId = remapReferenceId(node.metadata?.videoStartFrameNodeId, idMap);
     metadata.videoEndFrameNodeId = remapReferenceId(node.metadata?.videoEndFrameNodeId, idMap);
+    metadata.keyframeGroupNodeId = remapOwnedNodeId(node.metadata?.keyframeGroupNodeId, idMap);
+    metadata.keyframeIds = node.metadata?.keyframeIds ? [...node.metadata.keyframeIds] : undefined;
+    metadata.needsRegeneration = node.metadata?.keyframeGroupNodeId ? true : node.metadata?.needsRegeneration;
+    metadata.storyboardNodeId = remapReferenceId(node.metadata?.storyboardNodeId, idMap);
+    metadata.rowId = node.metadata?.rowId;
+    metadata.keyframeId = node.metadata?.keyframeId;
     metadata.previsPreviewNodeId = remapOwnedNodeId(node.metadata?.previsPreviewNodeId, idMap);
     metadata.previsDepthNodeId = remapOwnedNodeId(node.metadata?.previsDepthNodeId, idMap);
     metadata.previsDepthVideoNodeId = remapOwnedNodeId(node.metadata?.previsDepthVideoNodeId, idMap);

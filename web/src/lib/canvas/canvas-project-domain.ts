@@ -555,6 +555,10 @@ export function removeCanvasNodes(nodes: CanvasNodeData[], requestedIds: Set<str
                               assetBindings: (row.assetBindings || []).filter((binding) => !removedIds.has(binding.nodeId)),
                               imageNodeId: row.imageNodeId && !removedIds.has(row.imageNodeId) ? row.imageNodeId : undefined,
                               videoNodeId: row.videoNodeId && !removedIds.has(row.videoNodeId) ? row.videoNodeId : undefined,
+                                  keyframeGroupNodeId: row.keyframeGroupNodeId && !removedIds.has(row.keyframeGroupNodeId) ? row.keyframeGroupNodeId : undefined,
+                                  keyframePromptDescriptions: row.keyframePromptDescriptions
+                                      ?.filter((item) => !item.imageNodeId || !removedIds.has(item.imageNodeId))
+                                      .map((item, order) => ({ ...item, order })),
                           })),
                       },
                   },

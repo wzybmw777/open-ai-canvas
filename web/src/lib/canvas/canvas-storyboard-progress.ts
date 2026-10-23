@@ -18,6 +18,10 @@ export type StoryboardPipelineRow = {
     imageState: StoryboardPipelineItemState;
     videoNode?: CanvasNodeData;
     videoState: StoryboardPipelineItemState;
+    keyframeCount: number;
+    keyframeGroupNode?: CanvasNodeData;
+    keyframeState: StoryboardPipelineItemState;
+    videoNeedsRegeneration: boolean;
 };
 
 export type CanvasStoryboardPipelineProgress = {
@@ -41,6 +45,10 @@ export function deriveStoryboardPipelineProgress(scriptNode: CanvasNodeData, nod
             imageState: nodePipelineState(imageNode, CanvasNodeType.Image),
             videoNode: videoNode?.type === CanvasNodeType.Video ? videoNode : undefined,
             videoState: nodePipelineState(videoNode, CanvasNodeType.Video),
+            keyframeCount: row.keyframePromptDescriptions?.length || 0,
+            keyframeGroupNode: row.keyframeGroupNodeId && nodeById.get(row.keyframeGroupNodeId)?.type === CanvasNodeType.KeyframeGroup ? nodeById.get(row.keyframeGroupNodeId) : undefined,
+            keyframeState: row.keyframePromptDescriptions?.length ? nodePipelineState(row.keyframeGroupNodeId ? nodeById.get(row.keyframeGroupNodeId) : undefined, CanvasNodeType.KeyframeGroup) : "missing",
+            videoNeedsRegeneration: Boolean(videoNode?.metadata?.needsRegeneration),
         };
     });
     const imageNodes = pipelineRows.flatMap((item) => item.imageNode ? [item.imageNode] : []);
