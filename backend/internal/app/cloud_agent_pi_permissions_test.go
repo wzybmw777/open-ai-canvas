@@ -22,11 +22,11 @@ func TestCloudAgentPermissionsUseOwnedCanvasProject(t *testing.T) {
 		t.Fatal(err)
 	}
 	svc := New(repository.New(db), t.TempDir())
-	owner := svc.buildPermissionsConfig("owner", "canvas-1")
+	owner := svc.buildPermissionsConfig("owner", CloudAgentRequest{CanvasID: "canvas-1", PermissionMode: "auto", ContextScope: []string{"canvas"}})
 	if owner["canReadCanvas"] != true || owner["canWriteCanvas"] != true || owner["canCreateNodes"] != true {
 		t.Fatalf("owner permissions: %+v", owner)
 	}
-	other := svc.buildPermissionsConfig("other", "canvas-1")
+	other := svc.buildPermissionsConfig("other", CloudAgentRequest{CanvasID: "canvas-1", PermissionMode: "auto", ContextScope: []string{"canvas"}})
 	if other["canReadCanvas"] != false || other["canWriteCanvas"] != false || other["canCreateNodes"] != false {
 		t.Fatalf("other user permissions: %+v", other)
 	}

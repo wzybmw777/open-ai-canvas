@@ -103,6 +103,11 @@ func emitCloudAgentCanvasChange(repo *repository.Repository, runID string, state
 	}
 	nodes := cloudAgentObjectChanges(before["nodes"], after["nodes"])
 	edges := cloudAgentObjectChanges(before["connections"], after["connections"])
+	if !cloudAgentPatchCoversDocument(before, after) {
+		// A partial delta must never acknowledge a revision containing omitted edits.
+		state.event(runID, "canvas_updated", map[string]any{"canvasId": input.CanvasID, "callId": input.StepID, "operation": input.Operation, "requiresRefresh": true, "undo": cloudAgentUndoReceipt(runID, input)})
+		return nil
+	}
 	actions := []map[string]any{}
 	previewByOperationAndNode := map[string]cloudAgentApprovalPreviewItem{}
 	previewByUniqueNode := map[string]cloudAgentApprovalPreviewItem{}
@@ -179,6 +184,7 @@ func emitCloudAgentCanvasChange(repo *repository.Repository, runID string, state
 	}
 	payload := map[string]any{
 		"canvasId": input.CanvasID, "operation": input.Operation, "actions": actions,
+		"undo":        cloudAgentUndoReceipt(runID, input),
 		"canvasPatch": map[string]any{"canvasId": input.CanvasID, "baseRevision": canvas.Revision - 1, "revision": canvas.Revision, "updatedAt": after["updatedAt"], "nodes": nodes, "connections": edges},
 	}
 	if input.Preview != nil {
@@ -216,7 +222,7 @@ func emitCloudAgentCanvasChange(repo *repository.Repository, runID string, state
 		}
 		if len(raw) > cloudAgentEventPayloadLimit {
 			// 摘要本身也超限时不截断字段，退回既有的完整刷新通知。
-			payload = map[string]any{"canvasId": input.CanvasID, "operation": input.Operation, "requiresRefresh": true}
+			payload = map[string]any{"canvasId": input.CanvasID, "callId": input.StepID, "operation": input.Operation, "requiresRefresh": true, "undo": cloudAgentUndoReceipt(runID, input)}
 		}
 	}
 	state.event(runID, "canvas_updated", payload)
