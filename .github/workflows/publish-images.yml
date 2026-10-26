@@ -2,8 +2,6 @@ name: Publish container images
 
 on:
   push:
-    branches:
-      - main
     tags:
       - "v*"
   workflow_dispatch:
@@ -11,7 +9,8 @@ on:
 permissions:
   contents: read
 
-# main 和 tag 的同一提交串行进入；后到的一轮复用已校验的 SHA 镜像。
+# 只有版本 tag 或手动 workflow_dispatch 才发布镜像；main 普通提交只走质量检查。
+# 同一提交的 tag 和重跑串行进入；后到的一轮复用已校验的 SHA 镜像。
 concurrency:
   group: publish-${{ github.sha }}
   cancel-in-progress: false

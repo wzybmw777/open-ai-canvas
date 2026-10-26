@@ -185,7 +185,19 @@ sudo docker compose --env-file .env -f docker-compose.deploy.yml logs -f --tail=
 curl -fsSL https://raw.githubusercontent.com/ddcat-ai/open-ai-canvas/main/scripts/install-server.sh | sudo bash
 ```
 
-脚本使用 PostgreSQL、Redis、独立 Agent 和源码构建叠加层，但不安装 Host Updater；该部署不属于后台在线更新管理范围，需自行构建、备份和升级。根目录的 `docker-compose.yml`、`docker-compose.local.yml` 和自行编写的两容器 SQLite 编排用于本地试运行，不作为默认服务器部署方案。
+脚本使用 PostgreSQL、Redis、独立 Agent 和 `docker-compose.hot.yml`：前端由 Vite 监听源码，后端由 Air 监听 Go 源码，修改保存后自动加载；数据库、Redis 和后端数据目录仍沿用部署配置。Agent 仍使用独立镜像。该部署不安装 Host Updater，也不会因 `main` 分支提交自动发布镜像。
+
+源码安装后，更新代码并应用热更新服务：
+
+```bash
+cd /opt/open-ai-canvas
+git pull --ff-only
+docker compose --env-file .env \
+  -f docker-compose.deploy.yml -f docker-compose.hot.yml \
+  up -d --build --remove-orphans --wait --wait-timeout 600
+```
+
+只有明确发布版本时才构建并发布镜像：创建并推送 `v*` 标签，或在 GitHub Actions 手动运行 `Publish container images`。普通 `main` 提交不会触发镜像发布。
 
 已有 SQLite 或自定义 Compose 部署，不能只替换 Compose 文件或补装更新器就获得在线更新；应先核对原数据卷、完成备份和数据迁移。方案选择见 [Docker 部署](docs/content/docs/overview/docker.mdx)，更新约束、备份和回退见[系统更新文档](docs/content/docs/backend/system-update.mdx)。
 

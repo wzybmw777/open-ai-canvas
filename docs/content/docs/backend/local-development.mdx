@@ -138,6 +138,19 @@ LOCAL_UID=$(id -u) LOCAL_GID=$(id -g) \
 
 Docker 开发编排也使用 `.local/project-workbench-debug`，并默认暴露前端 `3000` 和后端 `8080`。端口冲突时，可通过 `CANVAS_WEB_HOST_PORT` 和 `CANVAS_BACKEND_HOST_PORT` 调整宿主机端口。
 
+## 服务器源码热更新
+
+源码安装脚本默认使用生产数据编排叠加 `docker-compose.hot.yml`。前端挂载仓库并由 Vite 监听，后端挂载仓库并由 Air 监听；保存 `web/src` 或 `backend` 下的源码后，服务会自动重新加载。PostgreSQL、Redis、Agent 和 `/data` 仍由 `docker-compose.deploy.yml` 管理。
+
+```bash
+cd /opt/open-ai-canvas
+docker compose --env-file .env \
+  -f docker-compose.deploy.yml -f docker-compose.hot.yml \
+  up -d --build --remove-orphans --wait --wait-timeout 600
+```
+
+首次切换或修改 `backend/Dockerfile.dev` 时会构建一次热更新运行时镜像；日常源码修改不重新构建镜像。Agent 仍按独立镜像运行，需要变更 Agent 运行时代码时单独构建。只有推送 `v*` 标签或手动运行发布工作流才会发布镜像。
+
 ## 增量构建发布镜像
 
 小改动优先使用持久化构建入口，避免每次同时重建前后端：

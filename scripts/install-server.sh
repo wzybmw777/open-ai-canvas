@@ -8,7 +8,7 @@ INSTALL_DIR="${INSTALL_DIR:-/opt/open-ai-canvas}"
 CANVAS_HTTP_PORT="${CANVAS_HTTP_PORT:-3000}"
 COMPOSE_FILE="docker-compose.deploy.yml"
 BUILD_COMPOSE_FILE="docker-compose.build.yml"
-BUILD_SCRIPT="scripts/build-images.sh"
+HOT_COMPOSE_FILE="docker-compose.hot.yml"
 
 step() {
     printf '\n==> %s\n' "$1"
@@ -118,16 +118,13 @@ EOF
 }
 
 start_services() {
-    step "从源码构建网页、后端和 Agent 镜像"
-    # 标准一键部署已下载完整仓库，直接本地构建可避免公开项目被 GHCR 包可见性阻断。
-    CANVAS_BUILD_BACKEND_IMAGE="open-ai-canvas-backend:server" \
-        CANVAS_BUILD_WEB_IMAGE="open-ai-canvas-web:server" \
-        GOPROXY="${GOPROXY:-https://goproxy.cn|https://proxy.golang.org|direct}" \
-        bash "$BUILD_SCRIPT"
+    step "构建热更新运行时和 Agent 镜像"
+    # 前端和后端源码通过 docker-compose.hot.yml 挂载，日常修改由 Vite/Air 直接加载。
+    # Agent 仍使用独立镜像，只有其依赖或运行时变化时才需要重新构建。
     docker compose --env-file .env -f "$COMPOSE_FILE" -f "$BUILD_COMPOSE_FILE" build yingce-agent
 
-    step "启动 PostgreSQL、Redis、后端和网页服务"
-    docker compose --env-file .env -f "$COMPOSE_FILE" -f "$BUILD_COMPOSE_FILE" up -d --remove-orphans --wait --wait-timeout 600
+    step "启动 PostgreSQL、Redis、热更新后端和网页服务"
+    docker compose --env-file .env -f "$COMPOSE_FILE" -f "$HOT_COMPOSE_FILE" up -d --build --remove-orphans --wait --wait-timeout 600
 }
 
 print_result() {
@@ -138,7 +135,7 @@ print_result() {
     printf '\n部署完成。\n'
     printf '访问地址：http://%s:%s\n' "$local_ip" "$CANVAS_HTTP_PORT"
     printf '安装目录：%s\n' "$INSTALL_DIR"
-    printf '查看状态：cd %q && docker compose --env-file .env -f %s -f %s ps\n' "$INSTALL_DIR" "$COMPOSE_FILE" "$BUILD_COMPOSE_FILE"
+    printf '查看状态：cd %q && docker compose --env-file .env -f %s -f %s ps\n' "$INSTALL_DIR" "$COMPOSE_FILE" "$HOT_COMPOSE_FILE"
     printf '\n首次打开后注册的第一个账号会自动成为管理员。公网长期使用前请配置 HTTPS。\n'
 }
 

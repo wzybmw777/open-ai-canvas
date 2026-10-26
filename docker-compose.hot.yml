@@ -1,0 +1,99 @@
+services:
+  migrate:
+    image: open-ai-canvas-backend:hot
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.dev
+      args:
+        GO_IMAGE: ${GO_IMAGE:-golang:1.25-alpine}
+        GOPROXY: ${GOPROXY:-https://goproxy.cn|https://proxy.golang.org|direct}
+        ALPINE_MIRROR: ${ALPINE_MIRROR:-}
+    working_dir: /workspace/backend
+    entrypoint: ["sh", "-c"]
+    command: ["go run ./cmd/migrate-schema up"]
+    volumes:
+      - type: bind
+        source: .
+        target: /workspace
+      - type: bind
+        source: ${CANVAS_DATA_PATH:-backend-data}
+        target: /data
+        bind:
+          create_host_path: false
+      - hot-go-build:/root/.cache/go-build
+      - hot-go-mod:/go/pkg/mod
+    environment:
+      CANVAS_BACKEND_DATA_DIR: /data
+      CANVAS_DATABASE_DRIVER: postgres
+      DATABASE_URL: ${DATABASE_URL:?请先运行一键部署脚本生成数据库连接}
+
+  backend:
+    image: open-ai-canvas-backend:hot
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.dev
+      args:
+        GO_IMAGE: ${GO_IMAGE:-golang:1.25-alpine}
+        GOPROXY: ${GOPROXY:-https://goproxy.cn|https://proxy.golang.org|direct}
+        ALPINE_MIRROR: ${ALPINE_MIRROR:-}
+    working_dir: /workspace/backend
+    command: ["air", "-c", ".air.toml"]
+    volumes:
+      - type: bind
+        source: .
+        target: /workspace
+      - type: bind
+        source: ${CANVAS_DATA_PATH:-backend-data}
+        target: /data
+        bind:
+          create_host_path: false
+      - hot-go-build:/root/.cache/go-build
+      - hot-go-mod:/go/pkg/mod
+    environment:
+      CANVAS_BACKEND_ADDR: ":8080"
+      CANVAS_BACKEND_DATA_DIR: /data
+      CANVAS_AUTO_MIGRATE: "false"
+      CANVAS_DATABASE_DRIVER: postgres
+      DATABASE_URL: ${DATABASE_URL:?请先运行一键部署脚本生成数据库连接}
+      REDIS_URL: redis://redis:6379/0
+      GIN_MODE: debug
+      GOCACHE: /root/.cache/go-build
+      GOMODCACHE: /go/pkg/mod
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/api/health/ready >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    stop_grace_period: 30s
+
+  web:
+    image: node:22-alpine
+    working_dir: /workspace/web
+    command: ["sh", "-c", "if [ ! -x node_modules/.bin/vite ]; then npm install --ignore-scripts; fi; node_modules/.bin/vite --host 0.0.0.0 --port 3000"]
+    environment:
+      VITE_API_PROXY_TARGET: http://backend:8080
+      VITE_ALLOWED_HOSTS: ${VITE_ALLOWED_HOSTS:-zyxsai.com}
+      VITE_TLDRAW_LICENSE_KEY: ${VITE_TLDRAW_LICENSE_KEY:-}
+    volumes:
+      - type: bind
+        source: .
+        target: /workspace
+      - type: bind
+        source: ./web/node_modules
+        target: /workspace/web/node_modules
+        bind:
+          create_host_path: true
+      - hot-npm-cache:/root/.npm
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    stop_grace_period: 10s
+
+volumes:
+  hot-go-build:
+  hot-go-mod:
+  hot-npm-cache:
