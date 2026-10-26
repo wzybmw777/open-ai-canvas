@@ -51,7 +51,7 @@ export const NODE_SPECS = {
             workflowKind: "script",
             storyboard: {
                 rows: [],
-                visibleColumns: ["shotNumber", "durationSeconds", "videoMotionPrompt", "dialogue", "assets"],
+                visibleColumns: ["shotNumber", "durationSeconds", "videoMotionPrompt", "dialogue", "assets", "keyframes"],
                 referenceNodeIds: [],
             },
         },

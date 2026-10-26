@@ -44,11 +44,56 @@ const EMPTY_STORYBOARD_ROWS: StoryboardRow[] = [];
 const DEFAULT_STORYBOARD_COLUMNS: StoryboardColumn[] = ["shotNumber", "durationSeconds", "videoMotionPrompt", "dialogue", "assets", "keyframes"];
 const LEGACY_STORYBOARD_COLUMNS: StoryboardColumn[] = ["shotNumber", "durationSeconds", "plotDescription", "dialogue"];
 const PREVIOUS_DEFAULT_STORYBOARD_COLUMNS: StoryboardColumn[] = ["shotNumber", "plotDescription", "videoMotionPrompt", "dialogue"];
+const LEGACY_CINEMATIC_STORYBOARD_COLUMNS: StoryboardColumn[] = [
+    "shotNumber",
+    "durationSeconds",
+    "videoMotionPrompt",
+    "dialogue",
+    "assets",
+    "shotSize",
+    "narrativeIntent",
+    "viewerPOV",
+    "performanceBlocking",
+    "camera",
+    "motion",
+    "timeBeats",
+    "lightingAndAtmosphere",
+    "continuityOut",
+    "negativePrompt",
+];
+const LEGACY_STORYBOARD_COLUMN_SET = new Set<StoryboardColumn>([
+    "shotNumber",
+    "durationSeconds",
+    "plotDescription",
+    "dialogue",
+    "narrativeIntent",
+    "viewerPOV",
+    "performanceBlocking",
+    "shotSize",
+    "emotion",
+    "lightingAndAtmosphere",
+    "audioEffects",
+    "camera",
+    "motion",
+    "timeBeats",
+    "imageGenerationPrompt",
+    "videoMotionPrompt",
+    "assets",
+    "continuityOut",
+    "negativePrompt",
+]);
+
+function sameStoryboardColumns(left: StoryboardColumn[] | undefined, right: StoryboardColumn[]) {
+    return Boolean(left) && left!.length === right.length && left!.every((column, index) => column === right[index]);
+}
 
 function resolveStoryboardVisibleColumns(columns?: StoryboardColumn[]) {
     const isLegacyDefault = columns?.length === LEGACY_STORYBOARD_COLUMNS.length && LEGACY_STORYBOARD_COLUMNS.every((column) => columns.includes(column));
     const isPreviousDefault = columns?.length === PREVIOUS_DEFAULT_STORYBOARD_COLUMNS.length && PREVIOUS_DEFAULT_STORYBOARD_COLUMNS.every((column) => columns.includes(column));
-    if (!columns?.length || isLegacyDefault || isPreviousDefault) {
+    const isLegacyCinematicDefault =
+        sameStoryboardColumns(columns, LEGACY_CINEMATIC_STORYBOARD_COLUMNS) ||
+        Boolean(columns && columns.length >= 10 && !columns.includes("keyframes") && columns.every((column) => LEGACY_STORYBOARD_COLUMN_SET.has(column)));
+    if (!columns?.length || isLegacyDefault || isPreviousDefault || isLegacyCinematicDefault) {
         return DEFAULT_STORYBOARD_COLUMNS;
     }
     return columns;
@@ -72,9 +117,9 @@ const columnOptions: Array<{ label: string; value: StoryboardColumn }> = [
     { label: "图片提示词", value: "imageGenerationPrompt" },
     { label: "视频提示词", value: "videoMotionPrompt" },
     { label: "关联资产", value: "assets" },
+    { label: "关键帧", value: "keyframes" },
     { label: "连续性出口", value: "continuityOut" },
     { label: "负面要求", value: "negativePrompt" },
-    { label: "关键帧", value: "keyframes" },
 ];
 
 export function CanvasScriptNodeContent({
@@ -642,7 +687,7 @@ export function CanvasScriptEditor({
         <Modal title={node?.title || "分镜脚本"} open={open} onCancel={onClose} footer={null} width="min(1480px, calc(100vw - 40px))" centered destroyOnHidden>
             <div className="mb-3 flex flex-wrap items-center gap-2">
                 <Input.Search className="w-72" allowClear placeholder="筛选画面、台词或提示词" value={query} onChange={(event) => setQuery(event.target.value)} />
-                    <CheckboxGroup className="script-column-picker" options={columnOptions} value={visibleColumns} onChange={(values) => onVisibleColumnsChange(values)} />
+                    <CheckboxGroup className="flex min-w-0 flex-1 flex-wrap gap-2" options={columnOptions} value={visibleColumns} onChange={(values) => onVisibleColumnsChange(values)} />
                 <span className="min-w-0 flex-1" />
                 <Button icon={<Plus className="size-4" />} onClick={() => onUpdateRows([...rows, editorRow(rows.length + 1)])}>
                     新增镜头

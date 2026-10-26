@@ -39,7 +39,7 @@ export function createCanvasNode(type: CanvasNodeTypeId, position: Position, met
         width: spec.width,
         height: spec.height,
         metadata: type === CanvasNodeType.Script
-            ? { ...spec.metadata, ...metadata, storyboard: metadata?.storyboard || { rows: [1, 2, 3].map((shotNumber) => createStoryboardRow(shotNumber)), visibleColumns: ["shotNumber", "durationSeconds", "videoMotionPrompt", "dialogue", "assets"], referenceNodeIds: [] } }
+            ? { ...spec.metadata, ...metadata, storyboard: metadata?.storyboard || { rows: [1, 2, 3].map((shotNumber) => createStoryboardRow(shotNumber)), visibleColumns: ["shotNumber", "durationSeconds", "videoMotionPrompt", "dialogue", "assets", "keyframes"], referenceNodeIds: [] } }
             : { ...spec.metadata, ...metadata, ...(type === CanvasNodeType.Drawing ? { drawingId: metadata?.drawingId || `${id}-document` } : {}) },
     };
 }
@@ -90,6 +90,7 @@ export function cinematicStoryboardColumns(columns?: StoryboardColumn[]): Storyb
         "videoMotionPrompt",
         "dialogue",
         "assets",
+        "keyframes",
         ...(columns || []),
         "shotSize",
         "narrativeIntent",
@@ -377,7 +378,7 @@ export function attachNodeToStoryboardRow(nodes: CanvasNodeData[], connection: P
                         : binding && !(item.assetBindings || []).some((candidate) => candidate.nodeId === linkedNode.id)
                           ? { ...item, assetBindings: [...(item.assetBindings || []), binding] }
                           : item),
-                    visibleColumns: storyboard?.visibleColumns || ["shotNumber", "durationSeconds", "videoMotionPrompt", "dialogue", "assets"],
+                    visibleColumns: storyboard?.visibleColumns || ["shotNumber", "durationSeconds", "videoMotionPrompt", "dialogue", "assets", "keyframes"],
                     referenceNodeIds: handleId === "storyboard:context" ? Array.from(new Set([...(storyboard?.referenceNodeIds || []), linkedNode.id])) : storyboard?.referenceNodeIds || [],
                 },
             },
