@@ -34,7 +34,8 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
         };
         return [
             { id: "home", title: text("首页", "Home"), icon: Home, to: "/" },
-            { ...toolEntry("projects", "/projects"), title: text("我的项目", "My projects") },
+            ...(features.shortDramaEnabled ? [{ ...toolEntry("projects", "/projects"), title: text("我的项目", "My projects") }] : []),
+            toolEntry("canvas", "/canvas"),
             toolEntry("theatre", "/theatre"),
             ...(features.taskCenterEnabled ? [toolEntry("tasks", "/tasks")] : []),
             toolEntry("assets", "/assets"),
@@ -42,7 +43,7 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
             ...(features.creditsEnabled ? [{ ...toolEntry("wallet"), run: () => openWorkspaceWallet() }] : []),
             toolEntry("settings", "/settings"),
         ];
-    }, [features, locale]);
+    }, [features, locale, text]);
 
     const filtered = useMemo(() => {
         const keyword = query.trim().toLowerCase();

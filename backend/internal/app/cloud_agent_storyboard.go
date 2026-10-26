@@ -338,8 +338,9 @@ func applyCloudAgentStoryboardMutation(repo *repository.Repository, userID, canv
 	if err := saveCloudAgentDocument(repo, plan.Canvas, plan.Document, policy); err != nil {
 		return nil, err
 	}
+	appliedPreview := cloudAgentCanvasAppliedPreview(plan.Preview)
 	if len(recorder) > 0 && recorder[0] != nil {
-		if err := recorder[0](repo, cloudAgentMutationInput{UserID: userID, CanvasID: canvasID, StepID: call.ID, Operation: call.Function.Name, BeforeSnapshotHash: plan.BeforeSnapshotHash, AfterSnapshotHash: cloudAgentCanvasHash(plan.Document), BeforeJSON: plan.BeforeJSON, Preview: &plan.Preview}); err != nil {
+		if err := recorder[0](repo, cloudAgentMutationInput{UserID: userID, CanvasID: canvasID, StepID: call.ID, Operation: call.Function.Name, BeforeSnapshotHash: plan.BeforeSnapshotHash, AfterSnapshotHash: cloudAgentCanvasHash(plan.Document), BeforeJSON: plan.BeforeJSON, Preview: &appliedPreview}); err != nil {
 			return nil, err
 		}
 	}
@@ -347,7 +348,7 @@ func applyCloudAgentStoryboardMutation(repo *repository.Repository, userID, canv
 	if len(plan.Preview.Items) > 0 {
 		nodeID = plan.Preview.Items[0].NodeID
 	}
-	return cloudAgentAppliedMutationResult(canvasID, nodeID, cloudAgentNodeHash(plan.Document, nodeID), plan.Preview.Items), nil
+	return cloudAgentAppliedMutationResult(canvasID, nodeID, cloudAgentNodeHash(plan.Document, nodeID), appliedPreview.Items), nil
 }
 
 func mapsAsAny(values []map[string]any) []any {

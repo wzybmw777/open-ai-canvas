@@ -52,7 +52,8 @@ function buildNav(features: FeatureAvailability, locale: AppLocale): { groups: W
         {
             items: [
                 { ...toolItem("create", "/"), id: "home", title: text("开始创作", "Start creating") },
-                { ...toolItem("projects", "/projects"), title: text("我的项目", "My projects") },
+                ...(features.shortDramaEnabled ? [{ ...toolItem("projects", "/projects"), title: text("我的项目", "My projects") }] : []),
+                { ...toolItem("canvas", "/canvas"), title: text("自由画布", "Canvas") },
                 { ...toolItem("assets", "/assets"), title: text("素材库", "Asset library") },
                 { ...toolItem("theatre", "/theatre"), title: text("作品与发布", "Works & publishing") },
             ],

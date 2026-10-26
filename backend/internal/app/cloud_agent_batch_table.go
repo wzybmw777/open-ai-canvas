@@ -400,13 +400,17 @@ func applyCloudAgentBatchTableMutation(repo *repository.Repository, userID, canv
 	if err := saveCloudAgentDocument(repo, plan.Canvas, plan.Document, policy); err != nil {
 		return nil, err
 	}
+	appliedPreview := cloudAgentCanvasAppliedPreview(plan.Preview)
 	if len(recorder) > 0 && recorder[0] != nil {
-		if err := recorder[0](repo, cloudAgentMutationInput{UserID: userID, CanvasID: canvasID, StepID: call.ID, Operation: call.Function.Name, BeforeSnapshotHash: plan.BeforeSnapshotHash, AfterSnapshotHash: cloudAgentCanvasHash(plan.Document), BeforeJSON: plan.BeforeJSON, Preview: &plan.Preview}); err != nil {
+		if err := recorder[0](repo, cloudAgentMutationInput{UserID: userID, CanvasID: canvasID, StepID: call.ID, Operation: call.Function.Name, BeforeSnapshotHash: plan.BeforeSnapshotHash, AfterSnapshotHash: cloudAgentCanvasHash(plan.Document), BeforeJSON: plan.BeforeJSON, Preview: &appliedPreview}); err != nil {
 			return nil, err
 		}
 	}
-	nodeID := plan.Preview.Items[0].NodeID
-	return cloudAgentAppliedMutationResult(canvasID, nodeID, cloudAgentNodeHash(plan.Document, nodeID), plan.Preview.Items), nil
+	nodeID := ""
+	if len(appliedPreview.Items) > 0 {
+		nodeID = appliedPreview.Items[0].NodeID
+	}
+	return cloudAgentAppliedMutationResult(canvasID, nodeID, cloudAgentNodeHash(plan.Document, nodeID), appliedPreview.Items), nil
 }
 
 func cloudAgentBatchTableReadResult(view any, nodeID, nodeHash string) (map[string]any, error) {
