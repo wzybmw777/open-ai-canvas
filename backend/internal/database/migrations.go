@@ -29,7 +29,16 @@ const cloudAgentGeminiCacheIdentityChecksum = "sha256:cloud-agent-gemini-cache-i
 const prefixedIDSequenceReconcileChecksum = "sha256:prefixed-id-sequence-reconcile-v38-20260926"
 const skillLibraryCategoriesChecksum = "sha256:skill-library-categories-v39-20260926"
 const builtinSkillTombstonesChecksum = "sha256:builtin-skill-tombstones-v40-20260927"
+const authPhoneUniqueIndexChecksum = "sha256:auth-phone-unique-index-v41-20260927"
+const legacyAuthSMSVerificationChecksum = "sha256:auth-sms-verification-v35"
 const resourceThumbnailChecksum = "sha256:resource-thumbnail-v41-20260927"
+const resourceThumbnailV42Checksum = "sha256:resource-thumbnail-v42-20260928"
+const authPhoneUniqueIndexV42Checksum = "sha256:auth-phone-unique-index-v42-20260928"
+const cloudAgentPiSessionsV42Checksum = "sha256:cloud-agent-pi-sessions-v42-20260928"
+const cloudAgentPiSessionsV43Checksum = "sha256:cloud-agent-pi-sessions-v43-20260929"
+const authPhoneUniqueIndexV43Checksum = "sha256:auth-phone-unique-index-v43-20260929"
+const authPhoneUniqueIndexV44Checksum = "sha256:auth-phone-unique-index-v44-20260930"
+const topupSaleStrategiesV44Checksum = "sha256:topup-sale-strategies-v44-20260930"
 const workbenchToolsMigrationName = "workbench_tools_and_presets"
 const workbenchToolsMigrationChecksum = "sha256:workbench-tools-presets-v54-20261014"
 const legacyWorkbenchToolsMigrationChecksum = "sha256:workbench-tools-presets-v51-20261014"
@@ -457,29 +466,259 @@ func migrateChannelPresentation(tx *gorm.DB) error {
 	return nil
 }
 
+// These helpers preserve the migration operations used by deployed databases
+// whose migration numbers 41-44 were recorded in a different order.
+func migrateAuthPhoneUniqueIndex(tx *gorm.DB) error {
+	return tx.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone_nonempty ON users(phone) WHERE phone <> ''").Error
+}
+
+func migrateResourceThumbnail(tx *gorm.DB) error {
+	return tx.AutoMigrate(&model.Resource{})
+}
+
+func migrateCloudAgentPiSessions(tx *gorm.DB) error {
+	return tx.AutoMigrate(&model.CloudAgentPiSession{})
+}
+
+func migrateTopupSaleStrategies(tx *gorm.DB) error {
+	return tx.AutoMigrate(&model.TopupProduct{}, &model.PaymentOrder{})
+}
+
+func migrateRewardsMembership(tx *gorm.DB) error {
+	// The legacy rewards models were removed from the current runtime. Existing
+	// databases already have this migration recorded, so no schema operation is
+	// needed when reconstructing the historical migration plan.
+	return nil
+}
+
 func migrationsForDatabase(db *gorm.DB) ([]migration, error) {
+	plan := append([]migration(nil), schemaMigrations...)
 	var applied schemaMigration
 	err := db.First(&applied, "version = ?", 6).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return schemaMigrations, nil
-	}
-	if err != nil {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("读取数据库迁移 6：%w", err)
 	}
-	if applied.Name != "asset_library_folders" {
-		return schemaMigrations, nil
+	if err == nil && applied.Name == "asset_library_folders" {
+		legacy := migration{version: 6, name: "asset_library_folders", checksum: assetLibraryFoldersChecksum, apply: migrateSchemaV7}
+		if err := validateMigrationRecord(applied, legacy); err != nil {
+			return nil, err
+		}
+		for index, item := range plan {
+			switch item.version {
+			case 6:
+				plan[index] = legacy
+			case 7:
+				plan[index] = migration{version: 7, name: "resource_playback_variant", checksum: resourcePlaybackChecksum, apply: migrateSchemaV6}
+			}
+		}
 	}
-	legacy := migration{version: 6, name: "asset_library_folders", checksum: assetLibraryFoldersChecksum, apply: migrateSchemaV7}
-	if err := validateMigrationRecord(applied, legacy); err != nil {
-		return nil, err
+
+	var authApplied schemaMigration
+	err = db.First(&authApplied, "version = ?", 35).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("读取数据库迁移 35：%w", err)
 	}
-	plan := append([]migration(nil), schemaMigrations...)
-	for index, item := range plan {
-		switch item.version {
-		case 6:
-			plan[index] = legacy
-		case 7:
-			plan[index] = migration{version: 7, name: "resource_playback_variant", checksum: resourcePlaybackChecksum, apply: migrateSchemaV6}
+	if err == nil && authApplied.Name == "auth_sms_verification" {
+		legacy := migration{version: 35, name: "auth_sms_verification", checksum: legacyAuthSMSVerificationChecksum, apply: migrateSchemaV35}
+		if err := validateMigrationRecord(authApplied, legacy); err != nil {
+			return nil, err
+		}
+		for index, item := range plan {
+			if item.version == 35 {
+				plan[index] = legacy
+				break
+			}
+		}
+	}
+
+	var v41Applied schemaMigration
+	err = db.First(&v41Applied, "version = ?", 41).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("读取数据库迁移 41：%w", err)
+	}
+	if err == nil && v41Applied.Name == "resource_thumbnail" {
+		upstream := migration{version: 41, name: "resource_thumbnail", checksum: resourceThumbnailChecksum, apply: migrateResourceThumbnail}
+		if err := validateMigrationRecord(v41Applied, upstream); err != nil {
+			return nil, err
+		}
+		var v42Applied schemaMigration
+		v42Err := db.First(&v42Applied, "version = ?", 42).Error
+		if v42Err != nil && !errors.Is(v42Err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("读取数据库迁移 42：%w", v42Err)
+		}
+		var v43Applied schemaMigration
+		v43Err := db.First(&v43Applied, "version = ?", 43).Error
+		if v43Err != nil && !errors.Is(v43Err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("读取数据库迁移 43：%w", v43Err)
+		}
+		for index, item := range plan {
+			switch item.version {
+			case 41:
+				plan[index] = upstream
+			case 42:
+				if v42Err == nil && v42Applied.Name == "auth_phone_unique_index" {
+					plan[index] = migration{version: 42, name: "auth_phone_unique_index", checksum: authPhoneUniqueIndexV42Checksum, apply: migrateAuthPhoneUniqueIndex}
+				} else {
+					plan[index] = migration{version: 42, name: "cloud_agent_pi_sessions", checksum: cloudAgentPiSessionsV42Checksum, apply: migrateCloudAgentPiSessions}
+				}
+			case 43:
+				if v42Err == nil && v42Applied.Name == "auth_phone_unique_index" {
+					plan[index] = migration{version: 43, name: "cloud_agent_pi_sessions", checksum: cloudAgentPiSessionsV43Checksum, apply: migrateCloudAgentPiSessions}
+				} else if v43Err == nil && v43Applied.Name == "topup_sale_strategies" {
+					plan[index] = migration{version: 43, name: "topup_sale_strategies", checksum: "sha256:topup-sale-strategies-v43-20260929", apply: migrateTopupSaleStrategies}
+				} else {
+					plan[index] = migration{version: 43, name: "auth_phone_unique_index", checksum: authPhoneUniqueIndexV43Checksum, apply: migrateAuthPhoneUniqueIndex}
+				}
+			case 44:
+				if v43Err == nil && v43Applied.Name == "topup_sale_strategies" {
+					plan[index] = migration{version: 44, name: "auth_phone_unique_index", checksum: authPhoneUniqueIndexV44Checksum, apply: migrateAuthPhoneUniqueIndex}
+				}
+			}
+		}
+	}
+	if err == nil && v41Applied.Name == "auth_phone_unique_index" {
+		legacyV41 := migration{version: 41, name: "auth_phone_unique_index", checksum: authPhoneUniqueIndexChecksum, apply: migrateAuthPhoneUniqueIndex}
+		if err := validateMigrationRecord(v41Applied, legacyV41); err != nil {
+			return nil, err
+		}
+		var v42Applied schemaMigration
+		v42Err := db.First(&v42Applied, "version = ?", 42).Error
+		if v42Err != nil && !errors.Is(v42Err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("读取数据库迁移 42：%w", v42Err)
+		}
+		var v43Applied schemaMigration
+		v43Err := db.First(&v43Applied, "version = ?", 43).Error
+		if v43Err != nil && !errors.Is(v43Err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("读取数据库迁移 43：%w", v43Err)
+		}
+		var v44Applied schemaMigration
+		v44Err := db.First(&v44Applied, "version = ?", 44).Error
+		if v44Err != nil && !errors.Is(v44Err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("读取数据库迁移 44：%w", v44Err)
+		}
+		if v42Err != nil || v42Applied.Name != "resource_thumbnail" {
+			return nil, fmt.Errorf("数据库迁移 42 名称不一致：无法识别旧版迁移顺序")
+		}
+		if err := validateMigrationRecord(v42Applied, migration{version: 42, name: "resource_thumbnail", checksum: resourceThumbnailV42Checksum, apply: migrateResourceThumbnail}); err != nil {
+			return nil, err
+		}
+		if v43Err != nil || v43Applied.Name != "cloud_agent_pi_sessions" {
+			return nil, fmt.Errorf("数据库迁移 43 名称不一致：无法识别旧版迁移顺序")
+		}
+		if err := validateMigrationRecord(v43Applied, migration{version: 43, name: "cloud_agent_pi_sessions", checksum: cloudAgentPiSessionsV43Checksum, apply: migrateCloudAgentPiSessions}); err != nil {
+			return nil, err
+		}
+		if v44Err != nil || v44Applied.Name != "topup_sale_strategies" {
+			return nil, fmt.Errorf("数据库迁移 44 名称不一致：无法识别旧版迁移顺序")
+		}
+		legacyV44 := migration{version: 44, name: "topup_sale_strategies", checksum: topupSaleStrategiesV44Checksum, apply: migrateTopupSaleStrategies}
+		if err := validateMigrationRecord(v44Applied, legacyV44); err != nil {
+			return nil, err
+		}
+		for index, item := range plan {
+			switch item.version {
+			case 41:
+				plan[index] = legacyV41
+			case 42:
+				plan[index] = migration{version: 42, name: "resource_thumbnail", checksum: resourceThumbnailV42Checksum, apply: migrateResourceThumbnail}
+			case 43:
+				plan[index] = migration{version: 43, name: "cloud_agent_pi_sessions", checksum: cloudAgentPiSessionsV43Checksum, apply: migrateCloudAgentPiSessions}
+			}
+		}
+		for index, item := range plan {
+			if item.version > 44 {
+				plan = append(plan, migration{})
+				copy(plan[index+1:], plan[index:])
+				plan[index] = legacyV44
+				break
+			}
+		}
+	}
+
+	var v48Applied schemaMigration
+	err = db.First(&v48Applied, "version = ?", 48).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("读取数据库迁移 48：%w", err)
+	}
+	if err == nil && v48Applied.Name == "theatre_works" {
+		legacyPlan := []migration{
+			{version: 48, name: "theatre_works", checksum: "sha256:theatre-works-v48-20261008", apply: func(tx *gorm.DB) error { return tx.AutoMigrate(&model.TheatreWork{}) }},
+			{version: 49, name: "theatre_covers", checksum: "sha256:theatre-covers-v49-20261008", apply: func(tx *gorm.DB) error { return tx.AutoMigrate(&model.TheatreWork{}) }},
+			{version: 50, name: "theatre_short_dramas", checksum: "sha256:theatre-short-dramas-v50-20261008", apply: func(tx *gorm.DB) error { return tx.AutoMigrate(&model.TheatreWork{}, &model.TheatreEpisode{}) }},
+			{version: 51, name: "channel_proxy_url", checksum: "sha256:channel-proxy-url-v48-20261009", apply: func(tx *gorm.DB) error {
+				if !tx.Migrator().HasColumn(&model.ModelChannel{}, "ProxyURL") {
+					return tx.Migrator().AddColumn(&model.ModelChannel{}, "ProxyURL")
+				}
+				return nil
+			}},
+			{version: 52, name: "banner_sort_order", checksum: "sha256:banner-sort-order-v49-20261010", apply: func(tx *gorm.DB) error {
+				if !tx.Migrator().HasColumn(&model.BannerAnnouncement{}, "SortOrder") {
+					return tx.Migrator().AddColumn(&model.BannerAnnouncement{}, "SortOrder")
+				}
+				return nil
+			}},
+			{version: 53, name: "channel_sync_jobs", checksum: "sha256:channel-sync-jobs-v53", apply: func(tx *gorm.DB) error { return tx.AutoMigrate(&model.ChannelSyncJob{}, &model.ChannelSyncRun{}) }},
+			{version: 54, name: "canvas_mutation_receipts", checksum: "sha256:canvas-mutation-receipts-v54-20261011", apply: func(tx *gorm.DB) error { return tx.AutoMigrate(&model.CanvasMutationReceipt{}) }},
+			{version: 55, name: "personal_profile_security", checksum: "sha256:personal-profile-security-v55-20261012", apply: func(tx *gorm.DB) error {
+				return tx.AutoMigrate(&model.User{}, &model.AuthSession{}, &model.OAuthState{}, &model.AuthVerification{}, &model.UserAvatar{})
+			}},
+			{version: 56, name: "user_avatar_presets", checksum: "sha256:user-avatar-presets-v56-20261012", apply: func(tx *gorm.DB) error {
+				if tx.Migrator().HasColumn(&model.User{}, "AvatarPreset") {
+					return nil
+				}
+				return tx.Migrator().AddColumn(&model.User{}, "AvatarPreset")
+			}},
+			{version: 57, name: "user_login_logs", checksum: "sha256:user-login-logs-v57", apply: func(tx *gorm.DB) error { return tx.AutoMigrate(&model.LoginLog{}) }},
+			{version: 58, name: workbenchToolsMigrationName, checksum: "sha256:workbench-tools-presets-v58-20261014", apply: func(tx *gorm.DB) error {
+				return tx.AutoMigrate(&model.WorkbenchTool{}, &model.WorkbenchPreset{}, &model.Task{})
+			}},
+			{version: 59, name: "provider_catalog_source", checksum: "sha256:provider-catalog-source-v55", apply: func(tx *gorm.DB) error {
+				if !tx.Migrator().HasColumn(&model.ModelChannel{}, "CatalogProviderID") {
+					if err := tx.Migrator().AddColumn(&model.ModelChannel{}, "CatalogProviderID"); err != nil {
+						return err
+					}
+				}
+				if !tx.Migrator().HasColumn(&model.ChannelModel{}, "CatalogModelKey") {
+					return tx.Migrator().AddColumn(&model.ChannelModel{}, "CatalogModelKey")
+				}
+				return nil
+			}},
+			{version: 60, name: "sql_perf_indexes", checksum: "sha256:sql-perf-indexes-v56-20261016", apply: migrateSchemaV56},
+			{version: 61, name: "canvas_multi_session_sync", checksum: "sha256:canvas-multi-session-sync-v57", apply: migrateCanvasCollaboration},
+			{version: 62, name: "rewards_membership", checksum: "sha256:rewards-membership-v62-20261019", apply: migrateRewardsMembership},
+			{version: 63, name: "agent_memory_proposals", checksum: "sha256:agent-memory-proposals-v63", apply: func(tx *gorm.DB) error {
+				return tx.AutoMigrate(&model.AgentLesson{}, &model.AgentMemorySetting{}, &model.AgentMemoryProposal{}, &model.AgentMemoryRevision{})
+			}},
+			{version: 64, name: "channel_model_protocol_length", checksum: "sha256:channel-model-protocol-length-v64", apply: migrateChannelModelProtocolLength},
+			{version: 65, name: "user_feedbacks", checksum: "sha256:user-feedbacks-v65-20261020", apply: func(tx *gorm.DB) error { return tx.AutoMigrate(&model.UserFeedback{}) }},
+		}
+		for _, expected := range legacyPlan {
+			var applied schemaMigration
+			if err := db.First(&applied, "version = ?", expected.version).Error; err != nil {
+				return nil, fmt.Errorf("读取数据库迁移 %d：%w", expected.version, err)
+			}
+			if err := validateMigrationRecord(applied, expected); err != nil {
+				return nil, err
+			}
+			for index, item := range plan {
+				if item.version == expected.version {
+					plan[index] = expected
+					break
+				}
+			}
+		}
+		// This database reached v65 before the drama tables were introduced. The
+		// current v66-v72 migrations assume those base tables already exist.
+		for index, item := range plan {
+			if item.version == 66 {
+				plan[index].apply = func(tx *gorm.DB) error {
+					if err := tx.AutoMigrate(&model.DramaProduction{}, &model.DramaCast{}, &model.DramaEpisode{}, &model.DramaShot{}, &model.DramaTake{}, &model.DramaJob{}); err != nil {
+						return err
+					}
+					return tx.AutoMigrate(&model.DramaSegment{})
+				}
+				break
+			}
 		}
 	}
 	return plan, nil
