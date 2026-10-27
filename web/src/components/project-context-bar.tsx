@@ -37,7 +37,7 @@ export function ProjectContextBar({ projectId, disabled, onChange, description, 
                 options={(projects.data?.projects || []).map((project) => ({ value: project.id, label: project.title }))}
                 loading={projects.isPending && Boolean(userId)} disabled={!userId || disabled || projects.isError}
                 notFoundContent={text("正在准备默认项目", "Preparing your default project")} />
-            {action || <Link to="/projects">{text("打开项目", "Open project")}</Link>}
+            {action || <Link to="/canvas">{text("打开项目", "Open project")}</Link>}
         </div>
         {projects.isError ? <p role="alert">{text("项目准备失败，请重试。", "Could not prepare projects. Try again.")} <Button size="small" onClick={() => void projects.refetch()}>{text("重试", "Retry")}</Button></p> : description ? <p>{description}</p> : null}
     </section>;
