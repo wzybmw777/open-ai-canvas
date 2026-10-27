@@ -34,8 +34,8 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
         };
         return [
             { id: "home", title: text("首页", "Home"), icon: Home, to: "/" },
-            ...(features.shortDramaEnabled ? [{ ...toolEntry("projects", "/projects"), title: text("我的项目", "My projects") }] : []),
-            toolEntry("canvas", "/canvas"),
+            ...(features.shortDramaEnabled ? [{ ...toolEntry("projects", "/projects"), title: text("短剧创作", "Short drama creation") }] : []),
+            { ...toolEntry("canvas", "/canvas"), title: text("我的画布", "My canvas") },
             toolEntry("theatre", "/theatre"),
             ...(features.taskCenterEnabled ? [toolEntry("tasks", "/tasks")] : []),
             toolEntry("assets", "/assets"),

@@ -52,8 +52,8 @@ function buildNav(features: FeatureAvailability, locale: AppLocale): { groups: W
         {
             items: [
                 { ...toolItem("create", "/"), id: "home", title: text("开始创作", "Start creating") },
-                ...(features.shortDramaEnabled ? [{ ...toolItem("projects", "/projects"), title: text("我的项目", "My projects") }] : []),
-                { ...toolItem("canvas", "/canvas"), title: text("自由画布", "Canvas") },
+                ...(features.shortDramaEnabled ? [{ ...toolItem("projects", "/projects"), title: text("短剧创作", "Short drama creation") }] : []),
+                { ...toolItem("canvas", "/canvas"), title: text("我的画布", "My canvas") },
                 { ...toolItem("assets", "/assets"), title: text("素材库", "Asset library") },
                 { ...toolItem("theatre", "/theatre"), title: text("作品与发布", "Works & publishing") },
             ],
@@ -182,7 +182,7 @@ function NavItem({
 
     const collapsedTitles = locale === "en-US"
         ? { home: "Create", projects: "Projects", canvas: "Canvas", theatre: "Works", inspirations: "Ideas", assets: "Assets", skills: "Skills", plugins: "Plugins", tasks: "Tasks" }
-        : { home: "创作", projects: "项目", canvas: "画布", theatre: "作品", inspirations: "灵感", assets: "素材", skills: "技能", plugins: "插件", tasks: "任务" };
+        : { home: "创作", projects: "短剧", canvas: "画布", theatre: "作品", inspirations: "灵感", assets: "素材", skills: "技能", plugins: "插件", tasks: "任务" };
     const collapsedTitle = collapsedTitles[item.id as keyof typeof collapsedTitles] || item.title.slice(0, 2);
     const rowContent = (
         <>
@@ -323,7 +323,6 @@ export function workspaceNavActiveId(pathname: string, section?: string | null) 
     if (segments[0] === "toolbox" && segments[1]) return `toolbox-${segments[1]}`;
     const slug = segments[0] || "home";
     if (slug === "create") return "home";
-    if (slug === "canvas") return "projects";
     return slug === "settings" && section ? `settings:${section}` : slug;
 }
 
