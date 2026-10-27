@@ -16,7 +16,6 @@ import AgentMemoryPane from "./agent-memory-pane";
 import { RunningHubSettingsPane } from "./runninghub-settings-pane";
 import { RUNNINGHUB_PLUGIN_ID } from "@/lib/plugins/builtin/workflows";
 import { usePluginStore } from "@/stores/use-plugin-store";
-import { useLocaleText } from "@/lib/i18n";
 import { ProfilePane } from "./profile-pane";
 import { FeedbackInboxPane } from "./feedback-inbox-pane";
 
@@ -35,25 +34,11 @@ const configSections: Array<{ key: ConfigSectionKey; label: string; description:
     { key: "feedbacks", label: "我的反馈", description: "提交问题、建议与官方答复", icon: <Inbox className="size-4" /> },
 ];
 
-const englishSections: Record<ConfigSectionKey, { label: string; description: string }> = {
-    profile: { label: "Personal information", description: "Avatar, password and email" },
-    channels: { label: "Personal channels", description: "Models and workflows" },
-    runninghub: { label: "RunningHub", description: "Cloud workflows" },
-    models: { label: "Model selection", description: "Default models by task" },
-    preferences: { label: "Generation preferences", description: "Canvas defaults" },
-    prompts: { label: "Prompt preferences", description: "Task templates" },
-    "agent-memory": { label: "Agent memory", description: "Review and manage memory" },
-    storage: { label: "My storage", description: "Personal media storage" },
-    diagnostics: { label: "Diagnostics", description: "Export logs" },
-    feedbacks: { label: "My feedback", description: "Submit feedback and read replies" },
-};
-
 export function isConfigSection(value: string | null): value is ConfigSectionKey {
     return configSections.some((section) => section.key === value);
 }
 
 export default function SettingsPage() {
-    const { locale, text } = useLocaleText();
     const { message } = App.useApp();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -87,7 +72,7 @@ export default function SettingsPage() {
         if (!userId) return;
         let cancelled = false;
         void refreshSystemChannels().catch((error) => {
-            if (!cancelled) message.warning(error instanceof Error ? text(`系统模型刷新失败：${error.message}`, `Could not refresh system models: ${error.message}`) : text("系统模型刷新失败，继续使用本地缓存", "Could not refresh system models. Using cached data."));
+            if (!cancelled) message.warning(error instanceof Error ? `系统模型刷新失败：${error.message}` : "系统模型刷新失败，继续使用本地缓存");
         });
         return () => {
             cancelled = true;
@@ -106,17 +91,17 @@ export default function SettingsPage() {
         const invalidChannel = customChannelsEnabled ? userChannels.find((channel) => channelValidationError(channel)) : undefined;
         if (invalidChannel) {
             selectSection("channels");
-            message.warning(`${invalidChannel.name || text("未命名渠道", "Unnamed channel")}: ${channelValidationError(invalidChannel)}`);
+            message.warning(`${invalidChannel.name || "未命名渠道"}：${channelValidationError(invalidChannel)}`);
             focusInvalidChannelField(invalidChannel);
             return;
         }
         const workflowReady = Boolean(runningHubPluginEnabled && config.runningHub.enabled && config.runningHub.workflowId.trim() && config.runningHub.baseUrl.trim() && config.runningHub.apiKey.trim());
         if (!effectiveConfig.channels.some(isChannelReady) && !workflowReady) {
             selectSection(customChannelsEnabled ? "channels" : "models");
-            message.error(customChannelsEnabled ? (shouldPromptContinue ? text("请先完成至少一个渠道的 Base URL、API Key 和模型配置", "Configure a channel URL, API key, and model first") : text("当前没有可用渠道，请先完成连接信息和模型配置", "No channel is available. Complete the connection and model settings.")) : text("当前没有可用的系统模型，请联系管理员配置系统渠道", "No system model is available. Contact an administrator."));
+            message.error(customChannelsEnabled ? (shouldPromptContinue ? "请先完成至少一个渠道的 Base URL、API Key 和模型配置" : "当前没有可用渠道，请先完成连接信息和模型配置") : "当前没有可用的系统模型，请联系管理员配置系统渠道");
             return;
         }
-        message.success(text("配置已保存，正在返回创作页面", "Settings saved. Returning to creation."));
+        message.success("配置已保存，正在返回创作页面");
         navigate(-1);
     };
 
@@ -127,8 +112,8 @@ export default function SettingsPage() {
             <SettingsPane>
                 <div className="settings-pane-header">
                     <div className="min-w-0">
-                        <h2>{text("模型选择", "Model selection")}</h2>
-                        <p>{text("按领域选择默认模型；模型能力与请求协议在渠道“模型与能力”中配置。", "Choose default models by task. Configure capabilities and protocols in channel settings.")}</p>
+                        <h2>模型选择</h2>
+                        <p>按领域选择默认模型；模型能力与请求协议在渠道“模型与能力”中配置。</p>
                     </div>
                 </div>
                 <div className="settings-section">
@@ -141,18 +126,18 @@ export default function SettingsPage() {
             <SettingsPane>
                 <div className="settings-pane-header">
                     <div className="min-w-0">
-                        <h2>{text("生成偏好", "Generation preferences")}</h2>
-                        <p>{text("设置新建生成任务时使用的初始值，节点内仍可单独覆盖。", "Set defaults for new tasks. Individual nodes can override them.")}</p>
+                        <h2>生成偏好</h2>
+                        <p>设置新建生成任务时使用的初始值，节点内仍可单独覆盖。</p>
                     </div>
                 </div>
                 <div className="settings-section">
                     <section className="settings-preference-block">
                         <div className="settings-preference-heading">
-                            <h3>{text("画布生成", "Canvas generation")}</h3>
-                            <p>{text("用于新建图片生成任务，节点内仍可单独覆盖。", "Defaults for new image tasks. Individual nodes can override them.")}</p>
+                            <h3>画布生成</h3>
+                            <p>用于新建图片生成任务，节点内仍可单独覆盖。</p>
                         </div>
                         <SettingsRow
-                            label={text("默认生图张数", "Default image count")}
+                            label="默认生图张数"
                             control={
                                 <InputNumber
                                     min={1}
@@ -174,8 +159,8 @@ export default function SettingsPage() {
             <SettingsPane>
                 <div className="settings-pane-header">
                     <div className="min-w-0">
-                        <h2>{text("Agent 记忆", "Agent memory")}</h2>
-                        <p>{text("只属于你。Agent 记下的先待批准；手动添加立刻生效。可导入导出，也可用文本模型压缩相近条目。", "Review suggested memories, add your own, and import or export them.")}</p>
+                        <h2>Agent 记忆</h2>
+                        <p>只属于你。Agent 记下的先待批准；手动添加立刻生效。可导入导出，也可用文本模型压缩相近条目。</p>
                     </div>
                 </div>
                 <div className="settings-section">
@@ -199,28 +184,28 @@ export default function SettingsPage() {
             {shouldPromptContinue ? (
                 <div className="settings-topbar shrink-0">
                     <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-                        <Button icon={<ArrowLeft className="size-4" />} onClick={() => navigate(-1)}>{text("返回创作", "Back to creation")}</Button>
-                        <Button type="primary" onClick={finishConfig}>{text("保存并返回", "Save and return")}</Button>
+                        <Button icon={<ArrowLeft className="size-4" />} onClick={() => navigate(-1)}>返回创作</Button>
+                        <Button type="primary" onClick={finishConfig}>保存并返回</Button>
                     </div>
                 </div>
             ) : null}
             <div className="settings-library-frame flex min-h-0 flex-1 flex-col md:flex-row">
                 <aside className="settings-nav-panel w-full shrink-0 md:w-[200px]">
-                    <nav className="thin-scrollbar flex gap-1 overflow-x-auto p-2 md:block md:space-y-1 md:p-2.5" aria-label={text("配置分类", "Settings sections")}>
+                    <nav className="thin-scrollbar flex gap-1 overflow-x-auto p-2 md:block md:space-y-1 md:p-2" aria-label="配置分类">
                         {visibleConfigSections.map((item) => {
                             const selected = item.key === activeTab;
                             return (
                                 <button
                                     key={item.key}
                                     type="button"
-                                    className={`settings-nav-item flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-auto md:w-full md:items-start md:gap-3 md:py-2.5 ${selected ? "is-active" : "text-foreground/58 hover:bg-muted/55 hover:text-foreground"}`}
+                                    className={`settings-nav-item flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-auto md:w-full md:items-start md:gap-3 md:py-2 ${selected ? "is-active" : "text-foreground/58 hover:bg-muted/55 hover:text-foreground"}`}
                                     onClick={() => selectSection(item.key)}
                                     aria-current={selected ? "page" : undefined}
                                 >
                                     <span className={`shrink-0 md:mt-0.5 ${selected ? "text-[var(--workspace-accent)]" : ""}`}>{item.icon}</span>
                                     <span className="min-w-0">
-                                        <span className="block whitespace-nowrap text-sm font-medium">{locale === "en-US" ? englishSections[item.key].label : item.label}</span>
-                                        <span className="mt-1 hidden text-[var(--fs-label)] leading-4 text-current opacity-65 md:block">{locale === "en-US" ? englishSections[item.key].description : item.description}</span>
+                                        <span className="block whitespace-nowrap text-sm font-medium">{item.label}</span>
+                                        <span className="mt-1 hidden text-[var(--fs-label)] leading-4 text-current opacity-65 md:block">{item.description}</span>
                                     </span>
                                 </button>
                             );

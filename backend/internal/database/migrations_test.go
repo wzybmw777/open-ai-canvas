@@ -26,51 +26,6 @@ func TestCurrentSchemaVersionMatchesMigrationPlan(t *testing.T) {
 	}
 }
 
-func TestCanvasMutationReceiptsUpgradePreservesLocalMigrationHistory(t *testing.T) {
-	db, err := Open(Config{Driver: "sqlite", DSN: "file:canvas-receipts-local-upgrade?mode=memory&cache=shared"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := MigrateSchema(db); err != nil {
-		t.Fatal(err)
-	}
-	if err := db.Migrator().DropTable(&model.CanvasMutationReceipt{}); err != nil {
-		t.Fatal(err)
-	}
-	if err := db.Where("version = ?", 54).Delete(&schemaMigration{}).Error; err != nil {
-		t.Fatal(err)
-	}
-	var before []schemaMigration
-	if err := db.Where("version <= ?", 53).Order("version").Find(&before).Error; err != nil {
-		t.Fatal(err)
-	}
-	if err := MigrateSchema(db); err != nil {
-		t.Fatal(err)
-	}
-	var after []schemaMigration
-	if err := db.Where("version <= ?", 53).Order("version").Find(&after).Error; err != nil {
-		t.Fatal(err)
-	}
-	if len(before) != len(after) {
-		t.Fatal("existing migration records changed")
-	}
-	for i := range before {
-		if before[i] != after[i] {
-			t.Fatalf("migration %d was rewritten", before[i].Version)
-		}
-	}
-	if !db.Migrator().HasTable(&model.CanvasMutationReceipt{}) || !db.Migrator().HasIndex(&model.CanvasMutationReceipt{}, "idx_canvas_mutation_receipt_identity") {
-		t.Fatal("canvas mutation receipts table or unique identity index missing")
-	}
-	if !db.Migrator().HasTable(&model.TheatreEpisode{}) || !db.Migrator().HasTable(&model.ChannelSyncJob{}) {
-		t.Fatal("existing local tables missing after upgrade")
-	}
-	status, err := ReadSchemaStatus(db)
-	if err != nil || !status.Ready || status.Current != CurrentSchemaVersion {
-		t.Fatalf("unexpected upgraded schema status: %+v, %v", status, err)
-	}
-}
-
 type channelModelProtocolV58 struct {
 	ID       string `gorm:"primaryKey;size:36"`
 	Protocol string `gorm:"size:32;index"`
@@ -131,13 +86,13 @@ func TestMigrateSchemaRecordsAndValidatesVersion(t *testing.T) {
 		t.Fatal("upload reservation migration missing")
 	}
 	if !db.Migrator().HasTable(&model.WorkbenchTool{}) || !db.Migrator().HasTable(&model.WorkbenchPreset{}) {
-		t.Fatal("schema migration v58 did not create workbench tool and preset tables")
+		t.Fatal("schema migration v54 did not create workbench tool and preset tables")
 	}
 	if !db.Migrator().HasIndex(&model.WorkbenchTool{}, "idx_workbench_tools_kind_enabled_sort") {
-		t.Fatal("schema migration v58 did not create the workbench catalog index")
+		t.Fatal("schema migration v54 did not create the workbench catalog index")
 	}
 	if !db.Migrator().HasIndex(&model.WorkbenchPreset{}, "idx_workbench_presets_tool_enabled_sort") {
-		t.Fatal("schema migration v58 did not create the workbench preset index")
+		t.Fatal("schema migration v54 did not create the workbench preset index")
 	}
 	if !db.Migrator().HasIndex(&schemaMigration{}, "idx_schema_migrations_applied_at") {
 		t.Fatal("schema migration v2 did not create the applied_at index")
@@ -189,7 +144,7 @@ func TestMigrateSchemaRecordsAndValidatesVersion(t *testing.T) {
 	}
 }
 
-func TestMigrateSchemaV60UpgradesProviderCatalogV59(t *testing.T) {
+func TestMigrateSchemaV56UpgradesProviderCatalogV55(t *testing.T) {
 	db, err := Open(Config{Driver: "sqlite", DSN: "file:migration-sql-perf-v56?mode=memory&cache=shared"})
 	if err != nil {
 		t.Fatal(err)
@@ -198,7 +153,7 @@ func TestMigrateSchemaV60UpgradesProviderCatalogV59(t *testing.T) {
 		t.Fatal(err)
 	}
 	var catalogMigration schemaMigration
-	if err := db.First(&catalogMigration, "version = ?", 59).Error; err != nil {
+	if err := db.First(&catalogMigration, "version = ?", 55).Error; err != nil {
 		t.Fatal(err)
 	}
 	if catalogMigration.Name != "provider_catalog_source" || catalogMigration.Checksum != "sha256:provider-catalog-source-v55" {
@@ -223,7 +178,7 @@ func TestMigrateSchemaV60UpgradesProviderCatalogV59(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := db.Where("version = ?", 60).Delete(&schemaMigration{}).Error; err != nil {
+	if err := db.Where("version = ?", 56).Delete(&schemaMigration{}).Error; err != nil {
 		t.Fatal(err)
 	}
 	createdAt := time.Date(2026, 10, 15, 12, 30, 0, 0, time.UTC)
@@ -257,7 +212,7 @@ func TestMigrateSchemaV60UpgradesProviderCatalogV59(t *testing.T) {
 		}
 	}
 	var after schemaMigration
-	if err := db.First(&after, "version = ?", 59).Error; err != nil {
+	if err := db.First(&after, "version = ?", 55).Error; err != nil {
 		t.Fatal(err)
 	}
 	if after != catalogMigration {
@@ -283,7 +238,7 @@ func TestMigrateSchemaNormalizesLegacyWorkbenchMigrationV51(t *testing.T) {
 	if err := db.Where("version >= ? AND version <> ?", 51, workbenchToolsMigrationVersion).Delete(&schemaMigration{}).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Model(&schemaMigration{}).Where("version = ?", workbenchToolsMigrationVersion).Updates(map[string]any{
+	if err := db.Model(&schemaMigration{}).Where("version = ?", 54).Updates(map[string]any{
 		"version":  51,
 		"name":     workbenchToolsMigrationName,
 		"checksum": legacyWorkbenchToolsMigrationChecksum,
@@ -360,170 +315,6 @@ func TestMigrateSchemaV35UpgradesExistingDatabase(t *testing.T) {
 	}
 	if !db.Migrator().HasColumn(&model.EmailVerificationCode{}, "attempts") {
 		t.Fatal("migration v35 did not restore email verification attempts")
-	}
-}
-
-func TestMigrateSchemaAcceptsLocalV35HistoryAndAddsPhoneIndex(t *testing.T) {
-	db, err := Open(Config{Driver: "sqlite", DSN: "file:migration-local-auth-v35?mode=memory&cache=shared"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := MigrateSchema(db); err != nil {
-		t.Fatal(err)
-	}
-	if err := db.Exec("DROP INDEX IF EXISTS idx_users_phone_nonempty").Error; err != nil {
-		t.Fatal(err)
-	}
-	if err := db.Model(&schemaMigration{}).Where("version = ?", 35).Updates(map[string]any{
-		"name": "auth_sms_verification", "checksum": legacyAuthSMSVerificationChecksum,
-	}).Error; err != nil {
-		t.Fatal(err)
-	}
-	if err := db.Where("version = ?", 41).Delete(&schemaMigration{}).Error; err != nil {
-		t.Fatal(err)
-	}
-	if err := MigrateSchema(db); err != nil {
-		t.Fatalf("upgrade local v35 history: %v", err)
-	}
-	status, err := ReadSchemaStatus(db)
-	if err != nil || !status.Ready || status.Current != CurrentSchemaVersion {
-		t.Fatalf("unexpected schema status: %#v, %v", status, err)
-	}
-	if !db.Migrator().HasIndex(&model.User{}, "idx_users_phone_nonempty") {
-		t.Fatal("schema migration v41 did not add the phone index")
-	}
-	var applied schemaMigration
-	if err := db.First(&applied, "version = ?", 35).Error; err != nil {
-		t.Fatal(err)
-	}
-	if applied.Name != "auth_sms_verification" || applied.Checksum != legacyAuthSMSVerificationChecksum {
-		t.Fatalf("local migration history was rewritten: %+v", applied)
-	}
-}
-
-func TestMigrateSchemaUpgradesV41AndV42Histories(t *testing.T) {
-	for _, tt := range []struct {
-		name              string
-		v41Name           string
-		v41Checksum       string
-		v42Name           string
-		v42Checksum       string
-		v42Missing        bool
-		v43Name           string
-		v43Checksum       string
-		dropPhoneIndex    bool
-		dropThumbnailData bool
-		dropPiSessions    bool
-	}{
-		{name: "local phone index", v41Name: "auth_phone_unique_index", v41Checksum: authPhoneUniqueIndexChecksum, v42Name: "resource_thumbnail", v42Checksum: resourceThumbnailV42Checksum, v43Name: "cloud_agent_pi_sessions", v43Checksum: cloudAgentPiSessionsV43Checksum, dropPiSessions: true},
-		{name: "local phone index at v41", v41Name: "auth_phone_unique_index", v41Checksum: authPhoneUniqueIndexChecksum, v42Name: "resource_thumbnail", v42Checksum: resourceThumbnailV42Checksum, v42Missing: true, v43Name: "cloud_agent_pi_sessions", v43Checksum: cloudAgentPiSessionsV43Checksum, dropThumbnailData: true, dropPiSessions: true},
-		{name: "upstream pi sessions", v41Name: "resource_thumbnail", v41Checksum: resourceThumbnailChecksum, v42Name: "cloud_agent_pi_sessions", v42Checksum: cloudAgentPiSessionsV42Checksum, v43Name: "auth_phone_unique_index", v43Checksum: authPhoneUniqueIndexV43Checksum, dropPhoneIndex: true},
-		{name: "upstream thumbnail at v41", v41Name: "resource_thumbnail", v41Checksum: resourceThumbnailChecksum, v42Name: "cloud_agent_pi_sessions", v42Checksum: cloudAgentPiSessionsV42Checksum, v42Missing: true, v43Name: "auth_phone_unique_index", v43Checksum: authPhoneUniqueIndexV43Checksum, dropPhoneIndex: true, dropPiSessions: true},
-		{name: "previous merged phone index", v41Name: "resource_thumbnail", v41Checksum: resourceThumbnailChecksum, v42Name: "auth_phone_unique_index", v42Checksum: authPhoneUniqueIndexV42Checksum, v43Name: "cloud_agent_pi_sessions", v43Checksum: cloudAgentPiSessionsV43Checksum, dropPiSessions: true},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			db, err := Open(Config{Driver: "sqlite", DSN: "file:" + t.Name() + "?mode=memory&cache=shared"})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := MigrateSchema(db); err != nil {
-				t.Fatal(err)
-			}
-			if err := db.Where("version = ?", 44).Delete(&schemaMigration{}).Error; err != nil {
-				t.Fatal(err)
-			}
-			if err := db.Where("version = ?", 43).Delete(&schemaMigration{}).Error; err != nil {
-				t.Fatal(err)
-			}
-			if err := db.Model(&schemaMigration{}).Where("version = ?", 41).Updates(map[string]any{"name": tt.v41Name, "checksum": tt.v41Checksum}).Error; err != nil {
-				t.Fatal(err)
-			}
-			if tt.v42Missing {
-				if err := db.Where("version = ?", 42).Delete(&schemaMigration{}).Error; err != nil {
-					t.Fatal(err)
-				}
-			} else {
-				if err := db.Model(&schemaMigration{}).Where("version = ?", 42).Updates(map[string]any{"name": tt.v42Name, "checksum": tt.v42Checksum}).Error; err != nil {
-					t.Fatal(err)
-				}
-			}
-			if tt.dropPhoneIndex {
-				if err := db.Exec("DROP INDEX IF EXISTS idx_users_phone_nonempty").Error; err != nil {
-					t.Fatal(err)
-				}
-			}
-			if tt.dropThumbnailData {
-				for _, column := range []string{"ThumbnailStatus", "ThumbnailMimeType", "ThumbnailSize", "ThumbnailWidth", "ThumbnailHeight"} {
-					if err := db.Migrator().DropColumn(&model.Resource{}, column); err != nil {
-						t.Fatal(err)
-					}
-				}
-			}
-			if tt.dropPiSessions {
-				if err := db.Migrator().DropTable(&model.CloudAgentPiSession{}); err != nil {
-					t.Fatal(err)
-				}
-			}
-			for range 2 {
-				if err := MigrateSchema(db); err != nil {
-					t.Fatal(err)
-				}
-			}
-			status, err := ReadSchemaStatus(db)
-			if err != nil || !status.Ready || status.Current != CurrentSchemaVersion {
-				t.Fatalf("unexpected schema status: %#v, %v", status, err)
-			}
-			if !db.Migrator().HasIndex(&model.User{}, "idx_users_phone_nonempty") || !db.Migrator().HasColumn(&model.Resource{}, "thumbnail_status") || !db.Migrator().HasTable(&model.CloudAgentPiSession{}) || !db.Migrator().HasColumn(&model.TopupProduct{}, "sale_strategy") {
-				t.Fatal("merged migrations did not preserve all schema changes")
-			}
-			for _, expected := range []schemaMigration{{Version: 41, Name: tt.v41Name, Checksum: tt.v41Checksum}, {Version: 42, Name: tt.v42Name, Checksum: tt.v42Checksum}, {Version: 43, Name: tt.v43Name, Checksum: tt.v43Checksum}, {Version: 44, Name: "topup_sale_strategies", Checksum: topupSaleStrategiesV44Checksum}} {
-				var applied schemaMigration
-				if err := db.First(&applied, "version = ?", expected.Version).Error; err != nil {
-					t.Fatal(err)
-				}
-				if applied.Name != expected.Name || applied.Checksum != expected.Checksum {
-					t.Fatalf("migration history changed: %+v", applied)
-				}
-			}
-		})
-	}
-}
-
-func TestMigrateSchemaPreservesUpstreamTopupV43(t *testing.T) {
-	db, err := Open(Config{Driver: "sqlite", DSN: "file:migration-upstream-topup-v43?mode=memory&cache=shared"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := MigrateSchema(db); err != nil {
-		t.Fatal(err)
-	}
-	if err := db.Where("version = ?", 44).Delete(&schemaMigration{}).Error; err != nil {
-		t.Fatal(err)
-	}
-	for version, change := range map[int64]map[string]any{
-		41: {"name": "resource_thumbnail", "checksum": resourceThumbnailChecksum},
-		42: {"name": "cloud_agent_pi_sessions", "checksum": cloudAgentPiSessionsV42Checksum},
-		43: {"name": "topup_sale_strategies", "checksum": "sha256:topup-sale-strategies-v43-20260929"},
-	} {
-		if err := db.Model(&schemaMigration{}).Where("version = ?", version).Updates(change).Error; err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := db.Exec("DROP INDEX IF EXISTS idx_users_phone_nonempty").Error; err != nil {
-		t.Fatal(err)
-	}
-	if err := MigrateSchema(db); err != nil {
-		t.Fatal(err)
-	}
-	if !db.Migrator().HasIndex(&model.User{}, "idx_users_phone_nonempty") {
-		t.Fatal("upstream migration path did not add the phone index")
-	}
-	var applied schemaMigration
-	if err := db.First(&applied, "version = ?", 44).Error; err != nil {
-		t.Fatal(err)
-	}
-	if applied.Name != "auth_phone_unique_index" || applied.Checksum != authPhoneUniqueIndexV44Checksum {
-		t.Fatalf("unexpected migration 44: %+v", applied)
 	}
 }
 

@@ -3,7 +3,6 @@
 import { Button, Drawer, Tag } from "antd";
 import { Box, CheckCheck, Clapperboard, Copy, Download, FileText, FileUp, Link2, Maximize2, Mic, Plus, RotateCcw, Trash2, ZoomIn, ZoomOut } from "lucide-react";
 import { AudioPlayButton, CharacterAssetCover } from "@/components/assets/asset-rich-cover";
-import { CachedResourceImage } from "@/components/cached-resource-image";
 import { useAppearanceStore } from "@/stores/use-appearance-store";
 import { assetCategoryLabel } from "@/lib/asset-category";
 import { formatBytes } from "@/lib/image-utils";
@@ -12,7 +11,6 @@ import { resourceStorageLabel, resourceStorageLocation, resourceStorageTitle } f
 import { type LibraryAsset, assetKindIcons } from "./asset-library-format";
 import { isKnownAssetKind } from "./asset-library-cards";
 import { assetDownloadLabel, assetKindLabel, assetProjectLabel, assetSizeLabel, formatAssetClock, formatAssetDateTime } from "./asset-library-format";
-import { useLocaleText, type AppLocale } from "@/lib/i18n";
 
 export function AssetsBatchBar({
     count,
@@ -39,38 +37,37 @@ export function AssetsBatchBar({
     onArchive?: () => void;
     onDelete: () => void;
 }) {
-    const { text } = useLocaleText();
     return (
-        <div className="assets-batch-bar" role="toolbar" aria-label={text("批量操作", "Batch actions")}>
+        <div className="assets-batch-bar" role="toolbar" aria-label="批量操作">
             <span className="assets-batch-count">
-                {text("已选择", "Selected")} <strong>{count}</strong> {text("个素材 · 点击卡片多选，Shift 连选", "assets · click to select, Shift to select a range")}
+                已选择 <strong>{count}</strong> 个素材 · 点击卡片多选，Shift 连选
             </span>
             <div className="assets-batch-actions">
                 <Button size="small" icon={<CheckCheck className="size-3.5" />} disabled={allSelected || busy || pageLoading} onClick={onSelectAll}>
-                    {text("全选本页", "Select page")}
+                    全选本页
                 </Button>
                 <Button size="small" disabled={busy} onClick={onClear}>
-                    {text("取消选择", "Clear selection")}
+                    取消选择
                 </Button>
                 {isTrash ? (
                     <>
                         <Button size="small" type="primary" disabled={!count || busy} icon={<RotateCcw className="size-3.5" />} onClick={onRestore}>
-                            {text("还原已选", "Restore selected")}
+                            还原已选
                         </Button>
                         <Button size="small" danger disabled={!count || busy} icon={<Trash2 className="size-3.5" />} onClick={onDelete}>
-                            {text("彻底删除已选", "Delete selected permanently")}
+                            彻底删除已选
                         </Button>
                     </>
                 ) : (
                     <>
                         <Button size="small" disabled={!count || busy} icon={<Download className="size-3.5" />} onClick={onExport}>
-                            {text("导出", "Export")}
+                            导出
                         </Button>
                         <Button size="small" disabled={!count || busy} icon={<Trash2 className="size-3.5 text-amber-500" />} onClick={onArchive}>
-                            {text("移入回收站", "Move to trash")}
+                            移入回收站
                         </Button>
-                        <Button size="small" disabled={!count || busy} danger icon={<Trash2 className="size-3.5" />} onClick={onDelete}>
-                            {text("彻底删除", "Delete permanently")}
+                        <Button size="small" danger disabled={!count || busy} icon={<Trash2 className="size-3.5" />} onClick={onDelete}>
+                            彻底删除
                         </Button>
                     </>
                 )}
@@ -87,7 +84,6 @@ export const assetsEmptyBannerFrames = [
 
 export function AssetsEmptyState({ onNew, onImport, onGoCanvas }: { onNew: () => void; onImport: () => void; onGoCanvas: () => void }) {
     const brandName = useAppearanceStore((state) => state.appearance.brandName);
-    const { text } = useLocaleText();
     return (
         <div className="assets-empty">
             <div className="assets-empty-banner" aria-hidden="true">
@@ -98,10 +94,7 @@ export function AssetsEmptyState({ onNew, onImport, onGoCanvas }: { onNew: () =>
                     </figure>
                 ))}
                 <span className="assets-empty-banner-caption">
-                    <span>
-                        {brandName} {text("素材库", "Asset library")}
-                    </span>
-                    {text("把每次创作的结果，留档成可复用的资产", "Keep every result as a reusable asset")}
+                    <span>{brandName}素材库</span>把每次创作的结果，留档成可复用的资产
                 </span>
             </div>
             <div className="assets-empty-cards">
@@ -109,22 +102,22 @@ export function AssetsEmptyState({ onNew, onImport, onGoCanvas }: { onNew: () =>
                     <span className="assets-empty-card-icon">
                         <Plus />
                     </span>
-                    <strong>{text("新建素材", "New asset")}</strong>
-                    <span>{text("录入提示词、说明文案，或上传图片资产。", "Add prompts, notes, or images.")}</span>
+                    <strong>新建素材</strong>
+                    <span>录入提示词、说明文案，或上传图片资产。</span>
                 </button>
                 <button type="button" className="assets-empty-card" onClick={onImport}>
                     <span className="assets-empty-card-icon">
                         <FileUp />
                     </span>
-                    <strong>{text("导入素材包", "Import asset package")}</strong>
-                    <span>{text("从素材压缩包一键恢复旧资产，继续创作。", "Restore assets from an archive.")}</span>
+                    <strong>导入素材包</strong>
+                    <span>从素材压缩包一键恢复旧资产，继续创作。</span>
                 </button>
                 <button type="button" className="assets-empty-card" onClick={onGoCanvas}>
                     <span className="assets-empty-card-icon">
                         <Clapperboard />
                     </span>
-                    <strong>{text("去画布保存", "Save from canvas")}</strong>
-                    <span>{text("把画布上满意的镜头与画面留档进素材库。", "Keep selected shots and images from the canvas.")}</span>
+                    <strong>去画布保存</strong>
+                    <span>把画布上满意的镜头与画面留档进素材库。</span>
                 </button>
             </div>
         </div>
@@ -199,7 +192,7 @@ function CharacterArchive({ asset }: { asset: Extract<LibraryAsset, { kind: "ent
             <div className="relative aspect-[4/3] overflow-hidden rounded-[var(--r-xl)]">
                 <CharacterAssetCover asset={asset} size="hero" />
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 px-5 pb-4">
-                    <div className="text-xs font-medium text-white">角色{asset.data.version ? ` · v${asset.data.version}` : ""}</div>
+                    <div className="text-[var(--fs-label)] font-medium uppercase tracking-[.24em] text-white/55">Character{asset.data.version ? ` · v${asset.data.version}` : ""}</div>
                     {aliases.length ? <div className="mt-1 truncate text-xs text-white/70">又名 {aliases.join("、")}</div> : null}
                 </div>
             </div>
@@ -212,34 +205,33 @@ function CharacterArchive({ asset }: { asset: Extract<LibraryAsset, { kind: "ent
                     </span>
                 )}
                 <span className="min-w-0">
-                    <span className="block text-[var(--fs-caption)] text-muted-foreground">声音</span>
+                    <span className="block text-[var(--fs-label)] text-foreground/45">声音</span>
                     <span className="block truncate text-sm font-medium">{asset.data.voiceName || "未绑定声音"}</span>
                 </span>
-                <span className={`ml-auto shrink-0 text-xs ${asset.data.visualStatus === "ready" ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>{asset.data.visualStatus === "ready" ? "形象就绪" : "形象待完善"}</span>
+                <span className={`ml-auto shrink-0 text-xs ${asset.data.visualStatus === "ready" ? "text-emerald-600 dark:text-emerald-400" : "text-foreground/45"}`}>{asset.data.visualStatus === "ready" ? "形象就绪" : "形象待完善"}</span>
             </div>
             {rows.length ? (
                 <dl className="divide-y divide-border/60 border-y border-border/60">
                     {rows.map(([label, value]) => (
                         <div key={label} className="grid grid-cols-[84px_minmax(0,1fr)] gap-3 py-3 text-sm leading-6">
-                            <dt className="text-muted-foreground">{label}</dt>
+                            <dt className="text-foreground/45">{label}</dt>
                             <dd className="whitespace-pre-wrap text-foreground/85">{value}</dd>
                         </div>
                     ))}
                 </dl>
             ) : (
-                <p className="text-sm text-muted-foreground">还没有填写角色设定，可在画布上打开角色卡补充。</p>
+                <p className="text-sm text-foreground/45">还没有填写角色设定，可在画布上打开角色卡补充。</p>
             )}
         </div>
     );
 }
 
 export function AssetDrawer({ asset, onClose, onCopy, onDownload }: { asset: LibraryAsset | null; onClose: () => void; onCopy: (asset: LibraryAsset) => void; onDownload: (asset: LibraryAsset) => void }) {
-    const { locale, text } = useLocaleText();
-    const facts = asset ? assetArchiveFacts(asset, locale) : [];
+    const facts = asset ? assetArchiveFacts(asset) : [];
     const kind = asset && isKnownAssetKind(asset.kind) ? asset.kind : undefined;
     const KindIcon = asset ? (kind ? assetKindIcons[kind] : FileText) : Clapperboard;
     return (
-        <Drawer className="library-drawer" title={text("素材档案", "Asset details")} open={Boolean(asset)} size="large" onClose={onClose}>
+        <Drawer className="library-drawer" title="素材档案" open={Boolean(asset)} size="large" onClose={onClose}>
             {asset ? (
                 <div className="space-y-4">
                     <div className="asset-archive-header">
@@ -249,7 +241,7 @@ export function AssetDrawer({ asset, onClose, onCopy, onDownload }: { asset: Lib
                         <div className="min-w-0">
                             <h2 className="asset-archive-title">{asset.title}</h2>
                             <p className="asset-archive-subtitle">
-                                {assetCategoryLabel(asset.category, locale)} · {formatAssetDateTime(asset.createdAt, locale)} {text("创建", "created")}
+                                {assetCategoryLabel(asset.category)} · {formatAssetDateTime(asset.createdAt)} 创建
                             </p>
                         </div>
                     </div>
@@ -278,19 +270,19 @@ export function AssetDrawer({ asset, onClose, onCopy, onDownload }: { asset: Lib
                             ) : asset.kind === "video" ? (
                                 <video src={asset.data.url} controls className="asset-archive-preview-media" />
                             ) : (
-                                <AssetImageZoom key={asset.id} asset={asset} />
+                                <AssetImageZoom asset={asset} />
                             )}
                         </div>
                     )}
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-2">
                         {(asset.tags || []).map((tag) => (
                             <Tag key={tag} className="asset-archive-tag m-0">
                                 {tag}
                             </Tag>
                         ))}
                         {asset.arkAssetId ? (
-                            <Tag className="m-0" color="geekblue" title={text("火山方舟素材 ID，生成视频时可直接 asset:// 引用", "Ark asset ID for video generation via asset://")}>
-                                {text("方舟", "Ark")} {asset.arkAssetId}
+                            <Tag className="m-0" color="geekblue" title="火山方舟素材 ID，生成视频时可直接 asset:// 引用">
+                                方舟 {asset.arkAssetId}
                             </Tag>
                         ) : null}
                         <StorageTag asset={asset} />
@@ -307,24 +299,24 @@ export function AssetDrawer({ asset, onClose, onCopy, onDownload }: { asset: Lib
                     </div>
                     <div className="asset-archive-link">
                         <Link2 />
-                        <span>{text("所属项目", "Project")}</span>
-                        <strong>{assetProjectLabel(asset, locale)}</strong>
+                        <span>所属项目</span>
+                        <strong>{assetProjectLabel(asset)}</strong>
                     </div>
                     {asset.note ? (
                         <div className="asset-archive-section">
-                            <span className="asset-archive-section-title">{text("备注", "Notes")}</span>
+                            <span className="asset-archive-section-title">备注</span>
                             <p className="asset-archive-section-body">{asset.note}</p>
                         </div>
                     ) : null}
                     <div className="asset-archive-actions">
                         {asset.kind === "text" ? (
                             <Button type="primary" icon={<Copy className="size-4" />} onClick={() => onCopy(asset)}>
-                                {text("复制文本", "Copy text")}
+                                复制文本
                             </Button>
                         ) : null}
                         {asset.kind === "image" || asset.kind === "video" || asset.kind === "audio" || asset.kind === "model" ? (
                             <Button type="primary" icon={<Download className="size-4" />} onClick={() => onDownload(asset)}>
-                                {assetDownloadLabel(asset, locale)}
+                                {assetDownloadLabel(asset)}
                             </Button>
                         ) : null}
                     </div>
@@ -335,7 +327,6 @@ export function AssetDrawer({ asset, onClose, onCopy, onDownload }: { asset: Lib
 }
 
 export function AssetImageZoom({ asset }: { asset: LibraryAsset & { kind: "image" } }) {
-    const { text } = useLocaleText();
     const [scale, setScale] = useState(1);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
     const dragRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
@@ -367,41 +358,18 @@ export function AssetImageZoom({ asset }: { asset: LibraryAsset & { kind: "image
                 dragRef.current = null;
             }}
         >
-            <CachedResourceImage
-                storageKey={asset.data.storageKey}
-                src={asset.data.dataUrl || asset.coverUrl}
-                alt={asset.title}
-                eager
-                retryable
-                loading="eager"
-                decoding="async"
-                className="asset-archive-preview-media asset-zoom-image"
-                style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})` }}
-                loadingFallback={
-                    <CachedResourceImage
-                        storageKey={asset.data.storageKey}
-                        src={asset.coverUrl || asset.data.dataUrl}
-                        variant="thumbnail"
-                        alt={asset.title}
-                        eager
-                        loading="eager"
-                        decoding="async"
-                        className="asset-archive-preview-media asset-zoom-image"
-                        style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})` }}
-                    />
-                }
-            />
+            <img src={asset.coverUrl || asset.data.dataUrl} alt={asset.title} loading="lazy" decoding="async" className="asset-archive-preview-media asset-zoom-image" style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})` }} />
             <div className="asset-zoom-controls" data-canvas-no-zoom>
-                <button type="button" title={text("缩小", "Zoom out")} aria-label={text("缩小", "Zoom out")} onClick={() => setScale((value) => Math.max(0.25, value / 1.25))}>
+                <button type="button" title="缩小" aria-label="缩小" onClick={() => setScale((value) => Math.max(0.25, value / 1.25))}>
                     <ZoomOut className="size-4" />
                 </button>
-                <button type="button" title={text("恢复适应", "Fit image")} aria-label={text("恢复适应", "Fit image")} onClick={reset}>
+                <button type="button" title="恢复适应" aria-label="恢复适应" onClick={reset}>
                     {Math.round(scale * 100)}%
                 </button>
-                <button type="button" title={text("放大", "Zoom in")} aria-label={text("放大", "Zoom in")} onClick={() => setScale((value) => Math.min(4, value * 1.25))}>
+                <button type="button" title="放大" aria-label="放大" onClick={() => setScale((value) => Math.min(4, value * 1.25))}>
                     <ZoomIn className="size-4" />
                 </button>
-                <button type="button" title={text("查看原图尺寸", "Actual size")} aria-label={text("查看原图尺寸", "Actual size")} onClick={() => setScale(1)}>
+                <button type="button" title="查看原图尺寸" aria-label="查看原图尺寸" onClick={() => setScale(1)}>
                     <Maximize2 className="size-4" />
                 </button>
             </div>
@@ -409,25 +377,25 @@ export function AssetImageZoom({ asset }: { asset: LibraryAsset & { kind: "image
     );
 }
 
-export function assetArchiveFacts(asset: LibraryAsset, locale: AppLocale = "zh-CN") {
+export function assetArchiveFacts(asset: LibraryAsset) {
     const facts: Array<{ label: string; value: string }> = [
-        { label: locale === "en-US" ? "Type" : "类型", value: assetKindLabel(asset.kind, locale, asset.category) },
-        { label: locale === "en-US" ? "Category" : "分类", value: assetCategoryLabel(asset.category, locale) },
+        { label: "类型", value: assetKindLabel(asset.kind, "zh-CN", asset.category) },
+        { label: "分类", value: assetCategoryLabel(asset.category) },
     ];
     if (asset.kind === "image" || asset.kind === "video") {
-        facts.push({ label: locale === "en-US" ? "Dimensions" : "尺寸", value: assetSizeLabel(asset.data.width, asset.data.height, locale) });
+        facts.push({ label: "尺寸", value: assetSizeLabel(asset.data.width, asset.data.height) });
     }
     if (asset.kind === "video" || asset.kind === "audio") {
-        facts.push({ label: locale === "en-US" ? "Duration" : "时长", value: formatAssetClock(asset.data.durationMs) || (locale === "en-US" ? "Unknown" : "未知") });
+        facts.push({ label: "时长", value: formatAssetClock(asset.data.durationMs) || "未知" });
     }
     if (asset.kind !== "text" && asset.kind !== "entity") {
-        facts.push({ label: locale === "en-US" ? "Size" : "大小", value: formatBytes(asset.data.bytes) });
-        facts.push({ label: locale === "en-US" ? "Format" : "格式", value: asset.data.mimeType });
-        facts.push({ label: locale === "en-US" ? "Storage" : "存储", value: resourceStorageLabel(asset.data.storageKey) });
+        facts.push({ label: "大小", value: formatBytes(asset.data.bytes) });
+        facts.push({ label: "格式", value: asset.data.mimeType });
+        facts.push({ label: "存储", value: resourceStorageLabel(asset.data.storageKey) });
     }
-    if (asset.kind !== "entity" || asset.source) facts.push({ label: locale === "en-US" ? "Source" : "来源", value: asset.source || (locale === "en-US" ? "Not specified" : "未标注") });
-    facts.push({ label: locale === "en-US" ? "Created" : "创建", value: formatAssetDateTime(asset.createdAt, locale) });
-    facts.push({ label: locale === "en-US" ? "Updated" : "更新", value: formatAssetDateTime(asset.updatedAt, locale) });
+    if (asset.kind !== "entity" || asset.source) facts.push({ label: "来源", value: asset.source || "未标注" });
+    facts.push({ label: "创建", value: formatAssetDateTime(asset.createdAt) });
+    facts.push({ label: "更新", value: formatAssetDateTime(asset.updatedAt) });
     return facts;
 }
 

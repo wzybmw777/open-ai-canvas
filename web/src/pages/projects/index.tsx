@@ -1,196 +1,204 @@
+import { useDeferredValue, useEffect, useRef, useState, type DragEvent } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { App, Button, Dropdown, Input } from "antd";
+import { BookOpenText, ClipboardPaste, Clapperboard, ExternalLink, FileUp, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
+import { Link, useNavigate } from "react-router";
+
 import { CollectionToolbar } from "@/components/layout/collection-toolbar";
-import { DeleteButton } from "@/components/ui/base/buttons/delete-button";
-import { CachedResourceImage } from "@/components/cached-resource-image";
-import { MediaPlaceholder } from "@/components/ui/product/media-placeholder";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { App, Button, Form, Input, Modal } from "antd";
-import { ArrowRight, BookOpenText, FileText, FolderKanban, Images, LayoutGrid, Palette, Plus, Search } from "lucide-react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { PageHeader, PaginationBar, WorkspacePage } from "@/components/layout/workspace-page";
+import { WorkspaceErrorState, WorkspaceLoadingState, WorkspaceNoResultsState } from "@/components/layout/workspace-state";
+import { deleteDrama, listDramas, type DramaListItem, type DramaStatus } from "@/services/api/drama";
 
-import { CollectionGrid, PageHeader, WorkspacePage } from "@/components/layout/workspace-page";
-import { WorkspaceErrorState, WorkspaceLoadingState, WorkspaceState } from "@/components/layout/workspace-state";
-import { CanvasStylePickerModal, resolveCanvasStylePreset, resolveProjectCanvasStyle, type CanvasStylePreset } from "@/components/canvas/canvas-style-picker-modal";
-import { resourceFileUrl } from "@/services/api/resources";
-import { createStyleProfileSnapshot, parseStyleProfile, serializeStyleProfile } from "@/lib/canvas/style-profile";
-import { projectSummaryCompletion, projectSummaryStage } from "@/lib/project-workbench";
-import { createProject, deleteProject, listProjects, type ProjectSummary } from "@/services/api/projects";
+import { formatCredits, MediaThumb, STATUS_LABEL } from "./drama-shared";
+import { progressFillStyle } from "@/lib/progress-fill";
+import { RelativeTime } from "@/components/ui/product/relative-time";
+import "./drama.css";
 
-import { sourceTypeLabel } from "./detail/shared";
-import { Select } from "@/components/ui/base/select";
-import { localeText, localizedErrorMessage, useLocaleText } from "@/lib/i18n";
+const PAGE_SIZES = [24, 48, 96];
+const PIPELINE = ["解析章节", "建立角色、道具与场景", "分集改编与段提示词", "按剧情段生成视频", "合成成片"];
+const STATUS_FILTERS: Array<{ value: DramaStatus | "all"; label: string }> = [
+    { value: "all", label: "全部" },
+    { value: "running", label: "制作中" },
+    { value: "paused", label: "已暂停" },
+    { value: "completed", label: "已完成" },
+    { value: "draft", label: "未开始" },
+];
+const ACCEPT = ".txt,.md,.markdown,text/plain,text/markdown";
 
-type ProjectForm = { name: string; aspectRatio: string; sourceType: string };
-
-export default function ProjectsPage() {
-    const { locale, text } = useLocaleText();
+export default function DramaListPage() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
-    const { message } = App.useApp();
-    const [createForm] = Form.useForm<ProjectForm>();
-    const [searchParams, setSearchParams] = useSearchParams();
+    const { message, modal } = App.useApp();
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
     const [keyword, setKeyword] = useState("");
-    const [status, setStatus] = useState<"all" | "active" | "archived">("all");
-    const [sort, setSort] = useState<"updated" | "progress" | "name">("updated");
-    const [createSource, setCreateSource] = useState<"blank" | "novel" | "text">("blank");
-    const [selectedStyle, setSelectedStyle] = useState<CanvasStylePreset | null>(null);
-    const [stylePickerOpen, setStylePickerOpen] = useState(false);
-    const createOpen = searchParams.get("create") === "1";
-    const setCreateOpen = (open: boolean) => {
-        const next = new URLSearchParams(searchParams);
-        if (open) next.set("create", "1");
-        else next.delete("create");
-        setSearchParams(next, { replace: true });
-    };
-    useEffect(() => {
-        if (!createOpen) return;
-        createForm.setFieldsValue({
-            name: "",
-            sourceType: createSource,
-            aspectRatio: "9:16",
-        });
-    }, [createForm, createOpen]);
+    const [status, setStatus] = useState<DramaStatus | "all">("all");
+    const [dragging, setDragging] = useState(false);
+    const fileRef = useRef<HTMLInputElement>(null);
+    const search = useDeferredValue(keyword.trim());
+    useEffect(() => setPage(1), [search, status, pageSize]);
 
-    const loadMoreRef = useRef<HTMLDivElement>(null);
-    const query = useInfiniteQuery({
-        // 分页查询和画布页的全量项目查询不能共用缓存形状，否则两个页面会互相覆盖缓存数据。
-        queryKey: ["projects", "paged"],
-        queryFn: ({ pageParam }) => listProjects({ page: pageParam, pageSize: 50 }),
-        initialPageParam: 1,
-        getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.page + 1 : undefined),
+    const query = useQuery({
+        queryKey: ["dramas", { page, pageSize, search, status }],
+        queryFn: ({ signal }) => listDramas({ page, pageSize, q: search || undefined, status: status === "all" ? undefined : status }, signal),
+        placeholderData: keepPreviousData,
+        refetchInterval: (state) => (state.state.data?.items.some((item) => item.status === "running") ? 8_000 : false),
     });
-    const mutation = useMutation({
-        mutationFn: createProject,
-        onSuccess: ({ project }) => {
-            setCreateOpen(false);
-            void queryClient.invalidateQueries({ queryKey: ["projects"] });
-            navigate(project.sourceType === "blank" ? `/?project=${encodeURIComponent(project.id)}` : `/projects/${project.id}/chapters?import=1`);
-        },
-        onError: (error) => message.error(localizedErrorMessage(error, "项目创建失败", "Could not create project", locale)),
-    });
-    const deleteMutation = useMutation({
-        mutationFn: deleteProject,
+    const remove = useMutation({
+        mutationFn: deleteDrama,
         onSuccess: () => {
-            void queryClient.invalidateQueries({ queryKey: ["projects"] });
-            message.success(text("项目已删除", "Project deleted"));
+            message.success("作品已删除");
+            void queryClient.invalidateQueries({ queryKey: ["dramas"] });
         },
-        onError: (error) => message.error(localizedErrorMessage(error, "项目删除失败", "Could not delete project", locale)),
+        onError: (error) => message.error(error instanceof Error ? error.message : "删除失败"),
     });
-    const allProjects = useMemo(() => query.data?.pages.flatMap((page) => page.projects) || [], [query.data]);
-    const rows = useMemo(() => {
-        const normalizedKeyword = keyword.trim().toLowerCase();
-        return [...allProjects]
-            .filter(({ project }) => status === "all" || project.status === status)
-            .filter(({ project }) => !normalizedKeyword || `${project.name} ${project.description} ${project.stylePresetId} ${parseStyleProfile(project.styleProfileJson)?.title || resolveCanvasStylePreset(project.stylePresetId)?.title || ""}`.toLowerCase().includes(normalizedKeyword))
-            .sort((left, right) => {
-                if (sort === "name") return left.project.name.localeCompare(right.project.name, locale);
-                if (sort === "progress") return projectSummaryCompletion(right) - projectSummaryCompletion(left);
-                return right.project.updatedAt.localeCompare(left.project.updatedAt);
-            });
-    }, [allProjects, keyword, locale, sort, status]);
-    const totalProjectCount = query.data?.pages[0]?.total ?? allProjects.length;
-    useEffect(() => {
-        const node = loadMoreRef.current;
-        if (!node || !query.hasNextPage || query.isError) return;
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                if (entry?.isIntersecting && !query.isFetchingNextPage) void query.fetchNextPage();
-            },
-            { rootMargin: "600px" },
-        );
-        observer.observe(node);
-        return () => observer.disconnect();
-    }, [query.fetchNextPage, query.hasNextPage, query.isError, query.isFetchingNextPage]);
-    const hasInitialError = query.isError && !query.data;
+    const data = query.data;
+    const counts = data?.statusCounts || {};
+    const total = counts.all ?? 0;
+    const filtered = Boolean(search || status !== "all");
+    const openFile = (file: File) => navigate("/projects/new", { state: { file } });
+    const confirmDelete = (item: DramaListItem) => {
+        modal.confirm({
+            title: `删除《${item.project.name}》？`,
+            content: "小说原文、剧本、分镜与成片记录都会删除。此操作无法撤销。",
+            okText: "删除",
+            okButtonProps: { danger: true },
+            cancelText: "取消",
+            centered: true,
+            onOk: () => remove.mutateAsync(item.project.id),
+        });
+    };
+    // 整页都能拖入小说：列表页不再单独放一块上传区占位置。
+    const dragProps = {
+        onDragOver: (event: DragEvent) => { if (event.dataTransfer.types.includes("Files")) { event.preventDefault(); setDragging(true); } },
+        onDragLeave: (event: DragEvent) => { if (event.currentTarget === event.target) setDragging(false); },
+        onDrop: (event: DragEvent) => {
+            event.preventDefault();
+            setDragging(false);
+            const file = event.dataTransfer.files?.[0];
+            if (file) openFile(file);
+        },
+    };
+
+    if (query.isLoading) return <WorkspacePage className="studio-collection-page"><WorkspaceLoadingState label="正在读取作品" /></WorkspacePage>;
+    if (query.isError && !data) return <WorkspacePage className="studio-collection-page"><WorkspaceErrorState description="作品列表暂时无法读取。" onRetry={() => void query.refetch()} /></WorkspacePage>;
+
+    const actions = (
+        <div className="collection-header-actions">
+            <Button icon={<ClipboardPaste />} onClick={() => navigate("/projects/new?paste=1")}>粘贴正文</Button>
+            <Button type="primary" icon={<Plus />} onClick={() => fileRef.current?.click()}>上传小说</Button>
+        </div>
+    );
+
     return (
-        <WorkspacePage className="library-page project-library-page" grid>
-            <PageHeader
-                title={text("我的项目", "My projects")}
-                description={text("集中管理故事、素材、画布和制作进度。", "Organize stories, assets, canvases, and production progress.")}
-                meta={<span>{totalProjectCount} {text("个项目", "projects")}</span>}
-                actions={<Button type="primary" icon={<Plus />} onClick={() => setCreateOpen(true)}>{text("新建项目", "New project")}</Button>}
-            />
-            <CollectionToolbar active={Boolean(keyword || status !== "all" || sort !== "updated")} onReset={() => { setKeyword(""); setStatus("all"); setSort("updated"); }}>
-                <Input allowClear className="app-list-search" prefix={<Search className="size-4 text-foreground/40" />} value={keyword} placeholder={text("搜索项目、简介或画风", "Search projects, descriptions, or styles")} onChange={(event) => setKeyword(event.target.value)} />
-                <Select className="w-32" value={status} onChange={setStatus} options={[{ label: text("全部状态", "All statuses"), value: "all" }, { label: text("进行中", "Active"), value: "active" }, { label: text("已归档", "Archived"), value: "archived" }]} />
-                <Select className="w-32" value={sort} onChange={setSort} options={[{ label: text("最近更新", "Recently updated"), value: "updated" }, { label: text("章节进度", "Chapter progress"), value: "progress" }, { label: text("项目名称", "Project name"), value: "name" }]} />
-            </CollectionToolbar>
+        <WorkspacePage className="studio-collection-page drama-library">
+            <div className="drama-root" {...dragProps}>
+                <div className="studio-band">
+                    <PageHeader title="短剧" description="上传一本小说，流水线自动改编、拆集、建角色、出分镜并合成成片。" meta={<span className="app-projects-header-meta">{total} 部</span>} actions={total ? actions : undefined} />
+                    {total ? (
+                        <CollectionToolbar label="短剧浏览工具" active={filtered} onReset={() => { setKeyword(""); setStatus("all"); }}>
+                            <Input prefix={<Search />} value={keyword} allowClear placeholder="搜索作品名" aria-label="搜索作品名" onChange={(event) => setKeyword(event.target.value)} />
+                            <div className="drama-library-status" role="radiogroup" aria-label="按状态筛选">
+                                {STATUS_FILTERS.map((item) => {
+                                    const count = item.value === "all" ? total : counts[item.value] || 0;
+                                    if (item.value !== "all" && !count && status !== item.value) return null;
+                                    return (
+                                        <button key={item.value} type="button" role="radio" aria-checked={status === item.value} className={`drama-library-status-item is-${item.value}`} onClick={() => setStatus(item.value)}>
+                                            {item.value !== "all" ? <span className="drama-dot" /> : null}{item.label}<b>{count}</b>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </CollectionToolbar>
+                    ) : null}
+                </div>
 
-            {hasInitialError ? <WorkspaceErrorState description={localizedErrorMessage(query.error, "项目列表加载失败", "Could not load projects", locale)} onRetry={() => void query.refetch()} /> : null}
-            {query.isLoading ? <WorkspaceLoadingState label={text("正在整理项目", "Loading projects")} detail={text("读取章节、画布与资产进度", "Loading chapters, canvases, and asset progress")} /> : null}
-            {!query.isLoading && !hasInitialError && rows.length ? (
-                <CollectionGrid className="library-grid project-library-grid">
-                    {rows.map((row) => <ProjectRow key={row.project.id} row={row} onDelete={() => deleteMutation.mutateAsync(row.project.id)} />)}
-                </CollectionGrid>
-            ) : null}
-            {!query.isLoading && !hasInitialError ? <div ref={loadMoreRef} className="library-load-more" aria-live="polite">
-                {query.isFetchingNextPage ? text("正在加载更多项目…", "Loading more projects...") : query.isError ? <button type="button" onClick={() => void query.fetchNextPage()}>{text("加载更多失败，点击重试", "Could not load more. Retry")}</button> : query.hasNextPage ? text("继续下滑加载更多（每页 50 条）", "Scroll for more projects (50 per page)") : allProjects.length ? locale === "en-US" ? `All ${totalProjectCount} projects loaded` : `已加载全部 ${totalProjectCount} 个项目` : null}
-            </div> : null}
-            {!query.isLoading && !rows.length && !hasInitialError ? (
-                <WorkspaceState
-                    icon="projects"
-                    title={keyword || status !== "all" ? text("没有匹配的项目", "No matching projects") : text("创建第一个故事项目", "Create your first story project")}
-                    description={keyword || status !== "all" ? text("调整搜索词或状态筛选后再试。", "Try another search or status filter.") : text("先创建项目，再用 AI 创作、导入故事或整理素材。", "Projects bring together chapters, canvases, assets, and production progress.")}
-                    action={!keyword && status === "all" ? <Button type="primary" icon={<Plus className="size-3.5" />} onClick={() => setCreateOpen(true)}>{text("创建项目", "Create project")}</Button> : undefined}
-                />
-            ) : null}
+                {!total ? (
+                    <UploadHero onPick={() => fileRef.current?.click()} onPaste={() => navigate("/projects/new?paste=1")} />
+                ) : data?.items.length ? (
+                    <>
+                        <div className={`drama-library-grid ${query.isPlaceholderData ? "is-stale" : ""}`}>
+                            {data.items.map((item) => <DramaCard key={item.project.id} item={item} onDelete={() => confirmDelete(item)} />)}
+                        </div>
+                        <PaginationBar current={page} pageSize={pageSize} total={data.total} itemLabel="部" pageSizeOptions={PAGE_SIZES} onChange={(next, size) => { setPage(next); setPageSize(size); }} />
+                    </>
+                ) : (
+                    <WorkspaceNoResultsState icon="projects" query={keyword} description="换一个作品名，或清除状态筛选。" onClear={() => { setKeyword(""); setStatus("all"); }} />
+                )}
 
-            <Modal className="library-modal" title={text("新建项目", "New project")} open={createOpen} footer={null} destroyOnHidden onCancel={() => setCreateOpen(false)} width={560} styles={{ body: { paddingTop: 12 } }}>
-                <Form<ProjectForm> form={createForm} layout="vertical" initialValues={{ aspectRatio: "9:16", sourceType: "blank" }} onFinish={(values) => mutation.mutate({ ...values, type: "short-drama", ...(selectedStyle ? { stylePresetId: selectedStyle.id, styleProfileJson: serializeStyleProfile(selectedStyle.profile || createStyleProfileSnapshot(selectedStyle)) } : {}) })}>
-                    <div className="mb-4 grid grid-cols-3 gap-2">
-                        <button type="button" aria-pressed={createSource === "blank"} className={createSource === "blank" ? "app-story-source is-active" : "app-story-source"} onClick={() => { setCreateSource("blank"); createForm.setFieldValue("sourceType", "blank"); }}><FolderKanban className="size-4" /><span>{text("空白开始", "Start blank")}</span></button>
-                        <button type="button" aria-pressed={createSource === "novel"} className={createSource === "novel" ? "app-story-source is-active" : "app-story-source"} onClick={() => { setCreateSource("novel"); createForm.setFieldValue("sourceType", "novel"); }}><FileText className="size-4" /><span>{text("导入小说", "Import novel")}</span></button>
-                        <button type="button" aria-pressed={createSource === "text"} className={createSource === "text" ? "app-story-source is-active" : "app-story-source"} onClick={() => { setCreateSource("text"); createForm.setFieldValue("sourceType", "text"); }}><BookOpenText className="size-4" /><span>{text("粘贴文本", "Paste text")}</span></button>
+                {dragging ? (
+                    <div className="drama-library-drop" aria-hidden>
+                        <div><FileUp className="size-8" /><strong>松开即可开始新短剧</strong><span>TXT / Markdown，自动识别编码与章节</span></div>
                     </div>
-                    <Form.Item name="name" label={text("项目名称", "Project name")} rules={[{ required: true, whitespace: true, message: text("请输入项目名称", "Enter a project name") }]}><Input autoFocus placeholder={text("例如：长安夜行", "For example: Night Journey")} /></Form.Item>
-                    <Form.Item name="aspectRatio" label={text("默认画幅", "Default aspect ratio")}><Select options={[{ label: text("9:16 竖屏", "9:16 Portrait"), value: "9:16" }, { label: text("16:9 横屏", "16:9 Landscape"), value: "16:9" }, { label: text("1:1 方形", "1:1 Square"), value: "1:1" }]} /></Form.Item>
-                    <Form.Item name="sourceType" hidden><Input /></Form.Item>
-                    <Form.Item label={text("项目画风", "Project style")}><button type="button" className="app-story-modal-style" onClick={() => setStylePickerOpen(true)}>{selectedStyle ? <><img src={selectedStyle.imageUrl} alt="" /><span>{selectedStyle.title}</span><em>{text("更换", "Change")}</em></> : <><Palette className="size-4" /><span>{text("选择项目画风（可选）", "Choose a style (optional)")}</span></>}</button></Form.Item>
-                    <p className="-mt-1 mb-5 text-[var(--fs-caption)] leading-5 text-muted-foreground">{text("空白项目进入 AI 创作；已有故事进入章节导入。所有内容均归入新项目。", "Blank projects open AI creation; existing stories open chapter import. Content belongs to the new project.")}</p>
-                    <div className="flex justify-end gap-2"><Button onClick={() => setCreateOpen(false)}>{text("取消", "Cancel")}</Button><Button type="primary" htmlType="submit" loading={mutation.isPending}>{text("创建项目", "Create project")}</Button></div>
-                </Form>
-            </Modal>
-            <CanvasStylePickerModal
-                open={stylePickerOpen}
-                value={selectedStyle?.id}
-                onClose={() => setStylePickerOpen(false)}
-                onSelect={(preset) => { setSelectedStyle(preset); setStylePickerOpen(false); }}
-            />
+                ) : null}
+                <input ref={fileRef} type="file" accept={ACCEPT} className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) openFile(file); event.target.value = ""; }} />
+            </div>
         </WorkspacePage>
     );
 }
 
-const projectStageLabels: Record<string, string> = {
-    "已归档": "Archived", "准备故事": "Plan story", "章节已完成": "Chapters complete",
-    "组织章节": "Organize chapters", "准备资产": "Prepare assets", "制作中": "In production",
-};
-
-function ProjectRow({ row, onDelete }: { row: ProjectSummary; onDelete: () => Promise<unknown> }) {
-    const { locale, text } = useLocaleText();
-    const completion = projectSummaryCompletion(row);
-    const stage = projectSummaryStage(row);
-    const projectStyle = resolveProjectCanvasStyle(row.project.stylePresetId, row.project.styleProfileJson);
-    const styleTitle = projectStyle?.title || parseStyleProfile(row.project.styleProfileJson)?.title || resolveCanvasStylePreset(row.project.stylePresetId)?.title || (row.project.stylePresetId ? text("自定义画风", "Custom style") : text("未设置画风", "No style"));
-    const coverUrl = row.project.coverResourceId ? resourceFileUrl(row.project.coverResourceId) : projectStyle?.imageUrl;
+/** 还没有作品时的上传引导；有作品后整页都可拖入，不再常驻占位。 */
+function UploadHero({ onPick, onPaste }: { onPick: () => void; onPaste: () => void }) {
     return (
-        <Link to={`/projects/${row.project.id}/overview`} className="product-collection-card library-card project-library-card group">
-            <span className="project-library-cover">
-                {coverUrl ? <CachedResourceImage className="project-library-cover-art" src={coverUrl} alt="" fallback={<MediaPlaceholder failed />} /> : <MediaPlaceholder label={text("故事由此开始", "Your story starts here")} />}
-                <span className="project-library-cover-scrim" />
-                <span className="project-library-cover-ratio">{row.project.aspectRatio}</span>
-                <span className="project-library-cover-stage">{localeText(stage.label, projectStageLabels[stage.label] || stage.label, locale)}</span>
-                <span className="project-collection-delete"><DeleteButton label={locale === "en-US" ? `Delete project ${row.project.name}` : `删除项目 ${row.project.name}`} description={text("项目章节、画布关联和素材归属将一并移除；独立画布与素材库原始素材会保留。此操作不可撤销。", "Chapters, canvas links, and project assets will be removed. Standalone canvases and original library assets remain. This cannot be undone.")} onConfirm={onDelete} /></span>
-            </span>
-            <span className="project-library-body">
-                <span className="project-library-heading"><strong title={row.project.name}>{row.project.name}</strong>{row.project.status === "archived" ? <em>{text("已归档", "Archived")}</em> : null}<ArrowRight className="project-library-arrow size-4" /></span>
-                <span className="project-library-subtitle">{styleTitle} · {locale === "en-US" ? ({ blank: "Started blank", novel: "Imported novel", text: "Pasted text" } as Record<string, string>)[row.project.sourceType] || "Other source" : sourceTypeLabel(row.project.sourceType)}</span>
-                <span className="project-library-progress"><span><span>{row.completedUnitCount}/{row.unitCount} {text("章", "chapters")}</span><span>{completion}%</span></span><i><b style={{ width: `${completion}%` }} /></i></span>
-                <span className="project-library-stats"><ProjectCount icon={<BookOpenText className="size-3.5" />} label={text("章节", "Chapters")} value={row.unitCount} /><ProjectCount icon={<LayoutGrid className="size-3.5" />} label={text("画布", "Canvases")} value={row.canvasCount} /><ProjectCount icon={<Images className="size-3.5" />} label={text("素材", "Assets")} value={row.assetCount} /></span>
-            </span>
-        </Link>
+        <div className="drama-drop drama-library-hero">
+            <span className="drama-drop-icon"><BookOpenText className="size-7" /></span>
+            <h2>拖入一本小说，开始做短剧</h2>
+            <p>支持 TXT / Markdown，最多 600 万字。确认风格、参考图方案和审阅方式后，系统自动改编、拆集、建角色、出分镜并合成成片。</p>
+            <div className="flex flex-wrap justify-center gap-2">
+                <Button type="primary" size="large" icon={<FileUp className="size-4" />} onClick={onPick}>选择小说文件</Button>
+                <Button size="large" icon={<ClipboardPaste className="size-4" />} onClick={onPaste}>粘贴正文</Button>
+            </div>
+            <div className="drama-drop-steps">{PIPELINE.map((step, index) => <span key={step}><b>{index + 1}</b>{step}</span>)}</div>
+        </div>
     );
 }
 
-function ProjectCount({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
-    return <span className="inline-flex items-center gap-1.5" title={`${value} ${label}`}><span className="text-foreground/32">{icon}</span><strong className="font-medium tabular-nums text-foreground/65">{value}</strong><span>{label}</span></span>;
+
+function DramaCover({ item }: { item: DramaListItem }) {
+    const covers = (item.coverResourceIds?.length ? item.coverResourceIds : item.coverResourceId ? [item.coverResourceId] : []).slice(0, 4);
+    if (!covers.length) {
+        return (
+            <div className="drama-library-cover is-empty">
+                <span className="drama-library-glyph">{item.project.name.slice(0, 1)}</span>
+                <Clapperboard className="drama-library-empty-icon" />
+            </div>
+        );
+    }
+    return (
+        <div className={`drama-library-cover is-${covers.length}`}>
+            {covers.map((id) => <span key={id}><MediaThumb resourceId={id} alt="" /></span>)}
+        </div>
+    );
+}
+
+function DramaCard({ item, onDelete }: { item: DramaListItem; onDelete: () => void }) {
+    const progress = item.episodeCount ? Math.round((item.doneCount / item.episodeCount) * 100) : 0;
+    const needsAction = item.status === "paused" && Boolean(item.pauseReason);
+    const stage = item.episodeCount ? `${item.doneCount}/${item.episodeCount} 集成片` : item.status === "running" ? "正在改编小说" : item.status === "draft" ? "尚未开始" : "等待分集";
+    return (
+        <article className={`drama-library-card is-${item.status}`}>
+            <Link to={`/projects/${item.project.id}`} className="drama-library-open" aria-label={`打开《${item.project.name}》`}>
+                <DramaCover item={item} />
+                <span className={`drama-chip drama-library-badge is-${needsAction ? "paused" : item.status}`}><span className="drama-dot" />{needsAction ? "需要处理" : STATUS_LABEL[item.status]}</span>
+                <div className="drama-library-body">
+                    <h3 title={item.project.name}>{item.project.name}</h3>
+                    <div className="drama-library-meta">
+                        {item.styleName ? <span>{item.styleName}</span> : null}
+                        <span>{item.aspectRatio}</span>
+                        <RelativeTime value={item.updatedAt || item.project.updatedAt} />
+                    </div>
+                    <div className="drama-library-progress">
+                        <span className="drama-library-progress-bar"><span style={progressFillStyle(Math.max(progress, item.episodeCount && progress === 0 ? 2 : progress))} /></span>
+                        <span className="drama-library-progress-text"><b>{stage}</b>{item.spentMicrocredits ? <span>{formatCredits(item.spentMicrocredits)} 积分</span> : null}</span>
+                    </div>
+                    {needsAction ? <p className="drama-library-alert" title={item.pauseReason}>{item.pauseReason}</p> : null}
+                </div>
+            </Link>
+            <div className="drama-library-menu">
+                <Dropdown trigger={["click"]} placement="bottomRight" menu={{ items: [{ key: "open", icon: <ExternalLink className="size-3.5" />, label: <Link to={`/projects/${item.project.id}`}>打开制作台</Link> }, { type: "divider" }, { key: "delete", danger: true, icon: <Trash2 className="size-3.5" />, label: "删除作品", onClick: onDelete }] }}>
+                    <button type="button" className="product-icon-button" aria-label={`${item.project.name} 更多操作`}><MoreHorizontal /></button>
+                </Dropdown>
+            </div>
+        </article>
+    );
 }

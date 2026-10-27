@@ -53,21 +53,21 @@ type UpdatePaymentProviderConfigRequest struct {
 }
 
 type TopupProductRequest struct {
-	Name                     string                  `json:"name"`
-	Description              string                  `json:"description"`
-	AmountFen                int64                   `json:"amountFen"`
-	CreditsMicrocredits      int64                   `json:"creditsMicrocredits"`
-	ProductType              model.ProductType       `json:"productType"`
-	MembershipDays           int                     `json:"membershipDays"`
-	BonusCreditsMicrocredits int64                   `json:"bonusCreditsMicrocredits"`
-	Enabled                  bool                    `json:"enabled"`
-	SortOrder                int                     `json:"sortOrder"`
-	SaleStrategy             model.TopupSaleStrategy `json:"saleStrategy"`
-	PeriodDays               int                     `json:"periodDays"`
-	PeriodPurchaseLimit      int                     `json:"periodPurchaseLimit"`
-	StockTotal               int64                   `json:"stockTotal"`
-	SaleStartAt              *time.Time              `json:"saleStartAt"`
-	SaleEndAt                *time.Time              `json:"saleEndAt"`
+	Name                string                  `json:"name"`
+	Description         string                  `json:"description"`
+	Kind                model.TopupProductKind  `json:"kind"`
+	AmountFen           int64                   `json:"amountFen"`
+	CreditsMicrocredits int64                   `json:"creditsMicrocredits"`
+	StorageBytes        int64                   `json:"storageBytes"`
+	StorageDurationDays int                     `json:"storageDurationDays"`
+	Enabled             bool                    `json:"enabled"`
+	SortOrder           int                     `json:"sortOrder"`
+	SaleStrategy        model.TopupSaleStrategy `json:"saleStrategy"`
+	PeriodDays          int                     `json:"periodDays"`
+	PeriodPurchaseLimit int                     `json:"periodPurchaseLimit"`
+	StockTotal          int64                   `json:"stockTotal"`
+	SaleStartAt         *time.Time              `json:"saleStartAt"`
+	SaleEndAt           *time.Time              `json:"saleEndAt"`
 }
 
 type CreatePaymentOrderRequest struct {
@@ -84,28 +84,28 @@ type PaymentCheckoutView struct {
 }
 
 type PaymentOrderView struct {
-	ID                       string                   `json:"id"`
-	UserID                   string                   `json:"userId,omitempty"`
-	MerchantOrderNo          string                   `json:"merchantOrderNo"`
-	ProductID                string                   `json:"productId"`
-	ProductName              string                   `json:"productName"`
-	ProviderID               string                   `json:"providerId"`
-	AmountFen                int64                    `json:"amountFen"`
-	Currency                 string                   `json:"currency"`
-	CreditsMicrocredits      int64                    `json:"creditsMicrocredits"`
-	ProductType              model.ProductType        `json:"productType"`
-	MembershipDays           int                      `json:"membershipDays,omitempty"`
-	BonusCreditsMicrocredits int64                    `json:"bonusCreditsMicrocredits,omitempty"`
-	Status                   model.PaymentOrderStatus `json:"status"`
-	ProviderStatus           string                   `json:"providerStatus,omitempty"`
-	ProviderTradeNo          string                   `json:"providerTradeNo,omitempty"`
-	Checkout                 PaymentCheckoutView      `json:"checkout"`
-	ExpiresAt                time.Time                `json:"expiresAt"`
-	ProviderPaidAt           *time.Time               `json:"providerPaidAt,omitempty"`
-	CreditedAt               *time.Time               `json:"creditedAt,omitempty"`
-	ClosedAt                 *time.Time               `json:"closedAt,omitempty"`
-	CreatedAt                time.Time                `json:"createdAt"`
-	UpdatedAt                time.Time                `json:"updatedAt"`
+	ID                  string                   `json:"id"`
+	UserID              string                   `json:"userId,omitempty"`
+	MerchantOrderNo     string                   `json:"merchantOrderNo"`
+	ProductID           string                   `json:"productId"`
+	ProductName         string                   `json:"productName"`
+	ProductKind         model.TopupProductKind   `json:"productKind"`
+	ProviderID          string                   `json:"providerId"`
+	AmountFen           int64                    `json:"amountFen"`
+	Currency            string                   `json:"currency"`
+	CreditsMicrocredits int64                    `json:"creditsMicrocredits"`
+	StorageBytes        int64                    `json:"storageBytes,omitempty"`
+	StorageDurationDays int                      `json:"storageDurationDays,omitempty"`
+	Status              model.PaymentOrderStatus `json:"status"`
+	ProviderStatus      string                   `json:"providerStatus,omitempty"`
+	ProviderTradeNo     string                   `json:"providerTradeNo,omitempty"`
+	Checkout            PaymentCheckoutView      `json:"checkout"`
+	ExpiresAt           time.Time                `json:"expiresAt"`
+	ProviderPaidAt      *time.Time               `json:"providerPaidAt,omitempty"`
+	CreditedAt          *time.Time               `json:"creditedAt,omitempty"`
+	ClosedAt            *time.Time               `json:"closedAt,omitempty"`
+	CreatedAt           time.Time                `json:"createdAt"`
+	UpdatedAt           time.Time                `json:"updatedAt"`
 }
 
 type AdminPaymentOrderPage struct {
@@ -131,9 +131,6 @@ func (s *Service) CreatePaymentOrder(ctx context.Context, actor *model.User, req
 	if actor == nil {
 		return nil, Unauthorized("请先登录")
 	}
-	if err := s.RequireFeature(FeatureCredits); err != nil {
-		return nil, err
-	}
 	idempotencyKey := strings.TrimSpace(request.IdempotencyKey)
 	if idempotencyKey == "" {
 		return nil, BadAuthRequest("支付幂等标识不能为空")
@@ -156,6 +153,12 @@ func (s *Service) CreatePaymentOrder(ctx context.Context, actor *model.User, req
 	if err != nil || !product.Enabled {
 		return nil, BadAuthRequest("充值商品不存在或已停用")
 	}
+	// 积分功能关闭时积分商品不可购买；存储空间商品不依赖积分功能。
+	if topupProductKind(product.Kind) == model.TopupProductKindCredits {
+		if err := s.RequireFeature(FeatureCredits); err != nil {
+			return nil, err
+		}
+	}
 	provider, ok := s.paymentRegistry.Get(providerID)
 	if !ok {
 		return nil, BadAuthRequest("未知支付渠道")
@@ -177,10 +180,10 @@ func (s *Service) CreatePaymentOrder(ctx context.Context, actor *model.User, req
 	now := time.Now()
 	order := &model.PaymentOrder{
 		ID: newID(), UserID: actor.ID, IdempotencyKey: idempotencyKey, MerchantOrderNo: newID(),
-		ProductID: product.ID, ProductName: product.Name, ProviderID: provider.Descriptor().ID,
+		ProductID: product.ID, ProductName: product.Name, ProductKind: topupProductKind(product.Kind),
+		StorageBytes: product.StorageBytes, StorageDurationDays: product.StorageDurationDays, ProviderID: provider.Descriptor().ID,
 		PluginID: provider.Descriptor().PluginID, PluginVersion: provider.Descriptor().PluginVersion, ProviderConfigID: config.ID, ProviderConfigVersion: config.Version,
 		AmountFen: product.AmountFen, Currency: "CNY", CreditsMicrocredits: product.CreditsMicrocredits,
-		ProductType: product.ProductType, MembershipDays: product.MembershipDays, BonusCreditsMicrocredits: product.BonusCreditsMicrocredits,
 		Status: model.PaymentOrderCreated, CheckoutMode: provider.Descriptor().CheckoutMode,
 		ExpiresAt: now.Add(time.Duration(config.CloseAfterMinutes) * time.Minute),
 	}
@@ -508,10 +511,17 @@ func (s *Service) applyPaymentResult(providerID string, result payment.Result) (
 		if result.AmountFen != order.AmountFen || result.Currency != order.Currency {
 			return nil, repository.ErrPaymentEvidenceMismatch
 		}
-		completed, _, err := s.repo.CompletePaymentOrder(providerID, result.MerchantOrderNo, repository.PaymentEvidence{
+		completed, granted, err := s.repo.CompletePaymentOrder(providerID, result.MerchantOrderNo, repository.PaymentEvidence{
 			ProviderTradeNo: result.ProviderTradeNo, ProviderStatus: result.ProviderStatus,
 			AmountFen: result.AmountFen, Currency: result.Currency, PaidAt: result.PaidAt,
 		})
+		if err == nil && granted {
+			s.afterStorageOrderGranted(completed)
+		}
+		if err == nil {
+			// 不只看 granted：已入账订单的重复通知也会补发此前失败的返佣，唯一约束保证不重复。
+			s.grantReferralCommission(completed)
+		}
 		return completed, err
 	}
 	if result.Closed {
@@ -542,6 +552,14 @@ func (s *Service) paymentRuntimeForOrder(order *model.PaymentOrder) (payment.Pro
 	return provider, config, values, err
 }
 
+// topupProductKind 把迁移前或未填写的类型视为积分商品。
+func topupProductKind(kind model.TopupProductKind) model.TopupProductKind {
+	if kind == model.TopupProductKindStorage {
+		return kind
+	}
+	return model.TopupProductKindCredits
+}
+
 func paymentOrderView(order model.PaymentOrder) PaymentOrderView {
 	providerTradeNo := ""
 	if order.ProviderTradeNo != nil {
@@ -557,8 +575,9 @@ func paymentOrderView(order model.PaymentOrder) PaymentOrderView {
 	}
 	return PaymentOrderView{
 		ID: order.ID, UserID: order.UserID, MerchantOrderNo: order.MerchantOrderNo, ProductID: order.ProductID, ProductName: order.ProductName,
+		ProductKind: topupProductKind(order.ProductKind), StorageBytes: order.StorageBytes, StorageDurationDays: order.StorageDurationDays,
 		ProviderID: order.ProviderID, AmountFen: order.AmountFen, Currency: order.Currency,
-		CreditsMicrocredits: order.CreditsMicrocredits, ProductType: order.ProductType, MembershipDays: order.MembershipDays, BonusCreditsMicrocredits: order.BonusCreditsMicrocredits, Status: order.Status, ProviderStatus: order.ProviderStatus,
+		CreditsMicrocredits: order.CreditsMicrocredits, Status: order.Status, ProviderStatus: order.ProviderStatus,
 		ProviderTradeNo: providerTradeNo, Checkout: checkout, ExpiresAt: order.ExpiresAt,
 		ProviderPaidAt: order.ProviderPaidAt, CreditedAt: order.CreditedAt, ClosedAt: order.ClosedAt,
 		CreatedAt: order.CreatedAt, UpdatedAt: order.UpdatedAt,

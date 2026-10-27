@@ -33,28 +33,10 @@ func (s *Service) finishCloudAgentCleanup(ctx context.Context, run *model.CloudA
 			return readErr
 		}
 		run = refreshed
-		state, decodeErr = cloudAgentDecode(run)
-		if decodeErr == nil {
-			activeID, mediaID, canvasID = state.ActiveTaskID, state.MediaTaskID, state.Request.CanvasID
-		}
-	}
-	children, err := s.repo.CloudAgentChildTasks(run.UserID, run.ID)
-	if err != nil {
-		return err
-	}
-	ids := []string{run.ID, activeID, mediaID}
-	mediaIDs := map[string]bool{}
-	if mediaID != "" {
-		mediaIDs[mediaID] = true
-	}
-	for _, child := range children {
-		ids = append(ids, child.ID)
-		if child.Type == "canvas_image" || child.Type == "canvas_video" || child.Type == "canvas_audio" {
-			mediaIDs[child.ID] = true
-		}
 	}
 	seen := map[string]bool{}
-	for _, id := range ids {
+	awaitingMedia := false
+	for _, id := range []string{run.ID, activeID, mediaID} {
 		if id == "" || seen[id] {
 			continue
 		}
@@ -68,6 +50,12 @@ func (s *Service) finishCloudAgentCleanup(ctx context.Context, run *model.CloudA
 		}
 		if err != nil {
 			return err
+		}
+		if id == mediaID && s.cloudAgentMediaContinuesAfterStop(run, task) {
+			// 用户停止本轮只停止 Agent 后续步骤。已提交上游的媒体任务可能已经计费，
+			// 取消也拿不回费用，所以保留它并等结果回写画布；调度器会重入这里完成收尾。
+			awaitingMedia = true
+			continue
 		}
 		if task.Status == model.TaskStatusQueued || task.Status == model.TaskStatusRunning {
 			source := model.TaskCancellationParentFailed
@@ -84,59 +72,36 @@ func (s *Service) finishCloudAgentCleanup(ctx context.Context, run *model.CloudA
 			}
 		}
 	}
-	for decodeErr == nil && (state.MediaTaskID != "" || len(state.PendingMedia) > 0) {
-		taskID, callIndex := state.MediaTaskID, state.CallIndex
-		if taskID == "" {
-			taskID, callIndex = state.PendingMedia[0].TaskID, state.PendingMedia[0].CallIndex
-		}
-		err := s.completeCloudAgentMediaTask(run, &state, cloudAgentMediaCall(state.Calls[callIndex]), taskID)
+	if awaitingMedia {
+		return nil
+	}
+	if mediaID != "" && decodeErr == nil && state.CallIndex < len(state.Calls) {
+		err := s.advanceCloudAgentMedia(run, &state, state.Calls[state.CallIndex])
 		if err != nil && !errors.Is(err, errCloudAgentCheckpoint) {
 			return err
 		}
-		if err != nil {
-			decodeErr = err
-			break
-		}
-		var readErr error
-		run, readErr = s.repo.CloudAgent(run.UserID, run.ID)
-		if readErr != nil {
-			return readErr
-		}
-		state, decodeErr = cloudAgentDecode(run)
-		if decodeErr == nil {
-			if state.MediaTaskID == taskID {
-				return nil
+		if err == nil {
+			var readErr error
+			run, readErr = s.repo.CloudAgent(run.UserID, run.ID)
+			if readErr != nil {
+				return readErr
 			}
-			for _, pending := range state.PendingMedia {
-				if pending.TaskID == taskID {
-					return nil
-				}
-			}
-			delete(mediaIDs, taskID)
+			mediaID = ""
 		}
 	}
 	// A damaged/oversized transcript cannot record another tool event. The
 	// control-plane CAS and canvas terminal write must still be able to commit.
-	var mediaTasks []*model.Task
+	var mediaTask *model.Task
 	var policy RuntimePolicySetting
-	if decodeErr == nil {
-		mediaIDs = nil
-	}
-	for mediaID := range mediaIDs {
-		if canvasID == "" {
-			break
-		}
-		mediaTask, err := s.repo.TaskForUser(run.UserID, mediaID)
+	if mediaID != "" && canvasID != "" {
+		var err error
+		mediaTask, err = s.repo.TaskForUser(run.UserID, mediaID)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			continue
+			mediaTask = nil
 		}
-		if !cloudAgentTaskTerminal(mediaTask.Status) {
-			return nil
-		}
-		mediaTasks = append(mediaTasks, mediaTask)
 		policy, err = s.RuntimePolicy()
 		if err != nil {
 			return err
@@ -145,7 +110,7 @@ func (s *Service) finishCloudAgentCleanup(ctx context.Context, run *model.CloudA
 	s.storageMu.Lock()
 	defer s.storageMu.Unlock()
 	return s.repo.MutateCloudAgent(run.UserID, run.ID, run.Revision, func(current *model.CloudAgentExecution, repo *repository.Repository) error {
-		for _, mediaTask := range mediaTasks {
+		if mediaTask != nil {
 			targetNodeID := ""
 			if taskContext := taskClientContext(mediaTask.InputJSON); taskContext != nil {
 				targetNodeID = taskContext.NodeID
@@ -165,4 +130,18 @@ func (s *Service) finishCloudAgentCleanup(ctx context.Context, run *model.CloudA
 		}
 		return nil
 	})
+}
+
+// cloudAgentMediaContinuesAfterStop 判断用户停止本轮后媒体任务是否继续生成。
+// 只有用户主动取消（cancelled）且任务已进入上游阶段时保留；失败收尾仍按原规则取消，
+// 尚未提交上游的任务照常取消并退款。
+func (s *Service) cloudAgentMediaContinuesAfterStop(run *model.CloudAgentExecution, task *model.Task) bool {
+	if run == nil || task == nil || run.Status != "cancelled" {
+		return false
+	}
+	if task.Status != model.TaskStatusQueued && task.Status != model.TaskStatusRunning {
+		return false
+	}
+	s.hydrateTaskProviderRequestID(task)
+	return taskUpstreamSubmitted(task)
 }

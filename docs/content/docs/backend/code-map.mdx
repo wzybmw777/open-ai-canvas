@@ -5,37 +5,15 @@ description: 从产品功能快速定位主要代码入口
 
 # 代码功能地图
 
-## 我的项目与默认创作画布
+## 短剧自动制作
 
-- `/projects` 与 `/canvas` 使用 `web/src/pages/canvas/index.tsx` 展示画布项目；`router.tsx` 不再挂载旧短剧制作详情，`workspace-route-modules.ts` 同步预加载画布列表。
-- `services/creation-project.ts` 准备已保存到服务端的默认画布；`components/project-context-bar.tsx` 在创作页和独立图片/视频工作台共用画布选择器。
-- 首页 `pages/create/index.tsx` 以会话 `canvasId` 提交任务，`services/creation-canvas-conversation.ts` 将对话合并到同一画布，`creation-agent-entry.tsx` 打开该画布 Agent。
-- 后端工作台归属校验位于 `app/workbench_bridge.go`；按用户验证 `CanvasProject`，关联旧业务项目的归档限制沿用任务准入检查。
-
-## 成长计划与会员
-
-- 用户页面与 API：`web/src/pages/rewards/index.tsx`、`web/src/services/api/rewards.ts`；入口位于工作台侧栏“成长计划”。任务奖励、分享奖励和会员兑换均由服务端幂等校验。
-- 后端路由与业务：`handler/finance.go` 的 `/rewards`、`/membership` 路由，`app/rewards.go` 编排任务/分享归属和积分功能开关，`repository/rewards.go` 原子写入积分流水、奖励记录和会员顺延。
-- 商品与兑换码：`app/payment_products.go`、`app/finance.go`、`repository/payment.go`、`repository/finance_redeem.go`；会员支付和会员兑换码可分别配置天数与赠送积分。
-
-## AI 去水印统一入口
-
-`web/src/components/layout/workspace-sidebar-nav.tsx` 提供一个“AI 去水印”入口，路由 `/toolbox/watermark`。`pages/workbench/watermark-page.tsx` 负责统一外壳、图片/视频页签和功能开放状态；两个处理面板共用 `use-watermark-task.ts`，隔离 `imageTask` / `videoTask` 查询参数，切换保留处理状态。
-
-独立开关 `watermarkRemovalEnabled` 在 `internal/platform/feature_availability.go` 定义，默认关闭；后台 `feature-availability-panel.tsx` 负责编辑，侧栏与页面共同检查该开关及图片/视频工作台开关。`app/image_cleanup.go`、`app/video_cleanup.go` 在状态和提交入口校验开放状态，`app/task_lifecycle.go` 在历史去水印任务重试时再次校验。
-
-## 图片去水印
-
-- 页面与 API：`web/src/pages/workbench/image-watermark-page.tsx`、`services/api/image-cleanup.ts`；复用 `components/image-mask-editor.tsx` 的涂抹能力。
-- 后端：`handler/workbench.go` → `service/aliases_image_cleanup.go` → `app/image_cleanup.go`；`imagecleanup/validation.go` 校验图片与透明蒙版，实际执行复用 `CreateTask`、现有平台图片模型、计费和资源存储。
-- 历史识别：`app/task_output.go` 的 `clientContext.imageCleanup` 与 `web/src/lib/image-cleanup.ts`；协议见 [图片去水印](/docs/backend/image-watermark-removal)。
-
-## 视频去水印
-
-- 页面与 API：`web/src/pages/workbench/video-watermark-page.tsx`、`services/api/video-watermark.ts`；统一入口内的视频面板。
-- 入参、权限与任务组合：`handler/workbench.go` → `service/aliases_video_cleanup.go` → `app/video_cleanup.go`，真实媒体合同在 `internal/videocleanup`，后续调用已有任务与计费服务。
-- 模型协议：`plugin-packages/dashscope-happyhorse-video-edit`，生成源在 `generate-catalog.mjs`，前后端默认能力分别在 `app/model_capability_defaults.go` 与 `web/src/lib/model-capabilities.ts`。
-- 摘要与历史：`app/task_output.go` 的 `clientContext.videoCleanup`、`web/src/lib/video-cleanup.ts`；部署与合同见 [视频去水印](/docs/backend/video-watermark-removal)。
+- 纯逻辑：`backend/internal/production/`（作品圣经、分集与剧本提示词 `prompts.go`，模型输出解析 `parse.go`，分镜规则与时长 `storyboard.go` / `timing.go`，按视频模型上限切剧情段 `SegmentShotsForVideo`，段提示词素材稿 `segment_prompt.go` 与撰写要求 `segment_writer.go`，参考图方案 `assets.go`）。
+- 调度循环：`backend/internal/app/drama_orchestrator.go`（同步任务结果 → 推导工作 → 按优先级派发，租约保证单项目单循环；成片时间线由各段视频拼接）；剧情段视频请求的组装、提交、回写与最后一帧抽取在 `drama_segment_video.go`（`prepareDramaSegment` 同时供预览与提交使用）。
+- 服务与用户操作：`app/drama_service.go`（创建、摘要、单集详情与剧情段视图）、`drama_actions.go`（审阅、镜头编辑、段提示词与段视频、设定重做、放行）、`drama_models.go`（模型目录、视频能力 `dramaVideoProfile`、报价预估）；类型在 `drama_types.go`。
+- 持久化：`model/models_drama.go`、`repository/repository_drama.go`（调度与用户写入均为列级条件更新）；迁移 v61–v67 在 `database/migrations.go`。HTTP：`handler/drama_routes.go`。
+- 渲染：`app/timeline_render_plan.go` / `task_render.go` 用 ffmpeg 合成，保留段视频自带的声音。
+- 前端：`web/src/services/api/drama.ts`；`pages/projects/index.tsx`（作品列表）、`create.tsx`（上传与预估）、`detail.tsx`（制作台）。制作台子组件在 `pages/projects/studio/`：`storyboard.tsx`（剧情段卡片）、`segment-dialog.tsx`（剧情段弹窗：段视频、生成依据、镜头脚本与完整视频提示词）、`segment-parts.tsx`（状态、视频与生成依据共用组件）、`panels.tsx`（设定、待处理、制作设置）、`final-view.tsx`、`script-view.tsx`、`job-detail.tsx`；样式 `drama.css`。模型选择复用通用 `ModelPicker`（`drama-model-picker.tsx`、`lib/drama/model-choice.ts`）。
+- 回归：`internal/production/production_test.go`、`app/drama_orchestrator_test.go`、`app/drama_storyboard_test.go`、`app/drama_assets_test.go`、`web/src/lib/drama/*.test.ts`。
 
 ## 画布实时会话
 
@@ -46,45 +24,24 @@ description: 从产品功能快速定位主要代码入口
 
 ## 用户登录日志
 
-- 持久化：`backend/internal/model/models_login_log.go`、`repository/login_logs.go`；会话与日志原子提交在 `repository/account.go`，schema v57 在 `database/migrations.go`。
+- 持久化：`backend/internal/model/models_login_log.go`、`repository/login_logs.go`；会话与日志原子提交在 `repository/account.go`，schema v53 在 `database/migrations.go`。
 - 认证采集：`backend/internal/auth/login_logs.go`、`auth.go`、`verification.go`、`linuxdo.go`；HTTP 上下文和提前拒绝采集在 `handler/admin_login_log_routes.go`。
 - 管理员查询：`app/admin_login_logs.go` → `service/aliases_login_logs.go` → `handler/admin_login_log_routes.go`。
 - 前端：`web/src/services/api/login-logs.ts`、`pages/admin/login-logs/`；菜单和懒加载接入 `admin-shell.tsx`、`router.tsx`。
 - 回归：auth/handler/database 的 `login_logs*_test.go`，前端 `web/test/login-log-device.test.ts`。
 
-## 邮箱与手机号登录注册
+## 可美 KM Seedream
 
-- 后台入口：`web/src/pages/admin/components/access-settings-panel.tsx`，`auth-verification-settings.tsx` 编辑登录/注册策略，`sms-channels-panel.tsx` 管理渠道、模板、测试及发送记录；API 合同在 `services/api/verification.ts`、`sms.ts`。
-- 用户端：`web/src/pages/auth/login.tsx`、`register.tsx` 根据公开策略展示方式切换，`components/auth/verification-fields.tsx` 独立填写邮箱/短信验证码。
-- 后端沿用 `handler/notifications.go` → `app/notifications_bridge.go` → `auth/verification_policy.go`、`auth/verification.go`、`sms/service.go` → `repository/notifications.go`；`repository/repository_users.go` 支持手机号搜索。
-- 短信插件在 `app/sms_plugins.go`；互亿无线通过 `third_party/go-sms-sender/safe_huyi.go` 使用受控 HTTPS 模板变量接口，`internal/sms/huyi_test.go` 校验协议、受理、权限及插件开关。
-
-## 卓越剧场
-
-- 导航与页面：`web/src/components/layout/workspace-sidebar-nav.tsx`、`workspace-command-palette.tsx`、`web/src/pages/theatre/index.tsx`；上传与编辑弹窗：`theatre-work-editor.tsx`，分集文件排序与编辑：`theatre-episode-drafts.ts`、`theatre-episode-editor.tsx`；选集与连播：`theatre-work-player.tsx`；按用户保存本机观看进度：`theatre-watch-progress.ts`；API：`web/src/services/api/theatre.ts`。
-- 后端：`handler/theatre.go` 处理登录态与 HTTP，`app/theatre.go` 校验作者权限、视频与封面图片资源、分集数量/重复及过期编辑、共享播放和封面读取场景，`repository/theatre.go` 事务保存作品和分集、分页查询并锁定发布资源，`model/theatre.go` 定义作品与分集表。`service/aliases_theatre.go` 保持稳定导入面。
-- 资源保护：`repository/resource_reference.go`、`resource_cleanup.go`、`admin_storage_delete.go`；共享播放复用已有资源交付合同，私有资源接口仍校验资源归属。
-
-## 可美 KM Seedream 与 AI 拆图
-
-- Seedream 声明式协议与分发包：`plugin-packages/km-kemei-seedream/manifest.json`、`docs/interface.md`；后端能力与校验：`backend/internal/app/model_capability_kemei.go`、`model_capability_validate.go`。
-- AI 拆图入口：`web/src/components/canvas/canvas-node-layer-decomposition-dialog.tsx`；规划、并行生成和图层组保存位于 `web/src/pages/canvas/use-canvas-media-tools.ts`、`web/src/services/canvas-image-layer-*.ts`、`web/src/pages/canvas/use-canvas-image-layer-*.ts`。
+- 声明式请求、响应与参数合同：`plugin-packages/km-kemei-seedream/manifest.json`、`docs/interface.md`；分发包：`plugin-packages/km-kemei-seedream.yingce-plugin`。
+- 后端默认能力与预设：`backend/internal/app/model_capability_defaults.go`、`model_capability_kemei.go`；档位校验：`model_capability_validate.go`。
+- 前端预设与选择：`web/src/lib/kemei-image-presets.ts`、`image-resolution-tiers.ts`、`image-size-presets.ts`、`model-capabilities.ts`；界面入口：`web/src/components/image-size-picker.tsx`、`image-size-presets-editor.tsx`。
+- 协议回归：`backend/internal/protocol/km_kemei_seedream_test.go`；前后端能力与尺寸测试位于对应测试目录。
 
 ## 自定义更新公告
 
 - 后台编辑：`web/src/pages/admin/settings/components/update-announcement-editor.tsx`；版本、排序与草稿校验：`web/src/lib/update-announcement.ts`。
 - 统一入口与弹窗：`web/src/components/layout/app-changelog-modal.tsx`、`app-changelog-dialog.tsx`；图文视频展示：`update-announcement-content.tsx`。
 - 服务端持久化、校验、公开投影及媒体访问：`backend/internal/app/appearance_updates.go` 与 `appearance.go`；HTTP 边界：`backend/internal/handler/appearance.go`。
-
-## QT 渠道每日同步
-
-后台受管同步入口为 `web/src/pages/admin/channels/channel-sync-page.tsx`，API 在 `services/api/channel-sync.ts`；`handler/channel_sync.go` → `app/channel_sync.go` 编排权限、HTTP 读取和 Worker 调度，`channelsync/plan.go` 校验价格与准备变更，`repository/channel_sync.go` 负责租约、执行历史和原子提交，`model/channel_sync.go` 定义 Schema 53 表。见 [上游渠道同步管理](/docs/backend/channel-sync)。后台启用后停用以下旧宿主机 timer，避免并发执行。
-
-`scripts/sync-qtrader-h3.mjs` 通过管理员 API 初始化 H3 精选目录并配置分组 100 的受管同步；
-`plugin-packages/qtrader-h3/` 映射该渠道的 multipart、像素尺寸与图片引用，不混用其他 H3 协议。
-配置与验收边界见 [QT H3 渠道接入](/docs/backend/qtrader-h3)。
-
-`scripts/sync-qt-channel.mjs` 核对 QT 公开价格和渠道密钥授权目录，精确匹配 SKU 与规格并事务更新价格、简介与启用状态；`scripts/qt-channel-models.mjs` 定义已确认新型号的协议与能力配置。`scripts/sync-qt-channel.sh` 防止重复运行，`scripts/install-qt-channel-sync.sh` 安装每天北京时间零点的 systemd 定时任务。规则和排查见 [QT 渠道每日同步](/docs/backend/qt-channel-sync)。
 
 ## 画布 Agent 配置与 Live2D
 
@@ -97,13 +54,9 @@ description: 从产品功能快速定位主要代码入口
 
 ## 前端页面
 
-头像裁剪复用 `components/image-crop-dialog.tsx`，原画布裁剪入口保留同一组件合同；`services/profile-avatar.ts` 校验 1:1 区域、导出有界 PNG，`lib/default-user-avatars.ts` 定义系统头像目录，`UserAvatar` 统一渲染系统预设或个人图片。schema v56 增加系统头像选择。
+头像裁剪复用 `components/image-crop-dialog.tsx`，原画布裁剪入口保留同一组件合同；`services/profile-avatar.ts` 校验 1:1 区域、导出有界 PNG，`lib/default-user-avatars.ts` 定义系统头像目录，`UserAvatar` 统一渲染系统预设或个人图片。schema v52 增加系统头像选择。
 
-个人信息：`web/src/pages/settings/profile-pane.tsx` 协调头像、密码、邮箱和第三方重新核验，`profile-validation.ts` 提供密码、图片与过期校验，`services/api/profile.ts` 使用统一 `http` 调用。共享头像在 `components/layout/user-avatar.tsx`。后端 `handler/auth_profile.go` 接收鉴权和受限请求，`app/auth_profile.go` / `profile_avatar.go` 组合 auth 域，`auth/account.go` / `avatar.go` / `linuxdo.go` 校验身份与头像内容，`repository/account.go` / `user_avatar.go` 处理会话撤销、邮箱唯一性、验证码消费和头像的事务保存，schema v55 安装个人信息及重新核验字段。
-
-Agent 分镜资产关联：`app/cloud_agent_storyboard_assets.go` 定义批量绑定 schema、合并 / 替换及强校验，复用 `app/cloud_agent_storyboard.go` 的保存与撤销记录；媒体与角色卡引用共用 `app/cloud_agent_character.go` 的 `cloudAgentMediaReference`，角色卡通过实际角色版本及形象资源校验。`canvas_bind_storyboard_assets` 在 `cloud_agent_tools.go` 注册，前端 `canvas-storyboard-materializer.ts` 使用保存的镜头级引用准备后续生成。
-
-Agent 媒体并发：`app/cloud_agent_media_parallel.go` 管理同一模型步骤内的独立媒体调用、4 项在途上限和乱序结果；`app/cloud_agent_runtime.go` 保持准入、预留账单、任务与画布原子写入；`app/cloud_agent_recovery.go` 按持久任务归属收尾全部子任务，`repository/cloud_agent.go` 调度有在途生成的待审批运行。
+个人信息：`web/src/pages/settings/profile-pane.tsx` 协调头像、密码、邮箱和第三方重新核验，`profile-validation.ts` 提供密码、图片与过期校验，`services/api/profile.ts` 使用统一 `http` 调用。共享头像在 `components/layout/user-avatar.tsx`。后端 `handler/auth_profile.go` 接收鉴权和受限请求，`app/auth_profile.go` / `profile_avatar.go` 组合 auth 域，`auth/account.go` / `avatar.go` / `linuxdo.go` 校验身份与头像内容，`repository/account.go` / `user_avatar.go` 处理会话撤销、邮箱唯一性、验证码消费和头像的事务保存，schema v51 安装个人信息及重新核验字段。
 
 云端 Agent：`web/src/components/canvas/canvas-cloud-agent-panel.tsx` 协调对话、技能和审批，`canvas-cloud-agent-settings.tsx` 编辑偏好；`services/api/agent.ts` 消费持久化运行及 SSE。手工提示词与媒体草稿更新仍共用 `lib/canvas/canvas-node-prompt.ts`，不覆盖已提交输入或生成结果。
 
@@ -116,7 +69,7 @@ Agent 媒体并发：`app/cloud_agent_media_parallel.go` 管理同一模型步�
 | 职责 | 入口与边界 |
 | --- | --- |
 | 运行创建与可恢复编排 | `backend/internal/app/cloud_agent.go` 负责权限、幂等和可信历史，`cloud_agent_runtime.go` / `cloud_agent_pi_coordinator.go` 负责编排；Pi 进程与回调桥在 `internal/agent/runtime/`、`internal/agent/yingceagent/`、`agent-runtime/pi/agent-runtime.mjs`，生产远程失败不回退为内嵌重放 |
-| 工具注册与执行绑定 | `internal/agent/tool/{policy,registry}.go` 是分类与可见性的单一来源；`app/cloud_agent_tool_registry.go` 和 `cloud_agent_tool_bindings.go` 将全部 30 个定义绑定到读、写、预览、媒体或视觉管线；未知/遗漏绑定在初始化与契约测试中拒绝，执行器不再维护第二套名称分派表 |
+| 工具注册与执行绑定 | `internal/agent/tool/{policy,registry}.go` 是分类与可见性的单一来源；`app/cloud_agent_tool_registry.go` 和 `cloud_agent_tool_bindings.go` 将全部 29 个定义绑定到读、写、预览、媒体或视觉管线；未知/遗漏绑定在初始化与契约测试中拒绝，执行器不再维护第二套名称分派表 |
 | 参数结构与 schema | `internal/agent/tool/{read_args,schema}.go` 由 8 个读取参数类型生成 schema，实际解码使用同一类型；其余工具保留相邻契约。`app/cloud_agent_tools.go` 输出供应商 schema，golden 测试守工具顺序和字段语义 |
 | 画布事实与节点能力 | `internal/canvas/capability/` 注册能力，`app/cloud_agent_canvas_state.go` 提供分页/定向读取；`cloud_agent.go` 只给焦点节点有界摘要及一跳邻居。旧 CanvasIntelligence、平行 CanvasToolRegistry 与无执行器的标准工具代码已移除 |
 | 单一行为策略 | `internal/prompts/agent-system-policy.md` 为 v17 运行资源；`prompts/agent_policy.go` 只 embed 此文件，并派生媒体标识；`app/cloud_agent_policy.go` 编译能力、权限等事实。独立媒体策略文件已移除，`prompts/AGENTS.md` 仅是维护约定，不拼入模型输入 |
@@ -134,17 +87,26 @@ Agent 媒体并发：`app/cloud_agent_media_parallel.go` 管理同一模型步�
 | 创作工作台 | `web/src/pages/create/index.tsx` | `creation-workspace.tsx`、`creation-conversations.ts`、`creation-types.ts`、`creation-assets.ts`、`creation-references.ts` |
 | 登录注册 | `web/src/pages/auth/` | `stores/use-user-store.ts`、`services/api/auth.ts`、后端 `internal/auth/` |
 | 积分与计费 | `web/src/components/layout/workspace-wallet-modal.tsx`、`pages/admin/components/platform-finance-panel.tsx` | `services/api/wallet.ts`、`services/api/payments.ts`、后端 `internal/app/finance.go`、`internal/app/payment.go`、`payment-plugins/`、`plugin-packages/official-payment-*` |
+| 推广中心 | `web/src/pages/referral/`、`pages/admin/referral/referral-admin-page.tsx`、`pages/admin/users/users-drawer.tsx`（推广人开关） | `services/api/referral.ts`、后端 `internal/handler/referral.go`、`internal/app/referral.go`（设置、资格、绑定、返佣）、`internal/repository/referral.go` |
 | 视频 Token 报价与结算 | `web/src/pages/admin/components/channel-model-price-tier-fields.tsx`、`web/src/components/model-picker.tsx` | `lib/model-pricing.ts`、`services/api/logical-models.ts`；后端 `app/video_token_billing.go` 管像素与时长估算，`app/logical_model_quote.go` 复用准入与价格规则，`app/analytics.go` 提取可信用量，`repository/finance.go` 按订单快照退补差额 |
 | 任务中心 | `web/src/pages/tasks/` | `services/api/task-center.ts`、`services/api/task-text-stream.ts` |
 | 产品模型与渠道选择 | `web/src/components/model-picker.tsx`、`pages/admin/components/channel-model-editor.tsx` | `lib/model-picker-groups.ts` 只构建跨渠道展示分组；`lib/user-session.ts` 透传渠道展示名；`components/model-logo.tsx` 按需加载原色图标；后端 `app/channel_models.go` 校验写入，`app/model_catalog.go` 发布目录，schema v24 增加 `channel_label` |
 | 系统渠道规格利润率与批量调价 | `web/src/pages/admin/components/channel-model-manager.tsx`、`channel-model-reprice-dialog.tsx` | 弹窗按模型分组展示多规格、重新计算与逐项编辑；`channel-model-cost-summary.tsx` 展示价格，`channel-model-pricing.ts` 精确四舍五入并组装最终售价；后端 `handler/finance.go` 接收批量请求，`app/channel_model_pricing.go` 校验权限、最终价格及快照版本，`repository/channel_model_pricing.go` 事务保存及版本冲突检测 |
 | 我的素材 | `web/src/pages/assets/` | `stores/use-asset-store.ts`、`services/image-storage.ts` |
 | 技能库 | `web/src/pages/skills/` | `services/api/skills.ts`、`services/skill-runtime.ts`、`components/skills/skill-runtime-picker.tsx` |
+| 技能工作台（`/skills/:skillId/edit`） | `web/src/pages/skills/workbench/` | `index.tsx` 管工作副本、保存与离开保护；`skill-workbench-explorer.tsx` 文件树与键盘导航；`skill-code-editor.tsx` 单 EditorView + 每标签 EditorState；`skill-quick-open.tsx`；样式 `skill-workbench.css`；纯函数 `lib/skills/skill-workbench-model.ts`（文件树、路径校验、批量操作折叠） |
 | 画布列表 | `web/src/pages/canvas/index.tsx` | `stores/canvas/use-canvas-store.ts` |
 | 画布编辑器 | `web/src/pages/canvas/project.tsx` | `pages/canvas/canvas-project-*`、`pages/canvas/use-canvas-*`、`components/canvas/`、`lib/canvas/`、`stores/canvas/` |
 | 公开分享 | `web/src/pages/canvas/shared.tsx` | `components/canvas/canvas-viewport.tsx`、`services/api/canvas-share.ts` |
 | 管理后台 | `web/src/pages/admin/`、`router.tsx` | `admin-context.tsx`、`users/`、`channels/`、`logs/`、`storyboard-prompts/`、`settings/`、`components/agent-lessons-panel.tsx` |
 | 支付 CSV 导出 | `web/src/pages/admin/payments/payments-page.tsx` | `services/api/payments.ts`、`AdminExportButton`；后端 `handler/payment_export.go`、`app/payment_export.go`、`repository/payment_export.go`（共享筛选、只读快照） |
+
+## AI 拆图工作流
+
+- 配置入口：`web/src/components/canvas/canvas-node-layer-decomposition-dialog.tsx`；编排、并行生成与重试：`web/src/pages/canvas/use-canvas-media-tools.ts`、`use-canvas-generation-retry.ts`。
+- 规划与策略：`web/src/lib/canvas/canvas-image-layer-plan.ts`、`canvas-image-layer-strategy.ts`；原图、规划请求、提取与合成：`web/src/services/canvas-image-layer-*.ts`。
+- 图层组和素材保存：`web/src/pages/canvas/use-canvas-image-layer-groups.ts`、`use-canvas-image-layer-materials.ts`；任务恢复与复制规则：`web/src/lib/canvas/canvas-generation-task-sync.ts`、`canvas-node-copy.ts`。
+- 看图资源归属及实际像素：`backend/internal/app/provider_media_hydration.go`；透明 PNG 参数：`plugin-packages/image-tools/manifest.json`。
 
 ## 画布核心
 
@@ -227,12 +189,10 @@ HTTP 请求 -> handler -> service（稳定导入面 / 别名）-> app（组合�
 | `prompts` | 提示词模板、用户定制、风格档案、JSON 抽取 | **已抽出**：`internal/prompts` |
 | `auth` | 登录注册、OAuth、邮件验证码、LibTV/TapNow 导入 | **已抽出**：`internal/auth` |
 | `canvas` | 画布公开分享、媒体引用守卫、用户画布/素材库同步 | **已抽出**：`internal/canvas` |
-| `assets` | 资源 URL/引用解析、流式交付类型、图片缩略图编码 | **部分抽出**：`internal/assets`；OSS/配额/转码仍在 `app` |
+| `assets` | 资源 URL/引用解析、流式交付类型 | **部分抽出**：`internal/assets`；OSS/配额/转码仍在 `app` |
 | `agentcontext` | Agent 上下文检查点的编码、解析与压缩提示词（provider 中立，不含触发与调度） | **已抽出**：`internal/agentcontext`；触发、暂停与恢复在 `app/cloud_agent_context_compaction.go` |
 
 组合根原则：`service.New`（委托 `app.New`）组装各域服务；coordinator 不得再持有整个 `*Service` 回灌域包。
-
-图片缩略图：`internal/assets/thumbnail.go` 负责尺寸、格式、透明度和 JPEG 朝向；`app/resource_thumbnail.go` 负责有界 Worker 调度、原存储位置读写及迟到结果清理；`repository/resource_thumbnail.go` 原子领取并有条件保存状态。`app/resource_access.go` 按真实变体签名与交付，下载仍走原件。
 
 | 功能 | Handler | Service / 域包 / Repository |
 | --- | --- | --- |
@@ -241,12 +201,14 @@ HTTP 请求 -> handler -> service（稳定导入面 / 别名）-> app（组合�
 | 管理后台批量操作 | `handler/auth.go` | `internal/app/admin.go`、`repository/admin_audit.go`、`repository/analytics.go` |
 | 管理后台存储资源 | `handler/admin_storage.go` | `internal/app/admin_storage.go`、`repository/admin_storage.go` |
 | 资源与请求策略 | `handler/auth.go`、`handler/security.go` | `internal/platform`、`internal/app/upload_quota.go`、`storage_quota.go`、`coordination.go` |
+| 存储空间套餐与只读 | `handler/storage_guard.go`、`handler/storage_grants.go` | `internal/app/storage_capacity.go`（有效容量、宽限期与只读、扩容赠送/撤销）、`payment_products.go`（商品类型）、`repository/storage_grants.go`、`repository/payment.go`（`grantPaymentStorage`） |
+| 推广中心 | `handler/referral.go` | `internal/app/referral.go`（`referral` 设置、`referralEligible`、注册绑定 `bindReferral`、入账后 `grantReferralCommission`）、`repository/referral.go`（`GrantReferralCommission` 同事务写返佣、流水与余额） |
 | 模型响应拦截 | `handler/response_interception.go`、`handler/custom_proxy.go` | `internal/app/response_interception.go`、`repository/repository.go` |
 | 异步任务、文本 SSE 与 Agent | `handler/routes.go` | `internal/app` 组合根（`provider_*` 仍在此）+ `internal/generation` + `internal/outbound` + `task_text_stream.go`、`text_replay.go` |
 | 用户画布与素材 | `handler/user_data.go` | `internal/canvas` |
 | 文件和 OSS | `handler/routes.go` | `internal/app/resource.go`、`settings.go` |
 | 画布分享 | `handler/canvas_share.go` | `internal/canvas` |
-| 技能库 | `handler/skills.go` | `internal/skills`、`repository/skills.go` |
+| 技能库 | `handler/skills.go` | `internal/skills`、`repository/skills.go`；在线编辑在 `skills/skill_packages_edit.go`，乐观锁写入在 `repository/skill_packages.go` 的 `AddSkillVersionIfCurrent` |
 | 提示词模板 | `handler/auth.go`、`handler/user_data.go` | `internal/prompts` |
 | 用户风格库 | `handler/style_profile.go` | `internal/prompts`、`repository/style_profile.go` |
 | 用量分析 | `handler/admin_analytics.go` | `internal/app/analytics.go`、`repository/analytics.go` |

@@ -1,12 +1,13 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { App, Button, Dropdown, Input, Modal } from "antd";
-import { ArrowDownAZ, Clock3, Download, FileUp, History, ListFilter, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
+import { Select } from "@/components/ui/base/select";
+import { ArrowDownAZ, Clock3, Download, FileUp, History, ListFilter, LoaderCircle, Plus, Search, SlidersHorizontal } from "lucide-react";
 
 import { CollectionGrid, PageHeader, WorkspacePage } from "@/components/layout/workspace-page";
 import { CollectionToolbar } from "@/components/layout/collection-toolbar";
-import { WorkspaceLoadingState, WorkspaceState } from "@/components/layout/workspace-state";
+import { WorkspaceErrorState, WorkspaceLoadingState, WorkspaceNoResultsState, WorkspaceState } from "@/components/layout/workspace-state";
 
 import { readZip } from "@/lib/zip";
 import { setMediaBlob } from "@/services/file-storage";
@@ -22,6 +23,7 @@ import { saveCanvasDrawing, type CanvasDrawingRenderDraft } from "@/lib/canvas/c
 import { createCanvasProjectWithRemoteSync, hasRemoteUserDataSyncSession, loadCanvasProjectForEditing, saveRemoteUserDataNow, scheduleRemoteUserDataSync } from "@/services/user-data-sync";
 import { listRemoteCanvasProjectsPage, type CanvasLibrarySummary } from "@/services/api/user-data";
 import { useUserStore } from "@/stores/use-user-store";
+import { listProjects } from "@/services/api/projects";
 import { loadCanvasProjectPage } from "@/lib/workspace-route-modules";
 import { resourceFileUrl, resourceStorageKey, uploadResourceFile } from "@/services/api/resources";
 import { primeResourceBlobCache } from "@/services/resource-blob-cache";
@@ -35,15 +37,12 @@ export default function CanvasPage() {
     const { message } = App.useApp();
     const brandName = useAppearanceStore((state) => state.appearance.brandName);
     const navigate = useNavigate();
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams] = useSearchParams();
     const inputRef = useRef<HTMLInputElement>(null);
     const autoOpenRef = useRef(false);
     const [keyword, setKeyword] = useState("");
     const [sort, setSort] = useState<"updated" | "name" | "nodes">("updated");
-    const [createOpen, setCreateOpen] = useState(false);
-    const [createTitle, setCreateTitle] = useState("");
-    const [creating, setCreating] = useState(false);
-    const createPendingRef = useRef(false);
+    const [projectFilter, setProjectFilter] = useState("all");
     const loadMoreRef = useRef<HTMLDivElement>(null);
     const [loadedProjectCount, setLoadedProjectCount] = useState(50);
     const [openingProjectId, setOpeningProjectId] = useState("");
@@ -58,15 +57,15 @@ export default function CanvasPage() {
         return () => window.clearTimeout(timer);
     }, [keyword]);
     const libraryQuery = useInfiniteQuery({
-        queryKey: ["canvas-library", userId, "all", sort, debouncedKeyword],
-        queryFn: ({ pageParam, signal }) => listRemoteCanvasProjectsPage({ page: pageParam, pageSize: 40, sort, query: debouncedKeyword, signal }),
+        queryKey: ["canvas-library", userId, projectFilter, sort, debouncedKeyword],
+        queryFn: ({ pageParam, signal }) => listRemoteCanvasProjectsPage({ page: pageParam, pageSize: 40, projectId: projectFilter, sort, query: debouncedKeyword, signal }),
         initialPageParam: 1,
         getNextPageParam: (last) => last.hasMore ? last.page + 1 : undefined,
         enabled: Boolean(userId) && sessionHydrated,
     });
     const projects = useMemo<CanvasLibrarySummary[]>(() => userId
         ? libraryQuery.data?.pages.flatMap((page) => page.projects) || []
-        : localProjects.map((project) => ({ ...project, nodeCount: project.nodes.length, previewNodes: project.nodes.slice(0, 4) })), [libraryQuery.data, localProjects, userId]);
+        : localProjects.map((project) => ({ ...project, nodeCount: project.nodes.length, previewNodes: project.nodes.filter((node) => node.type === CanvasNodeType.Image || node.type === CanvasNodeType.Video).slice(0, 4) })), [libraryQuery.data, localProjects, userId]);
     const totalProjects = userId ? libraryQuery.data?.pages[0]?.total || 0 : projects.length;
     const importProject = useCanvasStore((state) => state.importProject);
     const selectedIds = useCanvasUiStore((state) => state.selectedProjectIds);
@@ -74,6 +73,9 @@ export default function CanvasPage() {
     const setDeleteIds = useCanvasUiStore((state) => state.setDeleteProjectIds);
     const updateProject = useCanvasStore((state) => state.updateProject);
     const [historyOpen, setHistoryOpen] = useState(false);
+    const [associationOpen, setAssociationOpen] = useState(false);
+    const [associationProjectId, setAssociationProjectId] = useState("");
+    const projectQuery = useQuery({ queryKey: ["projects"], queryFn: () => listProjects() });
 
     const mode = searchParams.get("mode");
     const agentMode = mode === "new" || mode === "recent" || mode === "choose";
@@ -93,35 +95,26 @@ export default function CanvasPage() {
         [forwardedQuery, navigate, preloadProject],
     );
     const createAndEnter = () => {
-        setCreateTitle(`画布 ${projects.length + 1}`);
-        setCreateOpen(true);
-    };
-    const confirmCreate = async () => {
-        if (createPendingRef.current || !createTitle.trim() || !userId) return;
-        createPendingRef.current = true;
-        setCreating(true);
-        try {
-            const { id, syncError } = await createCanvasProjectWithRemoteSync(createTitle.trim());
-            if (useUserStore.getState().user?.id !== userId) return;
+        void createCanvasProjectWithRemoteSync(`自由画布 ${projects.length + 1}`).then(({ id, syncError }) => {
             if (syncError) message.warning(syncError instanceof Error ? `画布已在本地创建，云端同步失败：${syncError.message}` : "画布已在本地创建，云端同步失败");
             enterProject(id);
-        } catch (error) {
-            message.error(error instanceof Error ? error.message : "创建画布失败");
-        } finally {
-            createPendingRef.current = false;
-            setCreating(false);
-        }
+        });
     };
     const filteredProjects = useMemo(() => {
         if (userId) return projects;
         const query = keyword.trim().toLowerCase();
-        const values = query ? projects.filter((project) => project.title.toLowerCase().includes(query)) : [...projects];
+        const scoped = projects.filter((project) => projectFilter === "all" || (projectFilter === "independent" ? !project.projectId : project.projectId === projectFilter));
+        const values = query ? scoped.filter((project) => project.title.toLowerCase().includes(query)) : [...scoped];
         values.sort((a, b) => (sort === "name" ? a.title.localeCompare(b.title, "zh-CN") : sort === "nodes" ? b.nodeCount - a.nodeCount : new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
         return values;
-    }, [keyword, projects, sort, userId]);
+    }, [keyword, projectFilter, projects, sort, userId]);
+    const projectNames = useMemo(() => new Map((projectQuery.data?.projects || []).map(({ project }) => [project.id, project.name])), [projectQuery.data]);
     const visibleProjects = userId ? filteredProjects : filteredProjects.slice(0, loadedProjectCount);
     const hasMore = userId ? libraryQuery.hasNextPage : visibleProjects.length < filteredProjects.length;
+    const selectedProjects = projects.filter((project) => selectedIds.includes(project.id));
+    const projectFilterLabel = projectFilter === "all" ? "全部画布" : projectFilter === "independent" ? "自由画布" : projectNames.get(projectFilter) || "项目画布";
     const sortLabel = sort === "name" ? "按名称" : sort === "nodes" ? "按节点" : "最近更新";
+    const projectFilterItems = useMemo(() => [{ key: "all", label: "全部画布" }, { key: "independent", label: "自由画布" }, ...(projectQuery.data?.projects || []).map(({ project }) => ({ key: project.id, label: project.name }))], [projectQuery.data]);
     const sortItems = [
         { key: "updated", label: "最近更新", icon: <Clock3 className="size-3.5" /> },
         { key: "name", label: "按名称", icon: <ArrowDownAZ className="size-3.5" /> },
@@ -129,7 +122,7 @@ export default function CanvasPage() {
     ];
     useEffect(() => {
         setLoadedProjectCount(50);
-    }, [keyword, sort]);
+    }, [keyword, projectFilter, sort]);
     useEffect(() => {
         const node = loadMoreRef.current;
         if (!node || !hasMore) return;
@@ -145,6 +138,18 @@ export default function CanvasPage() {
         observer.observe(node);
         return () => observer.disconnect();
     }, [filteredProjects.length, visibleProjects.length, hasMore, userId, libraryQuery.fetchNextPage, libraryQuery.isFetchingNextPage, libraryQuery.isFetchNextPageError]);
+    const associateSelected = async (nextProjectId = associationProjectId) => {
+        const projectId = nextProjectId || undefined;
+        try {
+            for (const id of selectedIds) await loadCanvasProjectForEditing(id);
+            selectedIds.forEach((id) => updateProject(id, { projectId }));
+            await saveRemoteUserDataNow(selectedIds);
+            message.success(projectId ? "已加入项目" : "已移出项目，画布仍保留");
+            setAssociationOpen(false);
+        } catch (error) {
+            message.error(error instanceof Error ? `画布关系保存失败：${error.message}` : "画布关系保存失败");
+        }
+    };
     const exportSelected = async () => {
         try {
             const selected = [];
@@ -393,14 +398,19 @@ export default function CanvasPage() {
             enterProject(projects[0].id);
             return;
         }
-        createAndEnter();
+        void createCanvasProjectWithRemoteSync(`自由画布 ${projects.length + 1}`).then(({ id, syncError }) => {
+            if (syncError) message.warning(syncError instanceof Error ? `画布已在本地创建，云端同步失败：${syncError.message}` : "画布已在本地创建，云端同步失败");
+            enterProject(id);
+        });
     }, [hydrated, message, mode, projects, sessionHydrated, userId, libraryQuery.isSuccess]);
+
+    if (hydrated && !libraryQuery.isError && (mode === "new" || mode === "recent" || mode === "handoff")) return <main className="flex h-full items-center justify-center bg-background text-sm text-stone-500">正在打开画布...</main>;
 
     return (
         <WorkspacePage className="studio-collection-page">
             <div className="studio-band">
                 <PageHeader
-                    title="我的项目"
+                    title="我的画布"
                     description="把镜头、素材和想法留在同一张画布里。"
                     meta={<span className="app-projects-header-meta">{totalProjects} 个</span>}
                     actions={
@@ -408,19 +418,6 @@ export default function CanvasPage() {
                             <Button type="primary" disabled={!hydrated} icon={<Plus />} onClick={createAndEnter}>
                                 新建画布
                             </Button>
-                            {projects.length ? (
-                                <Dropdown
-                                    menu={{
-                                        classNames: { root: "canvas-library-actions-menu", item: "canvas-library-actions-menu-item" },
-                                        items: [{ key: "delete-loaded", danger: true, icon: <Trash2 className="size-3.5" />, label: "删除当前已加载画布", onClick: () => setDeleteIds(projects.map((project) => project.id)) }],
-                                    }}
-                                    openClassName="is-open"
-                                    placement="bottomRight"
-                                    trigger={["click"]}
-                                >
-                                    <Button type="text" aria-label="更多画布操作" title="更多操作" icon={<MoreHorizontal />} />
-                                </Dropdown>
-                            ) : null}
                             <Button disabled={!hydrated} icon={<FileUp />} onClick={() => inputRef.current?.click()}>
                                 导入
                             </Button>
@@ -430,11 +427,14 @@ export default function CanvasPage() {
 
                 <CollectionToolbar
                     label="画布浏览工具"
-                    active={Boolean(keyword || sort !== "updated")}
-                    onReset={() => { setKeyword(""); setSort("updated"); }}
+                    active={Boolean(keyword || projectFilter !== "all" || sort !== "updated")}
+                    onReset={() => { setKeyword(""); setProjectFilter("all"); setSort("updated"); }}
                     trailing={<Button type="text" icon={<History />} onClick={() => setHistoryOpen(true)}>创作历史</Button>}
                 >
                     <Input prefix={<Search />} value={keyword} allowClear placeholder="搜索画布" aria-label="搜索画布" onChange={(event) => setKeyword(event.target.value)} />
+                    <Dropdown trigger={["click"]} placement="bottomLeft" menu={{ items: projectFilterItems, selectedKeys: [projectFilter], onClick: ({ key }) => setProjectFilter(String(key)) }}>
+                        <Button icon={<SlidersHorizontal />} aria-label="按所属项目筛选">{projectFilterLabel}</Button>
+                    </Dropdown>
                     <Dropdown trigger={["click"]} placement="bottomLeft" menu={{ items: sortItems, selectedKeys: [sort], onClick: ({ key }) => setSort(key as typeof sort) }}>
                         <Button icon={sort === "updated" ? <Clock3 /> : sort === "name" ? <ArrowDownAZ /> : <ListFilter />} aria-label="画布排序">{sortLabel}</Button>
                     </Dropdown>
@@ -445,6 +445,28 @@ export default function CanvasPage() {
                 {selectedIds.length ? (
                     <div className="collection-selection-bar">
                         <strong className="mr-auto font-medium">已选 {selectedIds.length} 个画布</strong>
+                        <Button
+                            size="small"
+                            disabled={!hydrated || projectQuery.isLoading}
+                            onClick={() => {
+                                setAssociationProjectId(selectedProjects[0]?.projectId || "");
+                                setAssociationOpen(true);
+                            }}
+                        >
+                            加入项目
+                        </Button>
+                        {selectedProjects.some((project) => project.projectId) ? (
+                            <Button
+                                size="small"
+                                disabled={!hydrated}
+                                onClick={() => {
+                                    setAssociationProjectId("");
+                                    void associateSelected("");
+                                }}
+                            >
+                                移出项目
+                            </Button>
+                        ) : null}
                         <Button size="small" disabled={!hydrated} icon={<Download className="size-3.5" />} onClick={() => void exportSelected()}>
                             导出
                         </Button>
@@ -455,7 +477,7 @@ export default function CanvasPage() {
                 ) : null}
 
                 {userId && libraryQuery.isError ? (
-                    <div role="alert">画布列表读取失败<Button onClick={() => void libraryQuery.refetch()}>重试</Button></div>
+                    <WorkspaceErrorState compact title="画布列表读取失败" description={libraryQuery.error instanceof Error ? libraryQuery.error.message : "请检查网络后重试。"} actionLabel="重试" onRetry={() => void libraryQuery.refetch()} />
                 ) : !hydrated || (userId && libraryQuery.isPending) ? (
                     <WorkspaceLoadingState label="正在恢复画布" detail="读取本地缓存与账号同步状态" />
                 ) : visibleProjects.length ? (
@@ -464,6 +486,7 @@ export default function CanvasPage() {
                             <CanvasFolderCard
                                 key={project.id}
                                 project={project}
+                                projectName={project.projectId ? projectNames.get(project.projectId) || "未同步项目" : undefined}
                                 onClick={() => enterProject(project.id)}
                                 onPrefetch={preloadProject}
                                 opening={openingProjectId === project.id}
@@ -471,27 +494,42 @@ export default function CanvasPage() {
                         ))}
                     </CollectionGrid>
                 ) : (
-                    <WorkspaceState icon="canvas" title={keyword ? "没有匹配的画布" : "让第一个想法落在画布上"} description={keyword ? "换一个画布名称或重置筛选条件。" : "图片、分镜和灵感，都可以在这里自由组织。"} action={!keyword ? <Button type="primary" icon={<Plus />} disabled={!hydrated} onClick={createAndEnter}>新建画布</Button> : undefined} />
+                    keyword || projectFilter !== "all" ? (
+                        <WorkspaceNoResultsState icon="canvas" query={keyword} onClear={() => { setKeyword(""); setProjectFilter("all"); }} />
+                    ) : (
+                        <WorkspaceState icon="canvas" title="让第一个想法落在画布上" description="图片、分镜和灵感，都可以在这里自由组织。" action={<Button type="primary" icon={<Plus />} disabled={!hydrated} title={hydrated ? undefined : "正在恢复本地画布，完成后可新建"} onClick={createAndEnter}>新建画布</Button>} />
+                    )
                 )}
-                {hydrated && visibleProjects.length ? (
-                    <div ref={loadMoreRef} className="library-load-more" aria-live="polite">
-                        {libraryQuery.isFetchNextPageError ? <Button onClick={() => void libraryQuery.fetchNextPage()}>加载失败，重试</Button> : hasMore ? "继续下滑加载更多" : `已加载全部 ${filteredProjects.length} 个画布`}
+                {/* 无限滚动哨兵：只在加载中显示安静的 spinner、失败时给重试；全部加载后不再输出总数文案。 */}
+                {hydrated && visibleProjects.length && (hasMore || libraryQuery.isFetchNextPageError) ? (
+                    <div ref={loadMoreRef} className="library-load-more" aria-live="polite" aria-busy={libraryQuery.isFetchingNextPage}>
+                        {libraryQuery.isFetchNextPageError ? (
+                            <Button onClick={() => void libraryQuery.fetchNextPage()}>加载失败，重试</Button>
+                        ) : libraryQuery.isFetchingNextPage ? (
+                            <LoaderCircle className="size-4 animate-spin" role="img" aria-label="正在加载更多画布" />
+                        ) : null}
                     </div>
                 ) : null}
             </div>
 
             <input ref={inputRef} type="file" accept="application/zip,.zip" className="hidden" onChange={(event) => void importCanvas(event.target.files?.[0])} />
-            <Modal title="新建画布" open={createOpen} okText="创建画布" cancelText="取消" confirmLoading={creating}
-                okButtonProps={{ disabled: !createTitle.trim() || !userId }}
-                onOk={() => void confirmCreate()}
-                onCancel={() => {
-                    if (creating) return;
-                    setCreateOpen(false);
-                    setSearchParams((current) => { const next = new URLSearchParams(current); next.delete("mode"); return next; }, { replace: true });
-                }}>
-                <div className="space-y-4">
-                    <label className="block space-y-2"><span>画布名称</span><Input value={createTitle} onChange={(event) => setCreateTitle(event.target.value)} disabled={creating} maxLength={120} /></label>
-                </div>
+            <Modal
+                title="加入项目"
+                open={associationOpen}
+                okText="保存关联"
+                cancelText="取消"
+                okButtonProps={{ disabled: !associationProjectId, loading: projectQuery.isFetching }}
+                onCancel={() => setAssociationOpen(false)}
+                onOk={() => void associateSelected()}
+            >
+                <p className="mb-3 text-sm text-foreground/60">选中的画布会保留原有节点和本地媒体，只增加项目关联。</p>
+                <Select
+                    className="w-full"
+                    value={associationProjectId || undefined}
+                    placeholder="选择项目"
+                    options={(projectQuery.data?.projects || []).map((item) => ({ label: item.project.name, value: item.project.id }))}
+                    onChange={setAssociationProjectId}
+                />
             </Modal>
             <CanvasHistoryDrawer open={historyOpen} onClose={() => setHistoryOpen(false)} />
             {deleteDialogOpen ? <Suspense fallback={null}><CanvasDeleteProjectsDialog /></Suspense> : null}

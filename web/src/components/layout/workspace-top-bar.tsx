@@ -1,7 +1,9 @@
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Link, useLocation } from "react-router";
 
+import { TopbarFeedbackButton } from "@/components/feedback/topbar-feedback-button";
 import { SystemAnnouncementCenter } from "@/components/layout/system-announcement-center";
+import { WorkspaceAccountMenu } from "@/components/layout/workspace-account-menu";
 import { WorkspaceCreditGiftMark } from "@/components/layout/workspace-credit-gift-mark";
 import { WorkspaceTopBarExtensionSlot } from "@/components/layout/workspace-top-bar-extension";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
@@ -10,24 +12,20 @@ import { useUserStore } from "@/stores/use-user-store";
 import { useAppearanceStore } from "@/stores/use-appearance-store";
 import { useWalletBalance } from "@/hooks/use-wallet-balance";
 import { openWorkspaceWallet } from "@/lib/workspace-wallet";
-import { useLocaleText } from "@/lib/i18n";
 
 const PAGE_TITLES: Record<string, string> = {
     home: "创作",
     create: "创作",
-    inspirations: "灵感库",
-    projects: "我的项目",
-    canvas: "画布",
-    tasks: "生成任务",
-    assets: "素材库",
-    theatre: "作品与发布",
+    projects: "短剧制作",
+    canvas: "自由画布",
+    tasks: "创作历史",
+    assets: "资产",
     skills: "技能",
     plugins: "插件",
     settings: "设置",
 };
 
 export function WorkspaceTopBar({ sidebarOpen, onToggleSidebar }: { sidebarOpen: boolean; onToggleSidebar: () => void }) {
-    const { locale, text } = useLocaleText();
     const brandName = useAppearanceStore((state) => state.appearance.brandName);
     const theme = useThemeStore((state) => state.theme);
     const setTheme = useThemeStore((state) => state.setTheme);
@@ -36,29 +34,30 @@ export function WorkspaceTopBar({ sidebarOpen, onToggleSidebar }: { sidebarOpen:
     const { availableMicrocredits } = useWalletBalance(user?.id, creditsEnabled);
     const { pathname } = useLocation();
     const slug = pathname.split("/").filter(Boolean)[0];
-    const englishTitles: Record<string, string> = { home: "Create", create: "Create", inspirations: "Inspiration library", projects: "Projects", canvas: "Canvas", theatre: "Showcase", tasks: "Generation tasks", assets: "Asset library", skills: "Skills", plugins: "Plugins", settings: "Settings" };
-    const pageTitle = slug ? (locale === "en-US" ? englishTitles[slug] : PAGE_TITLES[slug]) || brandName : text(PAGE_TITLES.home, englishTitles.home);
-    const balance = availableMicrocredits === null ? "--" : (availableMicrocredits / 1_000_000).toLocaleString(locale, { maximumFractionDigits: 2 });
+    const pageTitle = slug ? PAGE_TITLES[slug] || brandName : PAGE_TITLES.home;
+    const balance = availableMicrocredits === null ? "--" : (availableMicrocredits / 1_000_000).toLocaleString("zh-CN", { maximumFractionDigits: 2 });
 
     return (
         <header className="app-workspace-topbar">
-            <button type="button" className="app-workspace-mobile-menu app-workspace-topbar-icon-button" aria-label={sidebarOpen ? text("收起侧栏", "Close sidebar") : text("展开侧栏", "Open sidebar")} onClick={onToggleSidebar}>
+            <button type="button" className="app-workspace-mobile-menu app-workspace-topbar-icon-button" aria-label={sidebarOpen ? "收起侧栏" : "展开侧栏"} onClick={onToggleSidebar}>
                 {sidebarOpen ? <PanelLeftClose className="size-4" /> : <PanelLeftOpen className="size-4" />}
             </button>
-            <nav className="app-workspace-topbar-breadcrumb" aria-label={text("当前位置", "Current location")}>
+            <nav className="app-workspace-topbar-breadcrumb" aria-label="当前位置">
                 <Link to="/" className="font-medium text-foreground/65 transition-colors hover:text-foreground">{brandName}</Link>
                 <span aria-hidden="true">/</span>
                 <span className="truncate font-medium text-foreground">{pageTitle}</span>
             </nav>
             <WorkspaceTopBarExtensionSlot />
             <div className="app-workspace-topbar-actions">
-                {creditsEnabled ? <button type="button" className="app-workspace-topbar-credit-pill" aria-label={text(`打开积分中心，可用 ${balance} 积分`, `Open credits, ${balance} available`)} onClick={() => openWorkspaceWallet()}>
+                {user ? <TopbarFeedbackButton /> : null}
+                {creditsEnabled ? <button type="button" className="app-workspace-topbar-credit-pill" aria-label={`打开积分中心，可用 ${balance} 积分`} onClick={() => openWorkspaceWallet()}>
                     <WorkspaceCreditGiftMark />
-                    <span>{text("积分", "Credits")}</span>
+                    <span>积分</span>
                     <strong>{balance}</strong>
                 </button> : null}
                 {user ? <SystemAnnouncementCenter userId={user.id} className="app-workspace-topbar-icon-button" autoOpen /> : null}
-                <AnimatedThemeToggler className="app-workspace-topbar-icon-button" theme={theme} onThemeChange={setTheme} aria-label={text("切换主题", "Toggle theme")} />
+                <AnimatedThemeToggler className="app-workspace-topbar-icon-button" theme={theme} onThemeChange={setTheme} aria-label="切换主题" />
+                <WorkspaceAccountMenu />
             </div>
         </header>
     );

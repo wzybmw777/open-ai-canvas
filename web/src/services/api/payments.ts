@@ -12,31 +12,20 @@ export type PaymentProvider = {
     closeAfterMinutes: number;
 };
 
-export type ExternalTopupShop = { enabled: boolean; url: string };
-
-export function getExternalTopupShop() {
-    return http.get<{ shop: ExternalTopupShop | null }>("/payments/external-shop");
-}
-
-export function getAdminExternalTopupShop() {
-    return http.get<{ shop: ExternalTopupShop }>("/admin/payments/external-shop");
-}
-
-export function updateAdminExternalTopupShop(input: ExternalTopupShop) {
-    return http.put<{ shop: ExternalTopupShop }>("/admin/payments/external-shop", input);
-}
-
 export type TopupSaleStrategy = "unlimited" | "periodic" | "inventory" | "timed";
+
+/** credits 发放积分；storage 扩容账号文件容量，storageDurationDays 为 0 表示永久。 */
+export type TopupProductKind = "credits" | "storage";
 
 export type TopupProduct = {
     id: string;
     name: string;
     description?: string;
+    kind: TopupProductKind;
     amountFen: number;
     creditsMicrocredits: number;
-    productType?: "credits" | "membership" | string;
-    membershipDays?: number;
-    bonusCreditsMicrocredits?: number;
+    storageBytes: number;
+    storageDurationDays: number;
     enabled: boolean;
     sortOrder: number;
     saleStrategy: TopupSaleStrategy;
@@ -62,13 +51,13 @@ export type PaymentOrder = {
     merchantOrderNo: string;
     productId: string;
     productName: string;
+    productKind: TopupProductKind;
     providerId: string;
     amountFen: number;
     currency: "CNY" | string;
     creditsMicrocredits: number;
-    productType?: "credits" | "membership" | string;
-    membershipDays?: number;
-    bonusCreditsMicrocredits?: number;
+    storageBytes?: number;
+    storageDurationDays?: number;
     status: PaymentOrderStatus;
     providerStatus?: string;
     providerTradeNo?: string;
@@ -146,16 +135,13 @@ export function listAdminTopupProducts() {
     return http.get<{ products: TopupProduct[] }>("/admin/payments/products");
 }
 
-export type TopupProductInput = Pick<TopupProduct, "name" | "amountFen" | "creditsMicrocredits" | "enabled" | "sortOrder" | "saleStrategy"> & {
+export type TopupProductInput = Pick<TopupProduct, "name" | "kind" | "amountFen" | "creditsMicrocredits" | "storageBytes" | "storageDurationDays" | "enabled" | "sortOrder" | "saleStrategy"> & {
     description?: string;
     periodDays?: number;
     periodPurchaseLimit?: number;
     stockTotal?: number;
     saleStartAt?: string;
     saleEndAt?: string;
-    productType?: TopupProduct["productType"];
-    membershipDays?: number;
-    bonusCreditsMicrocredits?: number;
 };
 
 export function createAdminTopupProduct(input: TopupProductInput) {

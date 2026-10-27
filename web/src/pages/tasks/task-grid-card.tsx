@@ -6,20 +6,19 @@ import { Eye, FileText, Image as ImageIcon, RotateCcw, Video } from "lucide-reac
 import { MediaPreview } from "@/components/media-preview";
 import { CONTENT_MODERATION_ERROR_CODE, isContentModerationError } from "@/lib/generation-error";
 import { generationTaskShowsProgress, generationTaskStageLabel, generationTaskStatusLabel } from "@/lib/generation-task-display";
-import { useLocaleText } from "@/lib/i18n";
 import type { GenerationTask } from "@/services/api/task-center";
 import { isTaskFailed, statusDotClassName, taskAttentionReason, TaskDate } from "./task-shared";
 import { TaskVideoThumbnail } from "./task-video-thumbnail";
+import { progressFillStyle } from "@/lib/progress-fill";
 
 export function TaskGridCard({ task, actingId, onOpen, onRetry }: { task: GenerationTask; actingId: string; onOpen: () => void; onRetry: () => void }) {
-    const { locale, text } = useLocaleText();
     const isActive = task.status === "queued" || task.status === "running";
     const isFailed = isTaskFailed(task);
     const retryDisabled = task.errorCode === CONTENT_MODERATION_ERROR_CODE || isContentModerationError(task.error);
     const isVideo = task.previewKind === "video";
     const thumbnailUrl = isVideo ? task.previewPosterUrl : task.previewUrl;
     const fallbackVideo = task.type.includes("video");
-    const stageLabel = generationTaskStageLabel(task, locale);
+    const stageLabel = generationTaskStageLabel(task);
     const showsProgress = generationTaskShowsProgress(task);
     const Icon = fallbackVideo ? Video : task.type.includes("image") ? ImageIcon : FileText;
     return (
@@ -33,16 +32,16 @@ export function TaskGridCard({ task, actingId, onOpen, onRetry }: { task: Genera
                     <Icon />
                 )}
                 <div className="task-grid-overlay">
-                    <Tooltip title={text("查看详情", "View details")}>
-                        <IconButton size="sm" variant="ghost" icon={Eye} aria-label={text("查看详情", "View details")} onClick={onOpen} />
+                    <Tooltip title="查看详情">
+                        <IconButton size="sm" variant="ghost" icon={Eye} aria-label="查看详情" onClick={onOpen} />
                     </Tooltip>
                     {isFailed ? (
-                        <Tooltip title={retryDisabled ? text("内容审核失败，无法自动重试", "Content was rejected; automatic retry is unavailable") : task.canRecoverMedia ? text("重试保存，不重新生成", "Retry saving without regenerating") : text("重试任务", "Retry task")}>
+                        <Tooltip title={retryDisabled ? "内容审核失败，无法自动重试" : task.canRecoverMedia ? "重试保存，不重新生成" : "重试任务"}>
                             <Button
                                 type="text"
                                 size="small"
                                 icon={<RotateCcw className="size-3.5" />}
-                                aria-label={task.canRecoverMedia ? text("重试保存", "Retry saving") : text("重试任务", "Retry task")}
+                                aria-label={task.canRecoverMedia ? "重试保存" : "重试任务"}
                                 loading={actingId === task.id}
                                 disabled={retryDisabled}
                                 onClick={onRetry}
@@ -53,12 +52,12 @@ export function TaskGridCard({ task, actingId, onOpen, onRetry }: { task: Genera
             </div>
             <div className="task-grid-body">
                 <button type="button" className="task-grid-title" title={task.prompt} onClick={onOpen}>
-                    {task.prompt || text("未命名任务", "Untitled task")}
+                    {task.prompt || "未命名任务"}
                 </button>
                 <div className="task-grid-meta">
                     <span className={`task-grid-status ${isFailed ? "is-failed" : isActive ? "is-active" : task.status === "succeeded" ? "is-success" : ""}`}>
                         <i className={statusDotClassName(task.status)} />
-                        {generationTaskStatusLabel(task, locale)}
+                        {generationTaskStatusLabel(task)}
                     </span>
                     <span className="task-grid-date">
                         <TaskDate value={task.createdAt} />
@@ -68,10 +67,10 @@ export function TaskGridCard({ task, actingId, onOpen, onRetry }: { task: Genera
                     <div className="task-grid-progress" role="progressbar" aria-label={stageLabel} aria-valuemin={0} aria-valuemax={100} aria-valuenow={task.progress || 0}>
                         <span>{stageLabel}</span>
                         <strong>{task.progress || 0}%</strong>
-                        <i><b style={{ width: `${task.progress || 0}%` }} /></i>
+                        <i><b style={progressFillStyle(task.progress || 0)} /></i>
                     </div>
                 ) : null}
-                {isFailed ? <p className="task-grid-error" title={taskAttentionReason(task, locale)}>{taskAttentionReason(task, locale)}</p> : null}
+                {isFailed ? <p className="task-grid-error" title={task.error || undefined}>{taskAttentionReason(task)}</p> : null}
             </div>
         </article>
     );

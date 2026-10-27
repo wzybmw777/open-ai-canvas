@@ -10,11 +10,9 @@ import { UserAvatar } from "./user-avatar";
 import { openWorkspaceWallet } from "@/lib/workspace-wallet";
 import { useThemeStore } from "@/stores/use-theme-store";
 import { useUserStore } from "@/stores/use-user-store";
-import { useLocaleText } from "@/lib/i18n";
 
 /** 顶部与侧栏复用同一账户卡片；顶部额外保留版本和主题偏好。 */
 export function WorkspaceAccountMenu() {
-    const { text } = useLocaleText();
     const theme = useThemeStore((state) => state.theme);
     const setTheme = useThemeStore((state) => state.setTheme);
     const user = useUserStore((state) => state.user);
@@ -43,15 +41,15 @@ export function WorkspaceAccountMenu() {
 
                     <div className="workspace-topbar-account-theme">
                         {theme === "dark" ? <Moon className="size-3.5 text-foreground/45" /> : <Sun className="size-3.5 text-foreground/45" />}
-                        <span className="ml-2 flex-1 text-xs text-foreground/65">{text("深色模式", "Dark mode")}</span>
-                        <Switch size="sm" checked={theme === "dark"} onChange={(checked) => setTheme(checked ? "dark" : "light")} aria-label={text("深色模式", "Dark mode")} />
+                        <span className="ml-2 flex-1 text-xs text-foreground/65">深色模式</span>
+                        <Switch size="sm" checked={theme === "dark"} onChange={(checked) => setTheme(checked ? "dark" : "light")} aria-label="深色模式" />
                     </div>
                 </div>
             )}
         >
-            <button type="button" className="app-workspace-topbar-icon-button app-workspace-account-trigger" aria-label={text("账户菜单", "Account menu")} title={user.displayName || user.username}>
+            <button type="button" className="app-workspace-topbar-icon-button app-workspace-account-trigger" aria-label="账户菜单" title={user.displayName || user.username}>
                 <UserAvatar user={user} className="size-6" />
             </button>
         </Popover></>
-    ) : <Link to="/login" className="inline-flex items-center gap-1.5 px-1.5 text-xs text-foreground/55" aria-label={text("登录", "Sign in")} title={text("登录", "Sign in")}><CircleUserRound className="size-5" /><span className="hidden sm:inline">{text("游客", "Guest")}</span></Link>;
+    ) : <Link to="/login" className="inline-flex items-center gap-2 px-2 text-xs text-foreground/55" aria-label="登录" title="登录"><CircleUserRound className="size-5" /><span className="hidden sm:inline">游客</span></Link>;
 }

@@ -1,4 +1,5 @@
-import { App, Button, Form, Input, Popconfirm, Segmented, Tooltip } from "antd";
+import { App, Button, Form, Input, Popconfirm, Segmented } from "antd";
+import { AntTooltip as Tooltip } from "@/components/ui/base/tooltip/ant-tooltip";
 import { Pencil, Plus, RefreshCw, Trash2, Workflow } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
@@ -208,8 +209,8 @@ export function ChannelSettingsPane({ onOpenModels, onOpenRunningHub }: ChannelS
                     {userChannels.map((channel) => {
                         const editing = editingChannelId === channel.id;
                         return (
-                            <section key={channel.id} aria-labelledby={`channel-${channel.id}-title`} className="settings-channel p-2.5 sm:p-3">
-                                <div className="mb-2.5 flex flex-wrap items-start justify-between gap-2.5">
+                            <section key={channel.id} aria-labelledby={`channel-${channel.id}-title`} className="settings-channel p-2 sm:p-3">
+                                <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
                                     <div className="min-w-0 flex-1 basis-52">
                                         <h3 id={`channel-${channel.id}-title`} className="truncate text-sm font-semibold">{channel.name || text("未命名渠道", "Unnamed channel")}</h3>
                                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-foreground/55">
@@ -278,12 +279,12 @@ function WorkflowChannelEntry({ icon, title, description, status, ready, onOpen 
     const { text } = useLocaleText();
     return (
         <div className="settings-channel flex min-w-0 items-center justify-between gap-3 p-3">
-            <div className="flex min-w-0 items-start gap-2.5">
+            <div className="flex min-w-0 items-start gap-2">
                 <span className="mt-0.5 shrink-0 text-[var(--workspace-accent)]" aria-hidden="true">{icon}</span>
                 <div className="min-w-0">
                     <h4 className="text-sm font-semibold">{title}</h4>
                     <p className="mt-0.5 truncate text-xs text-foreground/55">{description}</p>
-                    <span className={`settings-channel-status mt-1.5 ${ready ? "is-ready" : "is-warning"}`}><i aria-hidden="true" />{status}</span>
+                    <span className={`settings-channel-status mt-2 ${ready ? "is-ready" : "is-warning"}`}><i aria-hidden="true" />{status}</span>
                 </div>
             </div>
             <Button size="small" onClick={onOpen} disabled={!onOpen}>{text("配置", "Configure")}</Button>

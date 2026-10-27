@@ -14,7 +14,7 @@ export type CreditAccount = {
 export type CreditLedgerEntry = {
     id: string;
     userId: string;
-    type: "redeem" | "payment_topup" | "admin_grant" | "consume" | "refund" | "admin_adjustment" | "signup_bonus" | "checkin_bonus" | "reward_task" | "reward_share" | "membership_bonus";
+    type: "redeem" | "payment_topup" | "admin_grant" | "consume" | "refund" | "admin_adjustment" | "signup_bonus" | "checkin_bonus" | "referral_commission";
     amountMicrocredits: number;
     availableAfterMicrocredits: number;
     reservedAfterMicrocredits: number;
@@ -175,9 +175,6 @@ export type EmailSetting = {
 export type RedeemBatch = {
     id: string;
     amountMicrocredits: number;
-    productType?: "credits" | "membership" | string;
-    membershipDays?: number;
-    bonusCreditsMicrocredits?: number;
     count: number;
     note?: string;
     createdBy: string;
@@ -355,7 +352,7 @@ export function listAdminRedeemBatches(params: AdminFinanceListParams = {}) {
     return http.get<{ batches: RedeemBatch[]; total: number; page: number; pageSize: number }>("/admin/redeem-batches", { params });
 }
 
-export function createAdminRedeemBatch(input: { amountMicrocredits: number; count: number; note?: string; expiresAt?: string; productType?: "credits" | "membership" | string; membershipDays?: number; bonusCreditsMicrocredits?: number }) {
+export function createAdminRedeemBatch(input: { amountMicrocredits: number; count: number; note?: string; expiresAt?: string }) {
     return http.post<{ batch: RedeemBatch; codes: string[] }>("/admin/redeem-batches", input, { timeout: 30_000 });
 }
 
