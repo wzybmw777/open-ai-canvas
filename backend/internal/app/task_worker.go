@@ -22,8 +22,16 @@ type taskWorkerCoordinator struct {
 
 const workerSlotLeaseDuration = time.Minute
 
+const (
+	taskLeaseDuration              = 2 * time.Minute
+	taskLeaseRenewTransientRetries = 7
+	taskLeaseRenewRetryDelay       = 100 * time.Millisecond
+)
+
 // Lease ownership lasts through terminal persistence, independently of the
-// provider deadline. Only a renewal failure cancels the provider execution.
+// provider deadline. Transient database deadline failures are retried while
+// the lease is still expected to be valid; a real renewal failure cancels the
+// provider execution.
 func startTaskLeaseRenewal(interval time.Duration, renew func(context.Context) error, cancelTask context.CancelFunc) (<-chan error, func()) {
 	ctx, cancel := context.WithCancel(context.Background())
 	lost := make(chan error, 1)
@@ -37,15 +45,30 @@ func startTaskLeaseRenewal(interval time.Duration, renew func(context.Context) e
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				renewCtx, cancelRenew := context.WithTimeout(ctx, 5*time.Second)
-				err := renew(renewCtx)
-				cancelRenew()
-				if err != nil {
-					if ctx.Err() == nil {
-						lost <- err
-						cancelTask()
+				var err error
+				for attempt := 0; ; attempt++ {
+					renewCtx, cancelRenew := context.WithTimeout(ctx, 5*time.Second)
+					err = renew(renewCtx)
+					cancelRenew()
+					if err == nil {
+						break
 					}
-					return
+					if !errors.Is(err, context.DeadlineExceeded) || attempt >= taskLeaseRenewTransientRetries || ctx.Err() != nil {
+						if ctx.Err() == nil {
+							lost <- err
+							cancelTask()
+						}
+						return
+					}
+					timer := time.NewTimer(taskLeaseRenewRetryDelay)
+					select {
+					case <-ctx.Done():
+						if !timer.Stop() {
+							<-timer.C
+						}
+						return
+					case <-timer.C:
+					}
 				}
 			}
 		}
@@ -108,7 +131,7 @@ func (w *taskWorkerCoordinator) start(ctx context.Context) {
 				}
 				claimCtx, cancelClaim := context.WithTimeout(ctx, 5*time.Second)
 				// 每次领取使用独立 owner，防止同一进程内旧执行者恢复后覆盖新执行者。
-				task, err := s.repo.WithContext(claimCtx).ClaimNextTask(globalSlot.Token(), 45*time.Second)
+				task, err := s.repo.WithContext(claimCtx).ClaimNextTask(globalSlot.Token(), taskLeaseDuration)
 				cancelClaim()
 				if err != nil || task == nil {
 					globalSlot.Release()
@@ -155,7 +178,7 @@ func (w *taskWorkerCoordinator) start(ctx context.Context) {
 
 func (w *taskWorkerCoordinator) processNextTask() error {
 	s := w.service
-	task, err := s.repo.ClaimNextTask(s.workerID+":"+newID(), 45*time.Second)
+	task, err := s.repo.ClaimNextTask(s.workerID+":"+newID(), taskLeaseDuration)
 	if err != nil || task == nil {
 		return err
 	}
@@ -181,7 +204,7 @@ func (w *taskWorkerCoordinator) processClaimedTask(task *model.Task, globalSlot 
 				return err
 			}
 		}
-		return s.repo.WithContext(renewCtx).RenewTaskLease(taskID, leaseOwner, 45*time.Second)
+		return s.repo.WithContext(renewCtx).RenewTaskLease(taskID, leaseOwner, taskLeaseDuration)
 	}, cancel)
 	defer stopLease()
 	_ = s.log(task.UserID, task.ID, "info", "后端任务开始处理", "")
@@ -199,7 +222,25 @@ func (w *taskWorkerCoordinator) processClaimedTask(task *model.Task, globalSlot 
 		return w.processTimelineTranscription(task, ctx)
 	}
 	if task.Type == model.TaskTypeTimelineRender {
-		return w.processTimelineRender(task, ctx)
+		err := w.processTimelineRender(task, ctx)
+		if err == nil {
+			return nil
+		}
+		// Local rendering also runs under the task lease. A failed renewal
+		// cancels the child process; leave the task running for an expired-lease
+		// reclaim instead of marking the old worker's partial render as failed.
+		select {
+		case leaseErr := <-leaseLost:
+			return fmt.Errorf("任务租约失效，停止保存渲染结果：%w", leaseErr)
+		default:
+		}
+		if latest, latestErr := s.repo.Task(task.ID); latestErr == nil && latest.Status == model.TaskStatusCancelled {
+			return terminal.handleCancelledResult(*latest)
+		}
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return terminal.handleExecutionFailure(task, ctx.Err(), false, false)
+		}
+		return err
 	}
 	if task.MediaRecoveryJSON != "" {
 		result, recoveryErr := s.resumeTaskMedia(ctx, task)

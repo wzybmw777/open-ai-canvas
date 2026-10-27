@@ -5,6 +5,12 @@ description: 当前项目已实现功能的手工验证清单与未确认边界
 
 # 待测试
 
+## 时间线 FFmpeg 渲染在数据库 checkpoint 期间的恢复
+
+- 已修复：PostgreSQL checkpoint 导致任务租约续期短暂超时后，渲染 worker 不再把被上下文取消的 FFmpeg 进程误记为编码失败；时间线任务保留为可恢复状态，过期租约由 worker 重新领取。FFmpeg 自身退出时，任务错误同时保留退出原因和末尾诊断输出；租约续期遇到临时数据库 deadline 会在租约期内重试。
+- 已验证：`go test ./internal/app -run 'Test(TimelineRender|TaskLeaseRenewal)' -count=1` 通过。完整 `go test ./internal/app ./internal/repository` 仍有工作区既有的 `TestArchivedAssetDeletionRemovesCanvasHistoryReference`（测试未迁移 theatre 表）和 `TestCloudAgentCanReadAndEditBatchTableRows`（审批预览为空）失败，未涉及本次改动。
+- [ ] PostgreSQL 生产环境：在 checkpoint 或磁盘 I/O 高峰期间渲染 100 秒以上竖屏时间线，确认任务不会被误报为 FFmpeg 失败，并能在同一任务内完成或自动恢复；真实 FFmpeg 退出时确认错误包含退出原因。
+
 ## 推广中心
 
 - 已实现：系统设置 `referral` 控制推广开关、开放方式（全民 / 指定推广人）和返佣比例；`users.is_promoter` 标记推广人，后台用户编辑抽屉可切换，用户列表显示「推广人」标签。`/auth/session` 返回 `referralAvailable` 决定账户菜单是否显示「推广中心」入口。用户接口 `GET /api/referral`、`/api/referral/invitees`、`/api/referral/commissions`；后台接口 `GET/PATCH /api/admin/settings/referral`、`GET /api/admin/referral/commissions`。注册页读取 `?ref=` 并在会话内保留，注册成功后绑定归属。积分充值订单入账后（支付回调、主动查询、对账补发）按订单 ID 幂等发放返佣积分，流水类型 `referral_commission`。

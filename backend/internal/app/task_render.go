@@ -66,11 +66,13 @@ func (w *taskWorkerCoordinator) processTimelineRender(task *model.Task, ctx cont
 	cmd.Dir = workDir
 	output, runErr := cmd.CombinedOutput()
 	if runErr != nil {
-		detail := strings.TrimSpace(string(output))
-		if len(detail) > 400 {
-			detail = detail[len(detail)-400:]
+		// A lease loss or explicit cancellation stops the child through the
+		// execution context. Keep the task recoverable so the worker coordinator
+		// can fence the old worker instead of recording a misleading ffmpeg error.
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
-		return w.failTimelineTask(task, "渲染失败", fmt.Sprintf("ffmpeg 渲染失败：%s", detail))
+		return w.failTimelineTask(task, "渲染失败", timelineRenderProcessFailure(runErr, output))
 	}
 
 	if err := w.progress(task, "写入资源…", 85); err != nil {
@@ -116,6 +118,17 @@ func (w *taskWorkerCoordinator) processTimelineRender(task *model.Task, ctx cont
 	}
 	s.logInfo(task.UserID, task.ID, fmt.Sprintf("时间线渲染完成，时长 %.1fs", float64(durationMs)/1000), "")
 	return nil
+}
+
+func timelineRenderProcessFailure(runErr error, output []byte) string {
+	detail := strings.TrimSpace(string(output))
+	if len(detail) > 400 {
+		detail = detail[len(detail)-400:]
+	}
+	if detail == "" {
+		return fmt.Sprintf("ffmpeg 渲染失败：%v", runErr)
+	}
+	return fmt.Sprintf("ffmpeg 渲染失败（%v）：%s", runErr, detail)
 }
 
 func planDurationMs(plan renderPlan) int64 {

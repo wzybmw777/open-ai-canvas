@@ -3,7 +3,10 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +15,60 @@ import (
 
 	"yingce/backend/internal/model"
 )
+
+func TestTimelineRenderProcessFailureIncludesExitCause(t *testing.T) {
+	message := timelineRenderProcessFailure(errors.New("signal: killed"), []byte("frame= 2417 time=00:01:20.50\r"))
+	if !strings.Contains(message, "signal: killed") {
+		t.Fatalf("message = %q, want process exit cause", message)
+	}
+	if !strings.Contains(message, "frame= 2417") {
+		t.Fatalf("message = %q, want ffmpeg diagnostic output", message)
+	}
+}
+
+func TestTimelineRenderCancellationLeavesTaskRecoverable(t *testing.T) {
+	svc, db := newTimelineTaskTestService(t)
+	svc.dataDir = t.TempDir()
+	resourcePath := filepath.Join(svc.dataDir, "resources", "videos", "source.mp4")
+	if err := os.MkdirAll(filepath.Dir(resourcePath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(resourcePath, []byte("test media"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Resource{
+		ID: "res-cancel", UserID: "usr-render-test", Kind: "video", Status: model.ResourceStatusReady,
+		Provider: "local", ObjectKey: "videos/source.mp4", MimeType: "video/mp4", Size: 10,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	ffmpeg := filepath.Join(t.TempDir(), "ffmpeg")
+	ffprobe := filepath.Join(t.TempDir(), "ffprobe")
+	if err := os.WriteFile(ffmpeg, []byte("#!/bin/sh\nwhile :; do :; done\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(ffprobe, []byte("#!/bin/sh\nexit 1\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(renderFfmpegEnv, ffmpeg)
+	t.Setenv("PATH", filepath.Dir(ffprobe)+string(os.PathListSeparator)+os.Getenv("PATH"))
+	task := seedRunningRenderTask(t, db, renderInputJSON(t, renderTestProject("resource:res-cancel")))
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- newTaskWorkerCoordinator(svc).processTimelineRender(task, ctx) }()
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+	if err := <-done; !errors.Is(err, context.Canceled) {
+		t.Fatalf("process error = %v, want context cancellation", err)
+	}
+	var stored model.Task
+	if err := db.First(&stored, "id = ?", task.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if stored.Status != model.TaskStatusRunning {
+		t.Fatalf("status = %q, want recoverable running task", stored.Status)
+	}
+}
 
 // renderTestProject 构造一个可渲染的 v2 快照：一条可见视频轨 + 一个
 // 经 directMedia.storageKey（resource:<id>）引用后端资源的片段。

@@ -66,6 +66,33 @@ func TestTaskLeaseRenewalFailureCancelsExecution(t *testing.T) {
 	}
 }
 
+func TestTaskLeaseRenewalRetriesTransientDeadline(t *testing.T) {
+	_, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var calls atomic.Int32
+	lost, stop := startTaskLeaseRenewal(time.Millisecond, func(context.Context) error {
+		if calls.Add(1) <= 2 {
+			return context.DeadlineExceeded
+		}
+		return nil
+	}, cancel)
+	defer stop()
+	deadline := time.After(time.Second)
+	for calls.Load() < 3 {
+		select {
+		case <-deadline:
+			t.Fatal("transient lease renewal failure was not retried")
+		default:
+			time.Sleep(time.Millisecond)
+		}
+	}
+	select {
+	case err := <-lost:
+		t.Fatalf("transient renewal failure lost ownership: %v", err)
+	default:
+	}
+}
+
 func TestTaskLeaseRenewalStopDoesNotCancelExecution(t *testing.T) {
 	execution, cancel := context.WithCancel(context.Background())
 	defer cancel()
