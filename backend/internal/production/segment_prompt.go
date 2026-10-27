@@ -21,6 +21,7 @@ type SegmentShot struct {
 
 // SegmentReference 是段内出场的角色、道具或场景；Label 与提交时参考图的顺序一致（参考图1、参考图2…）。
 type SegmentReference struct {
+	CastID string
 	Label  string
 	Kind   string
 	Name   string

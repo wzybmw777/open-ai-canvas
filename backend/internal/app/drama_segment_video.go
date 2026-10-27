@@ -219,7 +219,7 @@ func (r *dramaRun) submitSegmentVideo(job *model.DramaJob) (*model.Task, bool, e
 			previous = &rows[i-1]
 		}
 	}
-	for _, draft := range buildDramaSegmentDrafts(r.settings, r.meta, shots, casts) {
+	for _, draft := range buildDramaSegmentDrafts(r.settings, r.meta, shots, casts, map[int]map[string]bool{segment.SegmentIndex: excludedCastSet(*segment)}) {
 		if draft.view.Index != segment.SegmentIndex {
 			continue
 		}

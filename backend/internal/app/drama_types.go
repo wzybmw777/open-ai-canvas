@@ -306,6 +306,7 @@ type DramaSegmentView struct {
 	// VideoReprocessable：视频已生成并入库，只是结果回写（如抽尾帧）失败；可重新处理已有视频，不重新生成。
 	VideoReprocessable bool             `json:"videoReprocessable,omitempty"`
 	VideoModel         DramaModelChoice `json:"videoModel"`
+	ExcludedCastIDs    []string         `json:"excludedCastIds,omitempty"`
 	// Request 是生成本段视频时实际会发送的内容：生成方式、首帧、参考图、秒数与追加在提示词前的参考图说明。
 	Request   DramaSegmentRequest `json:"request"`
 	PromptJob *DramaJobView       `json:"promptJob,omitempty"`
@@ -343,6 +344,8 @@ type DramaSegmentReference struct {
 type UpdateDramaSegmentRequest struct {
 	// VideoPromptOverride 传空串表示恢复模型撰写的版本。
 	VideoPromptOverride *string `json:"videoPromptOverride"`
+	// ExcludedCastIDs 只修改本段的参考图列表；传空数组表示恢复全部自动引用。
+	ExcludedCastIDs *[]string `json:"excludedCastIds,omitempty"`
 }
 
 // UpdateDramaShotRequest 修改镜头的剧本内容；镜头只是撰写视频提示词的素材，修改后本段提示词标记过期。

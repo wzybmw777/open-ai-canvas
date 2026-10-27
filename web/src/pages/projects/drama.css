@@ -4421,6 +4421,14 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
 }
+.drama-sg-input-wrap {
+    position: relative;
+    min-width: 0;
+}
+.drama-sg-inputs:not(.is-compact) .drama-sg-input-wrap {
+    display: flex;
+    min-width: 0;
+}
 .drama-sg-input {
     display: flex;
     align-items: center;
@@ -4429,10 +4437,33 @@
     text-align: left;
 }
 .drama-sg-inputs:not(.is-compact) .drama-sg-input {
+    flex: 1;
     padding: 8px;
     border: 1px solid var(--drama-line);
     border-radius: var(--radius-md);
     background: var(--surface);
+}
+.drama-sg-input-remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: grid;
+    width: 22px;
+    height: 22px;
+    place-items: center;
+    border-radius: 999px;
+    color: var(--drama-faint);
+    background: color-mix(in oklab, var(--surface) 86%, transparent);
+    opacity: 0;
+    transition: opacity 120ms ease, color 120ms ease, background 120ms ease;
+}
+.drama-sg-input-wrap:hover .drama-sg-input-remove,
+.drama-sg-input-remove:focus-visible {
+    opacity: 1;
+}
+.drama-sg-input-remove:hover {
+    color: var(--foreground);
+    background: var(--drama-line);
 }
 .drama-sg-inputs:not(.is-compact) button.drama-sg-input:hover {
     border-color: var(--drama-line-strong);

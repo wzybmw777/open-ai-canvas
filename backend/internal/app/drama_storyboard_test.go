@@ -81,6 +81,38 @@ func TestDramaSegmentEditInvalidatesDescendantsAndRejectsLateResult(t *testing.T
 	}
 }
 
+func TestDramaSegmentReferenceCanBeExcludedPerSegment(t *testing.T) {
+	svc, _ := newDramaTestService(t)
+	project := createTestDramaWithMedia(t, svc, DramaReviewEvery, DramaMediaManual).Project.ID
+	runDramaTicks(t, svc, project, 20)
+	summary, _ := svc.DramaSummary("usr-drama", project)
+	episode := summary.Episodes[0].ID
+	detail, err := svc.DramaEpisodeDetail("usr-drama", project, episode)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segment := detail.Segments[0]
+	if len(segment.Request.References) < 2 {
+		t.Fatalf("test requires at least two references: %+v", segment.Request.References)
+	}
+	excluded := []string{segment.Request.References[0].CastID}
+	if err := svc.UpdateDramaSegment("usr-drama", project, episode, segment.Index, UpdateDramaSegmentRequest{ExcludedCastIDs: &excluded}); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := svc.DramaEpisodeDetail("usr-drama", project, episode)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.Segments[0].Request.References) != len(segment.Request.References)-1 || len(updated.Segments[0].ExcludedCastIDs) != 1 || updated.Segments[0].ExcludedCastIDs[0] != excluded[0] {
+		t.Fatalf("excluded reference was not persisted: %+v", updated.Segments[0])
+	}
+	for _, ref := range updated.Segments[0].Request.References {
+		if ref.CastID == excluded[0] {
+			t.Fatalf("excluded reference still present: %+v", updated.Segments[0].Request.References)
+		}
+	}
+}
+
 func TestDramaShotScriptEditAndPromptRewrite(t *testing.T) {
 	svc, fake := newDramaTestService(t)
 	project := createTestDramaWithMedia(t, svc, DramaReviewEvery, DramaMediaManual).Project.ID

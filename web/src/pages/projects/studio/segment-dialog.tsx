@@ -43,13 +43,14 @@ type Props = {
     onReprocess: (segment: DramaSegment) => void;
     defaultVideoModel: DramaModelChoice;
     onOpenCast: (castId: string) => void;
+    onRemoveReference: (segment: DramaSegment, castId: string) => void;
 };
 
 /**
  * 剧情段弹窗：左侧是段视频、生成依据（首帧与参考图）和段内镜头脚本，右侧是本段完整视频提示词。
  * 提示词区展示的就是提交时发送的全文：开头的参考图对应说明由系统追加，正文可直接修改。
  */
-export function SegmentDialog({ detail, segmentIndex, shotId, castById, aspectRatio, busy, writing, reprocessing, defaultVideoModel, onClose, onNavigate, onPatchShot, onSavePrompt, onWritePrompt, onGenerate, onReprocess, onOpenCast }: Props) {
+export function SegmentDialog({ detail, segmentIndex, shotId, castById, aspectRatio, busy, writing, reprocessing, defaultVideoModel, onClose, onNavigate, onPatchShot, onSavePrompt, onWritePrompt, onGenerate, onReprocess, onOpenCast, onRemoveReference }: Props) {
     const segments = detail?.segments || [];
     const position = segments.findIndex((item) => item.index === segmentIndex);
     const segment = position >= 0 ? segments[position] : undefined;
@@ -124,7 +125,7 @@ export function SegmentDialog({ detail, segmentIndex, shotId, castById, aspectRa
                                         {segment.videoModel?.label ? ` · ${segment.videoModel.label}` : ""}
                                     </small>
                                 </div>
-                                <SegmentInputs segment={segment} castById={castById} onOpenCast={onOpenCast} />
+                                <SegmentInputs segment={segment} castById={castById} onOpenCast={onOpenCast} onRemoveReference={(castId) => onRemoveReference(segment, castId)} />
                                 {segment.request.warning ? <p className="drama-sg-note is-warn">{segment.request.warning}</p> : null}
                             </section>
                             <section className="drama-sd-block">

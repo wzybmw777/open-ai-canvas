@@ -6,7 +6,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { WorkspacePage } from "@/components/layout/workspace-page";
 import { WorkspaceErrorState, WorkspaceLoadingState } from "@/components/layout/workspace-state";
-import { approveDramaEpisode, generateDramaSegments, pauseDrama, reprocessDramaSegmentVideo, regenerateDramaCast, releaseDramaMedia, renameDramaEpisode, rescriptDramaEpisode, retryFailedDrama, startDrama, updateDramaSegment, writeDramaSegmentPrompts, updateDramaShot, type DramaInboxItem, type DramaJob, type DramaModelChoice, type DramaSegment, type DramaShot, type DramaShotPatch } from "@/services/api/drama";
+import { approveDramaEpisode, generateDramaSegments, pauseDrama, reprocessDramaSegmentVideo, regenerateDramaCast, releaseDramaMedia, renameDramaEpisode, rescriptDramaEpisode, retryFailedDrama, startDrama, updateDramaSegment, writeDramaSegmentPrompts, updateDramaShot, type DramaInboxItem, type DramaJob, type DramaModelChoice, type DramaSegment, type DramaSegmentPatch, type DramaShot, type DramaShotPatch } from "@/services/api/drama";
 
 import { formatCount, formatDuration, StagePips, STAGE_LABEL, STATUS_LABEL } from "./drama-shared";
 import { CastPanel, InboxPanel, SettingsPanel } from "./studio/panels";
@@ -91,9 +91,17 @@ export default function DramaStudioPage() {
         onError: (error) => errorMessage(error, "保存失败"),
     });
     const saveSegment = useMutation({
-        mutationFn: ({ segment, override }: { segment: DramaSegment; override: string }) => updateDramaSegment(projectId, episodeId, segment.index, override),
-        onSuccess: (_, { override }) => { invalidate(episodeId); message.success(override ? "已保存完整视频提示词" : "已恢复模型撰写的版本"); },
+        mutationFn: ({ segment, patch }: { segment: DramaSegment; patch: DramaSegmentPatch }) => updateDramaSegment(projectId, episodeId, segment.index, patch),
+        onSuccess: (_, { patch }) => { invalidate(episodeId); message.success(patch.excludedCastIds ? "已更新本段参考图" : patch.videoPromptOverride ? "已保存完整视频提示词" : "已恢复模型撰写的版本"); },
         onError: (error) => errorMessage(error, "保存失败"),
+    });
+    const removeSegmentReference = useMutation({
+        mutationFn: ({ segment, castId }: { segment: DramaSegment; castId: string }) => {
+            const excludedCastIds = Array.from(new Set([...(segment.excludedCastIds || []), castId]));
+            return updateDramaSegment(projectId, episodeId, segment.index, { excludedCastIds });
+        },
+        onSuccess: () => { invalidate(episodeId); message.success("已移除本段参考图，提示词需要重新撰写"); },
+        onError: (error) => errorMessage(error, "移除参考图失败"),
     });
     const writeSegment = useMutation({
         mutationFn: (indexes: number[]) => writeDramaSegmentPrompts(projectId, episodeId, indexes),
@@ -338,13 +346,14 @@ export default function DramaStudioPage() {
                             onClose={() => openSegment(null)}
                             onNavigate={openSegment}
                             onPatchShot={(shot, patch) => patchShot.mutate({ shot, patch })}
-                            onSavePrompt={(segment, override) => saveSegment.mutate({ segment, override })}
+                            onSavePrompt={(segment, override) => saveSegment.mutate({ segment, patch: { videoPromptOverride: override } })}
                             onWritePrompt={(segment) => writeSegment.mutate([segment.index])}
                             onGenerate={(segment, videoModel) => generateSegments.mutate({ segments: [segment.index], videoModel })}
                             reprocessing={reprocessSegment.isPending}
                             onReprocess={(segment) => reprocessSegment.mutate(segment.index)}
                             defaultVideoModel={production.settings.models.video}
                             onOpenCast={(id) => openView("cast", { cast: id, segment: null, shot: null })}
+                            onRemoveReference={(segment, castId) => removeSegmentReference.mutate({ segment, castId })}
                         />
                     </div>
                 )}

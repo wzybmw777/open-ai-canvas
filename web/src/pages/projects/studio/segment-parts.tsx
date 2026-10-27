@@ -1,5 +1,5 @@
 import { AntTooltip as Tooltip } from "@/components/ui/base/tooltip/ant-tooltip";
-import { AlertCircle, Check, Film, Loader2 } from "lucide-react";
+import { AlertCircle, Check, Film, Loader2, X } from "lucide-react";
 
 import type { DramaCast, DramaSegment } from "@/services/api/drama";
 
@@ -82,7 +82,7 @@ export function SegmentVideo({ segment, aspectRatio, className = "" }: { segment
  * 生成依据：首帧（第 2 段起是上一段视频的最后一帧）和随请求发送的参考图。
  * 参考图编号与提示词里的“参考图N”一致；未附图的设定说明原因。
  */
-export function SegmentInputs({ segment, castById, compact = false, onOpenCast }: { segment: DramaSegment; castById: Map<string, DramaCast>; compact?: boolean; onOpenCast?: (id: string) => void }) {
+export function SegmentInputs({ segment, castById, compact = false, onOpenCast, onRemoveReference }: { segment: DramaSegment; castById: Map<string, DramaCast>; compact?: boolean; onOpenCast?: (id: string) => void; onRemoveReference?: (id: string) => void }) {
     const { request } = segment;
     const first = segment.index === 0 && !request.firstFrameResourceId && !request.firstFramePending;
     return (
@@ -122,6 +122,7 @@ export function SegmentInputs({ segment, castById, compact = false, onOpenCast }
                 );
                 return (
                     <Tooltip key={ref.castId} title={`${ref.label} · ${CAST_KIND_LABEL[ref.kind]} · ${ref.name}${ref.sent ? "" : `（未附图：${reason}，按文字设定生成）`}`} mouseEnterDelay={0.3}>
+                        <div className={`drama-sg-input-wrap ${ref.sent ? "" : "is-missing"}`}>
                         {onOpenCast ? (
                             <button type="button" className={`drama-sg-input ${ref.sent ? "" : "is-missing"}`} onClick={() => onOpenCast(ref.castId)}>
                                 {body}
@@ -129,6 +130,22 @@ export function SegmentInputs({ segment, castById, compact = false, onOpenCast }
                         ) : (
                             <span className={`drama-sg-input ${ref.sent ? "" : "is-missing"}`}>{body}</span>
                         )}
+                        {onRemoveReference && !compact ? (
+                            <button
+                                type="button"
+                                className="drama-sg-input-remove"
+                                aria-label={`移除${ref.name}的本段参考图`}
+                                title="移除本段参考图"
+                                onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    onRemoveReference(ref.castId);
+                                }}
+                            >
+                                <X className="size-3.5" aria-hidden />
+                            </button>
+                        ) : null}
+                        </div>
                     </Tooltip>
                 );
             })}

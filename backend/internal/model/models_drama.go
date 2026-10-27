@@ -167,6 +167,8 @@ type DramaSegment struct {
 	VideoPromptOverride string `json:"videoPromptOverride" gorm:"type:text"`
 	// VideoModelJSON 为空时使用全剧默认视频模型。
 	VideoModelJSON string `json:"videoModelJson" gorm:"type:text"`
+	// ExcludedCastIDsJSON 保存仅对本段生效的参考图排除项；不会删除全局角色、道具或场景设定。
+	ExcludedCastIDsJSON string `json:"excludedCastIdsJson" gorm:"type:text"`
 	// VideoStatus 为空表示待生成；TailFrameResourceID 是本段视频最后一帧，作为下一段的参考图，保证段与段衔接。
 	VideoStatus         string    `json:"videoStatus" gorm:"size:16"`
 	VideoResourceID     string    `json:"videoResourceId,omitempty" gorm:"size:36"`

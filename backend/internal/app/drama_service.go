@@ -590,7 +590,7 @@ func (s *Service) fillDramaSegmentViews(projectID string, p *model.DramaProducti
 			}
 		}
 	}
-	drafts := buildDramaSegmentDrafts(settings, parseDramaBibleMeta(p.BibleJSON), detail.Shots, castByID)
+	drafts := buildDramaSegmentDrafts(settings, parseDramaBibleMeta(p.BibleJSON), detail.Shots, castByID, excludedCastSets(rows))
 	for i, draft := range drafts {
 		if i >= len(rows) || rows[i].SegmentIndex != draft.view.Index {
 			return errors.New("剧情段记录与镜头分组不一致")
@@ -629,8 +629,28 @@ type dramaSegmentDraft struct {
 	shots []model.DramaShot
 }
 
+func excludedCastSet(segment model.DramaSegment) map[string]bool {
+	set := map[string]bool{}
+	for _, id := range decodeStringList(segment.ExcludedCastIDsJSON) {
+		if id != "" {
+			set[id] = true
+		}
+	}
+	return set
+}
+
+func excludedCastSets(rows []model.DramaSegment) map[int]map[string]bool {
+	sets := make(map[int]map[string]bool, len(rows))
+	for _, row := range rows {
+		if set := excludedCastSet(row); len(set) > 0 {
+			sets[row.SegmentIndex] = set
+		}
+	}
+	return sets
+}
+
 // buildDramaSegmentDrafts 按镜头的 SegmentIndex 分段。参考图编号依次为角色、道具、场景，各自按首次出场顺序排列。
-func buildDramaSegmentDrafts(settings DramaSettings, meta dramaBibleMeta, shots []model.DramaShot, castByID map[string]model.DramaCast) []dramaSegmentDraft {
+func buildDramaSegmentDrafts(settings DramaSettings, meta dramaBibleMeta, shots []model.DramaShot, castByID map[string]model.DramaCast, excludedByIndex map[int]map[string]bool) []dramaSegmentDraft {
 	groups := [][]model.DramaShot{}
 	for _, shot := range shots {
 		if len(groups) > 0 && groups[len(groups)-1][0].SegmentIndex == shot.SegmentIndex {
@@ -663,10 +683,13 @@ func buildDramaSegmentDrafts(settings DramaSettings, meta dramaBibleMeta, shots 
 			input.Shots = append(input.Shots, production.SegmentShot{Scene: shot.Scene, ShotSize: shot.ShotSize, Camera: shot.Camera, ImagePrompt: shot.ImagePrompt, Action: shot.Action, VideoPrompt: shot.VideoPrompt, Speaker: shot.Speaker, Dialogue: shot.Dialogue, DurationMs: shot.DurationMs, Transition: settings.Storyboard.EffectiveTransition(shot.Transition, shot.Position == 0)})
 		}
 		for _, id := range append(append(characterIDs, propIDs...), sceneIDs...) {
+			if excludedByIndex[group[0].SegmentIndex][id] {
+				continue
+			}
 			cast := castByID[id]
 			label := fmt.Sprintf("参考图%d", len(view.Request.References)+1)
 			view.Request.References = append(view.Request.References, DramaSegmentReference{CastID: cast.ID, Label: label, Kind: cast.Kind, Name: cast.Name})
-			input.References = append(input.References, production.SegmentReference{Label: label, Kind: cast.Kind, Name: cast.Name, Detail: firstNonEmpty(cast.Appearance, cast.Description), Voice: cast.VoiceInstructions})
+			input.References = append(input.References, production.SegmentReference{CastID: cast.ID, Label: label, Kind: cast.Kind, Name: cast.Name, Detail: firstNonEmpty(cast.Appearance, cast.Description), Voice: cast.VoiceInstructions})
 		}
 		drafts = append(drafts, dramaSegmentDraft{view: view, input: input, shots: group})
 	}
@@ -679,12 +702,13 @@ func buildDramaSegmentViews(settings DramaSettings, meta dramaBibleMeta, shots [
 	for _, row := range rows {
 		rowByIndex[row.SegmentIndex] = row
 	}
-	drafts := buildDramaSegmentDrafts(settings, meta, shots, castByID)
+	drafts := buildDramaSegmentDrafts(settings, meta, shots, castByID, excludedCastSets(rows))
 	views := make([]DramaSegmentView, 0, len(drafts))
 	for _, draft := range drafts {
 		view := draft.view
 		view.PromptStatus = "none"
 		if row, ok := rowByIndex[view.Index]; ok {
+			view.ExcludedCastIDs = decodeStringList(row.ExcludedCastIDsJSON)
 			view.ID = row.ID
 			view.Generated, view.PromptError = strings.TrimSpace(row.VideoPrompt), row.PromptError
 			view.VideoStatus, view.VideoResourceID, view.TailFrameResourceID, view.VideoError = row.VideoStatus, row.VideoResourceID, row.TailFrameResourceID, row.VideoError
@@ -746,13 +770,6 @@ func (s *Service) UpdateDramaSegment(userID string, projectID string, episodeID 
 	if err != nil {
 		return err
 	}
-	if req.VideoPromptOverride == nil {
-		return BadAuthRequest("缺少提示词")
-	}
-	prompt := strings.TrimSpace(*req.VideoPromptOverride)
-	if utf8.RuneCountInString(prompt) > 12000 {
-		return BadAuthRequest("段提示词过长（最多 12000 字）")
-	}
 	shots, err := s.repo.DramaShots(episode.ID)
 	if err != nil {
 		return err
@@ -767,7 +784,43 @@ func (s *Service) UpdateDramaSegment(userID string, projectID string, episodeID 
 	if !found {
 		return BadAuthRequest("剧情段不存在")
 	}
-	if err := s.repo.SaveDramaSegmentOverride(model.DramaSegment{ProjectID: project.ID, EpisodeID: episode.ID, SegmentIndex: index, VideoPromptOverride: prompt}); err != nil {
+	if req.VideoPromptOverride == nil && req.ExcludedCastIDs == nil {
+		return BadAuthRequest("缺少要保存的内容")
+	}
+	fields := map[string]any{}
+	if req.VideoPromptOverride != nil {
+		prompt := strings.TrimSpace(*req.VideoPromptOverride)
+		if utf8.RuneCountInString(prompt) > 12000 {
+			return BadAuthRequest("段提示词过长（最多 12000 字）")
+		}
+		fields["video_prompt_override"] = prompt
+	}
+	if req.ExcludedCastIDs != nil {
+		allowed := map[string]bool{}
+		for _, shot := range shots {
+			if shot.SegmentIndex != index {
+				continue
+			}
+			for _, castID := range dramaShotCastIDs(shot) {
+				allowed[castID] = true
+			}
+		}
+		seen := map[string]bool{}
+		excluded := make([]string, 0, len(*req.ExcludedCastIDs))
+		for _, castID := range *req.ExcludedCastIDs {
+			castID = strings.TrimSpace(castID)
+			if castID == "" || seen[castID] {
+				continue
+			}
+			if !allowed[castID] {
+				return BadAuthRequest("只能排除本段已有的参考图")
+			}
+			seen[castID] = true
+			excluded = append(excluded, castID)
+		}
+		fields["excluded_cast_ids_json"] = encodeStringList(excluded)
+	}
+	if err := s.repo.SaveDramaSegmentEdits(model.DramaSegment{ProjectID: project.ID, EpisodeID: episode.ID, SegmentIndex: index}, fields); err != nil {
 		return err
 	}
 	s.wakeDramaScheduler()

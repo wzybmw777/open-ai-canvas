@@ -266,6 +266,7 @@ export type DramaSegment = {
     /** 视频已生成，只是后处理（如抽尾帧）失败；可重新处理已有视频，不重新生成。 */
     videoReprocessable?: boolean;
     videoModel: DramaModelChoice;
+    excludedCastIds?: string[];
     request: DramaSegmentRequest;
     promptJob?: DramaJob;
     videoJob?: DramaJob;
@@ -440,8 +441,10 @@ export function writeDramaSegmentPrompts(projectId: string, episodeId: string, s
 }
 
 /** 保存整段视频提示词改写；传空串恢复为模型撰写的版本。 */
-export function updateDramaSegment(projectId: string, episodeId: string, index: number, videoPromptOverride: string) {
-    return http.patch<{ saved: boolean }>(`${base(projectId)}/episodes/${encodeURIComponent(episodeId)}/segments/${index}`, { videoPromptOverride });
+export type DramaSegmentPatch = { videoPromptOverride?: string; excludedCastIds?: string[] };
+
+export function updateDramaSegment(projectId: string, episodeId: string, index: number, patch: DramaSegmentPatch) {
+    return http.patch<{ saved: boolean }>(`${base(projectId)}/episodes/${encodeURIComponent(episodeId)}/segments/${index}`, patch);
 }
 
 export function updateDramaShot(projectId: string, shotId: string, patch: DramaShotPatch) {

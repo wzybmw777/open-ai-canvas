@@ -925,7 +925,7 @@ func (r *dramaRun) submitSegmentPrompt(job *model.DramaJob) (*model.Task, bool, 
 	for _, cast := range r.casts {
 		castByID[cast.ID] = cast
 	}
-	drafts := buildDramaSegmentDrafts(r.settings, r.meta, shots, castByID)
+	drafts := buildDramaSegmentDrafts(r.settings, r.meta, shots, castByID, map[int]map[string]bool{segment.SegmentIndex: excludedCastSet(*segment)})
 	for position, draft := range drafts {
 		if draft.view.Index != segment.SegmentIndex {
 			continue

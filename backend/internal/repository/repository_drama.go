@@ -527,12 +527,17 @@ func (r *Repository) DramaSegments(episodeID string) ([]model.DramaSegment, erro
 
 // SaveDramaSegmentOverride 写入或清除段级提示词改写；行不存在时创建（旧剧本没有段记录）。
 func (r *Repository) SaveDramaSegmentOverride(segment model.DramaSegment) error {
+	return r.SaveDramaSegmentEdits(segment, map[string]any{"video_prompt_override": segment.VideoPromptOverride})
+}
+
+// SaveDramaSegmentEdits 保存段提示词或本段参考图排除项，并让自身及后续段失效。
+func (r *Repository) SaveDramaSegmentEdits(segment model.DramaSegment, fields map[string]any) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		var current model.DramaSegment
 		if err := tx.Where("episode_id = ? AND segment_index = ?", segment.EpisodeID, segment.SegmentIndex).First(&current).Error; err != nil {
 			return err
 		}
-		return invalidateDramaSegment(tx, current, map[string]any{"video_prompt_override": segment.VideoPromptOverride}, true)
+		return invalidateDramaSegment(tx, current, fields, true)
 	})
 }
 
