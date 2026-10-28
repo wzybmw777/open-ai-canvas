@@ -140,7 +140,8 @@ export function WorkspaceWalletModal({
         setPaymentsLoading(true);
         Promise.all([listTopupProducts(), listPaymentProviders()])
             .then(([productResult, providerResult]) => {
-                const enabledProducts = productResult.products.filter((item) => item.enabled);
+                // 积分套餐暂时不在充值面板展示，积分账户和实际扣费仍由后端维护。
+                const enabledProducts = productResult.products.filter((item) => item.enabled && item.kind === "storage");
                 const usableProviders = providerResult.providers.filter((item) => item.enabled && item.pluginEnabled && item.configured);
                 setProducts(enabledProducts);
                 setProviders(usableProviders);

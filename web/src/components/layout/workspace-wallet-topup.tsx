@@ -190,13 +190,16 @@ export function WalletTopupPanel({
         );
     }
 
+    // 积分套餐暂时下线；积分余额、历史和实际扣费能力继续保留。
+    const visibleProducts = products.filter((item) => item.kind === "storage");
     const byKind: Record<TopupProductKind, TopupProduct[]> = {
-        credits: products.filter((item) => item.kind !== "storage"),
-        storage: products.filter((item) => item.kind === "storage"),
+        credits: [],
+        storage: visibleProducts,
     };
-    // 只展示有商品的分类；存储分类即使没有商品也展示容量信息，便于用户先清理。
-    const kinds = (["credits", "storage"] as const).filter((kind) => byKind[kind].length || kind === "storage");
-    const selectedKind = selectedProduct ? KIND_META[selectedProduct.kind] : null;
+    // 存储分类即使没有商品也展示容量信息，便于用户先清理。
+    const kinds = ["storage"] as const;
+    const visibleSelectedProduct = selectedProduct?.kind === "storage" ? selectedProduct : undefined;
+    const selectedKind = visibleSelectedProduct ? KIND_META[visibleSelectedProduct.kind] : null;
     const SelectedIcon = selectedKind?.icon;
 
     return (
@@ -209,22 +212,22 @@ export function WalletTopupPanel({
                 ))}
             </div>
 
-            {products.length ? (
+            {visibleProducts.length ? (
                 <footer className="wallet-topup-checkout">
-                    <div className={cn("wallet-topup-checkout-summary", selectedProduct && `is-${selectedProduct.kind}`)}>
-                        {selectedProduct && SelectedIcon ? (
+                    <div className={cn("wallet-topup-checkout-summary", visibleSelectedProduct && `is-${visibleSelectedProduct.kind}`)}>
+                        {visibleSelectedProduct && SelectedIcon ? (
                             <>
                                 <span className="wallet-topup-kind-icon" aria-hidden="true">
                                     <SelectedIcon />
                                 </span>
                                 <span>
-                                    <strong>{selectedProduct.name}</strong>
+                                    <strong>{visibleSelectedProduct.name}</strong>
                                     <small>
-                                        {topupProductValue(selectedProduct)}
-                                        {selectedProduct.kind === "storage" ? ` · ${formatStorageDuration(selectedProduct.storageDurationDays)}` : ""}
+                                        {topupProductValue(visibleSelectedProduct)}
+                                        {` · ${formatStorageDuration(visibleSelectedProduct.storageDurationDays)}`}
                                     </small>
                                 </span>
-                                <b>¥ {(selectedProduct.amountFen / 100).toFixed(2)}</b>
+                                <b>¥ {(visibleSelectedProduct.amountFen / 100).toFixed(2)}</b>
                             </>
                         ) : (
                             <span className="wallet-topup-checkout-hint">选择一个套餐</span>
@@ -242,7 +245,7 @@ export function WalletTopupPanel({
                     ) : (
                         <span className="wallet-topup-checkout-hint">暂无可用支付渠道，请联系管理员</span>
                     )}
-                    <Button type="primary" size="large" loading={creating} disabled={!selectedProduct || !selectedProduct.canPurchase || !providers.length || !selectedProviderId} onClick={onPay}>
+                    <Button type="primary" size="large" loading={creating} disabled={!visibleSelectedProduct || !visibleSelectedProduct.canPurchase || !providers.length || !selectedProviderId} onClick={onPay}>
                         立即支付
                     </Button>
                 </footer>
