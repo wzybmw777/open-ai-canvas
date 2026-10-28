@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const CurrentSchemaVersion int64 = 73
+const CurrentSchemaVersion int64 = 75
 
 const baselineSchemaChecksum = "sha256:open-ai-canvas-schema-v1-20260830"
 const schemaMigrationAppliedAtIndexChecksum = "sha256:schema-migrations-applied-at-index-v2-20260830"
@@ -266,9 +266,9 @@ var schemaMigrations = []migration{
 	}},
 	{version: 71, name: "drama_segment_mode", checksum: "sha256:drama-segment-mode-v71-20261026", apply: migrateDramaSegmentMode},
 	{version: 72, name: "referral_center", checksum: "sha256:referral-center-v72-20261027", apply: migrateReferralCenter},
-	{version: 73, name: "drama_segment_reference_overrides", checksum: "sha256:drama-segment-reference-overrides-v73-20261027", apply: func(tx *gorm.DB) error {
-		return tx.AutoMigrate(&model.DramaSegment{})
-	}},
+	{version: 73, name: "drama_segment_reference_overrides", checksum: "sha256:drama-segment-reference-overrides-v73-20261027", apply: migrateDramaSegmentReferenceOverrides},
+	{version: 74, name: "drama_episode_source_format", checksum: "sha256:drama-episode-source-format-v73-20261027", apply: migrateDramaEpisodeSourceFormat},
+	{version: 75, name: "drama_segment_references", checksum: "sha256:drama-segment-references-v74-20261027", apply: migrateDramaSegmentReferences},
 }
 
 // migrateReferralCenter 增加推广人标记和推广码、绑定、返佣三张表；旧用户默认不是推广人。
@@ -284,6 +284,26 @@ func migrateReferralCenter(tx *gorm.DB) error {
 		}
 	}
 	return tx.AutoMigrate(&model.ReferralProfile{}, &model.ReferralBinding{}, &model.ReferralCommission{})
+}
+
+func migrateDramaSegmentReferenceOverrides(tx *gorm.DB) error {
+	return tx.AutoMigrate(&model.DramaSegment{})
+}
+
+func migrateDramaEpisodeSourceFormat(tx *gorm.DB) error {
+	// 旧集没有素材类型，空串按小说原文处理。
+	if tx.Migrator().HasColumn(&model.DramaEpisode{}, "SourceFormat") {
+		return nil
+	}
+	return tx.Migrator().AddColumn(&model.DramaEpisode{}, "SourceFormat")
+}
+
+func migrateDramaSegmentReferences(tx *gorm.DB) error {
+	// 空串表示按镜头自动取参考图，旧段保持原行为。
+	if tx.Migrator().HasColumn(&model.DramaSegment{}, "ReferenceCastIDsJSON") {
+		return nil
+	}
+	return tx.Migrator().AddColumn(&model.DramaSegment{}, "ReferenceCastIDsJSON")
 }
 
 // migrateDramaSegmentMode 把旧的剧情段目标秒数改写为新的切段模式：大于 0 的是用户指定的固定时长，0 表示按模型上限，即智能。
@@ -724,7 +744,50 @@ func migrationsForDatabase(db *gorm.DB) ([]migration, error) {
 			}
 		}
 	}
+
+	// The local line used schema 73 for per-segment excluded references while
+	// upstream used 73/74 for episode source format and explicit references.
+	// Keep both histories valid and converge them at schema 75.
+	var dramaV73 schemaMigration
+	err = db.First(&dramaV73, "version = ?", 73).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("读取数据库迁移 73：%w", err)
+	}
+	if err == nil && dramaV73.Name == "drama_episode_source_format" {
+		source73 := migration{version: 73, name: "drama_episode_source_format", checksum: "sha256:drama-episode-source-format-v73-20261027", apply: migrateDramaEpisodeSourceFormat}
+		if err := validateMigrationRecord(dramaV73, source73); err != nil {
+			return nil, err
+		}
+		for index, item := range plan {
+			if item.version == 73 {
+				plan[index] = source73
+			}
+			if item.version == 74 {
+				plan[index] = migration{version: 74, name: "drama_segment_references", checksum: "sha256:drama-segment-references-v74-20261027", apply: migrateDramaSegmentReferences}
+			}
+			if item.version == 75 {
+				plan[index] = migration{version: 75, name: "drama_segment_reference_overrides", checksum: "sha256:drama-segment-reference-overrides-v75-20261028", apply: migrateDramaSegmentReferenceOverrides}
+			}
+		}
+		var dramaV74 schemaMigration
+		if err := db.First(&dramaV74, "version = ?", 74).Error; err == nil {
+			if err := validateMigrationRecord(dramaV74, planMigration(plan, 74)); err != nil {
+				return nil, err
+			}
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("读取数据库迁移 74：%w", err)
+		}
+	}
 	return plan, nil
+}
+
+func planMigration(plan []migration, version int64) migration {
+	for _, item := range plan {
+		if item.version == version {
+			return item
+		}
+	}
+	return migration{version: version}
 }
 
 func migrateSchemaV2(tx *gorm.DB) error {
