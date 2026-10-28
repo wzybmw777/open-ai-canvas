@@ -16,11 +16,12 @@ description: 当前项目已实现功能的手工验证清单与未确认边界
 
 ## 推广中心
 
-- 已实现：系统设置 `referral` 控制推广开关、开放方式（全民 / 指定推广人）和返佣比例；`users.is_promoter` 标记推广人，后台用户编辑抽屉可切换，用户列表显示「推广人」标签。`/auth/session` 返回 `referralAvailable` 决定账户菜单是否显示「推广中心」入口。用户接口 `GET /api/referral`、`/api/referral/invitees`、`/api/referral/commissions`；后台接口 `GET/PATCH /api/admin/settings/referral`、`GET /api/admin/referral/commissions`。注册页读取 `?ref=` 并在会话内保留，注册成功后绑定归属。积分充值订单入账后（支付回调、主动查询、对账补发）按订单 ID 幂等发放返佣积分，流水类型 `referral_commission`。
-- 已验证：`go test ./internal/app -run Referral`（绑定、返佣幂等、被邀请人脱敏、指定推广人模式、取消资格后不返佣、大额不溢出）与后端 `go test ./...`、前端 `bun run build`、`bun run lint` 通过；SQLite → PostgreSQL 迁移工具已加入三张新表。未做浏览器验证。
+- 已实现：系统设置 `referral` 控制推广开关、开放方式（全民 / 指定推广人）、返佣比例和兑换码返佣开关（默认开启）；`users.is_promoter` 标记推广人，后台用户编辑抽屉可切换，用户列表显示「推广人」标签。`/auth/session` 返回 `referralAvailable` 决定账户菜单是否显示「推广中心」入口。用户接口 `GET /api/referral`、`/api/referral/invitees`、`/api/referral/commissions`；后台接口 `GET/PATCH /api/admin/settings/referral`、`GET /api/admin/referral/commissions`。注册页读取 `?ref=` 并在会话内保留，注册成功后绑定归属。积分充值订单入账后（支付回调、主动查询、对账补发）或兑换码成功入账后，按来源 ID 幂等发放返佣积分，流水类型 `referral_commission`；返佣记录区分支付充值和兑换码来源。
+- 已验证：兑换码返佣、关闭开关、来源幂等、旧设置默认开启及 Schema 76 迁移专项测试通过；`internal/repository` 全量测试通过；前端 `bun run typecheck`、`bun run build` 通过。完整 `internal/app` 测试仍有既有 Cloud Agent 批量表用例 panic，未归因于本次改动。未做浏览器验证。
 - [ ] 浏览器验收：全民模式下普通用户账户菜单出现「推广中心」，复制链接后用无痕窗口注册，邀请记录出现脱敏名称；指定推广人模式下非推广人看不到入口，直接访问 `/referral` 被带回首页。
 - [ ] 支付联调：被邀请用户完成一笔积分充值，推广人余额增加对应比例积分，钱包流水显示「推广返佣」；重复支付通知不重复返佣。
-- [ ] PostgreSQL：升级到 Schema 72 后既有用户 `is_promoter` 为 `false`，推广统计与列表查询正常。
+- [ ] 兑换码联调：管理员在推广中心开关兑换码返佣，邀请用户分别使用兑换码和支付充值，确认推广人余额、用户端／后台来源展示和重复请求幂等。
+- [ ] PostgreSQL：升级到 Schema 76 后既有用户 `is_promoter` 为 `false`，旧返佣记录保持可读，支付订单字段可空且兑换码来源返佣可写入。
 ## 短剧：剧情段弹窗卡顿、参考图调整、卡在生成视频中、头部压缩与 MiniMax H3 首尾帧
 
 - 已修复（卡顿）：制作台弹窗不再使用全屏磨砂遮罩（集显上被遮住的卡片加载动画会让 backdrop-filter 每帧重算），改为纯色遮罩，弹窗打开时暂停下层分镜卡片动画；分镜卡片改为 memo 组件，轮询刷新与打开弹窗时只重绘有变化的段。

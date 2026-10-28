@@ -155,11 +155,15 @@ func (s *Service) RedeemCredits(user *model.User, code string, redeemedIP string
 	if len(code) != 32 {
 		return nil, BadAuthRequest("兑换码无效或已使用")
 	}
-	account, err := s.repo.RedeemCode(user.ID, hashRedeemCode(code), truncateRunes(strings.TrimSpace(redeemedIP), 64))
+	result, err := s.repo.RedeemCode(user.ID, hashRedeemCode(code), truncateRunes(strings.TrimSpace(redeemedIP), 64))
 	if errors.Is(err, repository.ErrRedeemCodeInvalid) {
 		return nil, BadAuthRequest("兑换码无效或已使用")
 	}
-	return account, err
+	if err != nil {
+		return nil, err
+	}
+	s.grantRedeemReferralCommission(result, user.ID)
+	return &result.Account, nil
 }
 
 func (s *Service) AdminCreateRedeemBatch(actor *model.User, req CreateRedeemBatchRequest) (*CreateRedeemBatchResult, error) {

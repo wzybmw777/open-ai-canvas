@@ -370,11 +370,11 @@ operations 的结构化配额在提交事务内实时统计账号的素材/画�
 
 ## 推广中心
 
-推广设置保存在 `system_settings` 的 `referral` 键，管理员通过 `GET/PATCH /admin/settings/referral` 读写 `{ enabled, mode, commissionRateBasisPoints }`，保存记录管理员审计。`mode` 为 `all`（全民推广）或 `assigned`（指定推广人）；返佣比例为万分比，范围 0–5000。推广人标记通过 `PATCH /admin/users/:id` 的可选布尔字段 `isPromoter` 修改，省略表示不变。
+推广设置保存在 `system_settings` 的 `referral` 键，管理员通过 `GET/PATCH /admin/settings/referral` 读写 `{ enabled, mode, commissionRateBasisPoints, redeemCommissionEnabled }`，保存记录管理员审计。`mode` 为 `all`（全民推广）或 `assigned`（指定推广人）；返佣比例为万分比，范围 0–5000；`redeemCommissionEnabled` 控制兑换码到账是否返佣，默认开启。推广人标记通过 `PATCH /admin/users/:id` 的可选布尔字段 `isPromoter` 修改，省略表示不变。
 
 `GET /auth/session` 的 `data.referralAvailable` 表示当前账号能否进入推广中心：推广已开启、账号正常，并且是全民模式或账号为推广人。用户接口 `GET /referral`、`GET /referral/invitees`、`GET /referral/commissions`（`page`、`pageSize`）在无资格时返回 403 `forbidden`；被邀请用户名称只返回首字加 `**`。`GET /admin/referral/commissions` 返回全站返佣，名称不脱敏。
 
-`POST /auth/register` 接受可选 `referralCode`（来自推广链接 `/register?ref=推广码`）。推广码无效、推广人当时无资格或绑定写入失败时注册照常成功，只是不记录归属。积分充值订单入账后按当时设置计算返佣：`floor(到账积分 × 比例 / 10000)`，以积分写入推广人账户，流水类型 `referral_commission`；同一订单只返佣一次，存储空间订单不返佣。
+`POST /auth/register` 接受可选 `referralCode`（来自推广链接 `/register?ref=推广码`）。推广码无效、推广人当时无资格或绑定写入失败时注册照常成功，只是不记录归属。积分充值订单入账后按当时设置计算返佣；开启兑换码返佣时，兑换码到账也使用 `floor(到账积分 × 比例 / 10000)` 计算，以积分写入推广人账户，流水类型 `referral_commission`。同一支付订单或兑换码只返佣一次，返佣记录的 `sourceType` 为 `payment` 或 `redeem`；存储空间订单不返佣。
 
 ## 欢迎页开放配置
 

@@ -129,7 +129,7 @@ export default function ReferralPage() {
                             commissions.data.commissions.map((item) => (
                                 <div key={item.id} className="referral-page-record-row">
                                     <div>
-                                        {item.inviteeName} 充值 {formatReferralYuan(item.orderAmountFen)}（{formatReferralCredits(item.orderCreditsMicrocredits)} 积分）
+                                        {item.inviteeName} {item.sourceType === "redeem" ? "使用兑换码到账" : `充值 ${formatReferralYuan(item.orderAmountFen)}`}（{formatReferralCredits(item.orderCreditsMicrocredits)} 积分）
                                         <small>
                                             {formatTime(item.createdAt)} · 返佣比例 {formatReferralRate(item.rateBasisPoints)}
                                         </small>

@@ -36,6 +36,7 @@ type ReferralSetting struct {
 	Enabled                   bool   `json:"enabled"`
 	Mode                      string `json:"mode"`
 	CommissionRateBasisPoints int64  `json:"commissionRateBasisPoints"`
+	RedeemCommissionEnabled   bool   `json:"redeemCommissionEnabled"`
 }
 
 type ReferralOverview struct {
@@ -62,6 +63,7 @@ type ReferralCommissionView struct {
 	InviterUserID            string    `json:"inviterUserId,omitempty"`
 	InviterName              string    `json:"inviterName,omitempty"`
 	InviteeName              string    `json:"inviteeName"`
+	SourceType               string    `json:"sourceType"`
 	OrderAmountFen           int64     `json:"orderAmountFen"`
 	OrderCreditsMicrocredits int64     `json:"orderCreditsMicrocredits"`
 	RateBasisPoints          int64     `json:"rateBasisPoints"`
@@ -77,7 +79,7 @@ type ReferralCommissionPage struct {
 }
 
 func defaultReferralSetting() ReferralSetting {
-	return ReferralSetting{Enabled: false, Mode: ReferralModeAll, CommissionRateBasisPoints: 1_000}
+	return ReferralSetting{Enabled: false, Mode: ReferralModeAll, CommissionRateBasisPoints: 1_000, RedeemCommissionEnabled: true}
 }
 
 func validateReferralSetting(setting ReferralSetting) error {
@@ -98,7 +100,7 @@ func (s *Service) referralSetting() (ReferralSetting, error) {
 	if err != nil {
 		return ReferralSetting{}, err
 	}
-	var setting ReferralSetting
+	setting := defaultReferralSetting()
 	if json.Unmarshal([]byte(stored.ValueJSON), &setting) != nil {
 		return ReferralSetting{}, errors.New("推广设置格式无效")
 	}
@@ -230,10 +232,14 @@ func (s *Service) referralCommissionPage(inviterID string, page, limit int, admi
 	}
 	items := make([]ReferralCommissionView, 0, len(rows))
 	for _, row := range rows {
+		sourceType := "payment"
+		if row.RedeemCodeID != nil {
+			sourceType = "redeem"
+		}
 		view := ReferralCommissionView{
 			ID: row.ID, OrderAmountFen: row.OrderAmountFen, OrderCreditsMicrocredits: row.OrderCreditsMicrocredits,
 			RateBasisPoints: row.RateBasisPoints, CommissionMicrocredits: row.CommissionMicrocredits, CreatedAt: row.CreatedAt,
-			InviteeName: maskReferralName(row.InviteeDisplayName, row.InviteeUsername),
+			InviteeName: maskReferralName(row.InviteeDisplayName, row.InviteeUsername), SourceType: sourceType,
 		}
 		if admin {
 			// 后台需要定位账号，展示完整名称；推广人只看到脱敏后的被邀请人。
@@ -373,11 +379,62 @@ func (s *Service) tryGrantReferralCommission(order *model.PaymentOrder) error {
 		return nil
 	}
 	_, err = s.repo.GrantReferralCommission(&model.ReferralCommission{
-		ID: newID(), InviterUserID: inviter.ID, InviteeUserID: order.UserID, PaymentOrderID: order.ID,
+		ID: newID(), InviterUserID: inviter.ID, InviteeUserID: order.UserID, PaymentOrderID: stringPointer(order.ID),
 		OrderAmountFen: order.AmountFen, OrderCreditsMicrocredits: order.CreditsMicrocredits,
 		RateBasisPoints: setting.CommissionRateBasisPoints, CommissionMicrocredits: amount,
 	}, "推广返佣 · 邀请用户充值")
 	return err
+}
+
+func (s *Service) grantRedeemReferralCommission(result *repository.RedeemCodeResult, userID string) {
+	if result == nil || result.CodeID == "" || result.AmountMicrocredits <= 0 {
+		return
+	}
+	if err := s.tryGrantRedeemReferralCommission(result, userID); err != nil {
+		stdlog.Printf("referral commission failed: redeem_code_id=%s error=%v", result.CodeID, err)
+	}
+}
+
+func (s *Service) tryGrantRedeemReferralCommission(result *repository.RedeemCodeResult, userID string) error {
+	setting, err := s.referralSetting()
+	if err != nil {
+		return err
+	}
+	if !setting.RedeemCommissionEnabled {
+		return nil
+	}
+	binding, err := s.repo.ReferralBindingByInvitee(userID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	inviter, err := s.repo.User(binding.InviterUserID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !referralEligible(inviter, setting) {
+		return nil
+	}
+	amount := referralCommissionAmount(result.AmountMicrocredits, setting.CommissionRateBasisPoints)
+	if amount <= 0 {
+		return nil
+	}
+	codeID := result.CodeID
+	_, err = s.repo.GrantReferralCommission(&model.ReferralCommission{
+		ID: newID(), InviterUserID: inviter.ID, InviteeUserID: userID, RedeemCodeID: &codeID,
+		OrderCreditsMicrocredits: result.AmountMicrocredits, RateBasisPoints: setting.CommissionRateBasisPoints,
+		CommissionMicrocredits: amount,
+	}, "推广返佣 · 邀请用户兑换积分")
+	return err
+}
+
+func stringPointer(value string) *string {
+	return &value
 }
 
 // referralCommissionAmount 先除后乘避免大额积分与比例相乘溢出，结果向下取整到微积分。

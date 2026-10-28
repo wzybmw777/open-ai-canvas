@@ -8,6 +8,8 @@ export type ReferralSetting = {
     mode: ReferralMode;
     /** 返佣比例，万分比；1000 表示 10%。 */
     commissionRateBasisPoints: number;
+    /** 兑换码到账也按返佣比例发放。 */
+    redeemCommissionEnabled: boolean;
 };
 
 export type ReferralStats = {
@@ -32,6 +34,7 @@ export type ReferralCommission = {
     inviterUserId?: string;
     inviterName?: string;
     inviteeName: string;
+    sourceType: "payment" | "redeem";
     orderAmountFen: number;
     orderCreditsMicrocredits: number;
     rateBasisPoints: number;

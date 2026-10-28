@@ -153,26 +153,30 @@ func (r *Repository) ReferralCommissions(inviterID string, limit, offset int) ([
 }
 
 // GrantReferralCommission 在同一事务里写返佣记录、积分流水并加余额。
-// 订单已返佣时返回 false 且不改动余额，供支付回调和对账重复调用。
+// 同一来源已返佣时返回 false 且不改动余额，供支付回调、对账和兑换流程重复调用。
 func (r *Repository) GrantReferralCommission(commission *model.ReferralCommission, note string) (bool, error) {
 	if commission.CommissionMicrocredits <= 0 {
 		return false, nil
 	}
+	sourceColumn, sourceID, err := referralCommissionSource(commission)
+	if err != nil {
+		return false, err
+	}
 	granted := false
-	err := r.db.Transaction(func(tx *gorm.DB) error {
+	err = r.db.Transaction(func(tx *gorm.DB) error {
 		now := time.Now()
 		commission.CreatedAt = now
-		created := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "payment_order_id"}}, DoNothing: true}).Create(commission)
+		created := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: sourceColumn}}, DoNothing: true}).Create(commission)
 		if created.Error != nil {
 			return created.Error
 		}
 		if created.RowsAffected == 0 {
 			return nil
 		}
-		referenceKey := "referral:" + commission.PaymentOrderID
+		referenceKey := "referral:" + sourceID
 		entry := model.CreditLedgerEntry{
 			ID: newRepositoryID(), UserID: commission.InviterUserID, Type: model.CreditLedgerReferral,
-			AmountMicrocredits: commission.CommissionMicrocredits, PaymentOrderID: commission.PaymentOrderID,
+			AmountMicrocredits: commission.CommissionMicrocredits, PaymentOrderID: referralCommissionPaymentOrderID(commission), RedeemCodeID: referralCommissionRedeemCodeID(commission),
 			ReferenceKey: &referenceKey, Note: note,
 		}
 		ledger := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "reference_key"}}, DoNothing: true}).Create(&entry)
@@ -220,4 +224,34 @@ func (r *Repository) GrantReferralCommission(commission *model.ReferralCommissio
 		return false, err
 	}
 	return granted, nil
+}
+
+func referralCommissionSource(commission *model.ReferralCommission) (string, string, error) {
+	if commission == nil {
+		return "", "", errors.New("referral commission is nil")
+	}
+	if commission.PaymentOrderID != nil && strings.TrimSpace(*commission.PaymentOrderID) != "" {
+		if commission.RedeemCodeID != nil && strings.TrimSpace(*commission.RedeemCodeID) != "" {
+			return "", "", errors.New("referral commission has multiple sources")
+		}
+		return "payment_order_id", strings.TrimSpace(*commission.PaymentOrderID), nil
+	}
+	if commission.RedeemCodeID != nil && strings.TrimSpace(*commission.RedeemCodeID) != "" {
+		return "redeem_code_id", "redeem:" + strings.TrimSpace(*commission.RedeemCodeID), nil
+	}
+	return "", "", errors.New("referral commission source is required")
+}
+
+func referralCommissionPaymentOrderID(commission *model.ReferralCommission) string {
+	if commission != nil && commission.PaymentOrderID != nil {
+		return *commission.PaymentOrderID
+	}
+	return ""
+}
+
+func referralCommissionRedeemCodeID(commission *model.ReferralCommission) string {
+	if commission != nil && commission.RedeemCodeID != nil {
+		return *commission.RedeemCodeID
+	}
+	return ""
 }

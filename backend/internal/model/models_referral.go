@@ -17,12 +17,13 @@ type ReferralBinding struct {
 	CreatedAt     time.Time `json:"createdAt" gorm:"index:idx_referral_binding_inviter_created,priority:2"`
 }
 
-// ReferralCommission 是一笔充值订单产生的推广返佣；PaymentOrderID 唯一，保证同一订单只返佣一次。
+// ReferralCommission 是一笔支付充值或兑换码入账产生的推广返佣；每种来源的 ID 唯一，保证同一来源只返佣一次。
 type ReferralCommission struct {
 	ID                       string    `json:"id" gorm:"primaryKey;size:36"`
 	InviterUserID            string    `json:"inviterUserId" gorm:"size:36;not null;index:idx_referral_commission_inviter_created,priority:1"`
 	InviteeUserID            string    `json:"inviteeUserId" gorm:"size:36;not null;index"`
-	PaymentOrderID           string    `json:"paymentOrderId" gorm:"size:36;not null;uniqueIndex"`
+	PaymentOrderID           *string   `json:"paymentOrderId,omitempty" gorm:"size:36;uniqueIndex"`
+	RedeemCodeID             *string   `json:"redeemCodeId,omitempty" gorm:"size:36;uniqueIndex"`
 	OrderAmountFen           int64     `json:"orderAmountFen"`
 	OrderCreditsMicrocredits int64     `json:"orderCreditsMicrocredits"`
 	RateBasisPoints          int64     `json:"rateBasisPoints"`

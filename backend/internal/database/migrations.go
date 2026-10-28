@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const CurrentSchemaVersion int64 = 75
+const CurrentSchemaVersion int64 = 76
 
 const baselineSchemaChecksum = "sha256:open-ai-canvas-schema-v1-20260830"
 const schemaMigrationAppliedAtIndexChecksum = "sha256:schema-migrations-applied-at-index-v2-20260830"
@@ -269,6 +269,7 @@ var schemaMigrations = []migration{
 	{version: 73, name: "drama_segment_reference_overrides", checksum: "sha256:drama-segment-reference-overrides-v73-20261027", apply: migrateDramaSegmentReferenceOverrides},
 	{version: 74, name: "drama_episode_source_format", checksum: "sha256:drama-episode-source-format-v73-20261027", apply: migrateDramaEpisodeSourceFormat},
 	{version: 75, name: "drama_segment_references", checksum: "sha256:drama-segment-references-v74-20261027", apply: migrateDramaSegmentReferences},
+	{version: 76, name: "referral_redeem_commission", checksum: "sha256:referral-redeem-commission-v76-20261028", apply: migrateReferralRedeemCommission},
 }
 
 // migrateReferralCenter 增加推广人标记和推广码、绑定、返佣三张表；旧用户默认不是推广人。
@@ -284,6 +285,20 @@ func migrateReferralCenter(tx *gorm.DB) error {
 		}
 	}
 	return tx.AutoMigrate(&model.ReferralProfile{}, &model.ReferralBinding{}, &model.ReferralCommission{})
+}
+
+func migrateReferralRedeemCommission(tx *gorm.DB) error {
+	if tx.Migrator().HasColumn(&model.ReferralCommission{}, "PaymentOrderID") {
+		if err := tx.Migrator().AlterColumn(&model.ReferralCommission{}, "PaymentOrderID"); err != nil {
+			return err
+		}
+		if tx.Dialector.Name() == "postgres" {
+			if err := tx.Exec(`ALTER TABLE "referral_commissions" ALTER COLUMN "payment_order_id" DROP NOT NULL`).Error; err != nil {
+				return err
+			}
+		}
+	}
+	return tx.AutoMigrate(&model.ReferralCommission{})
 }
 
 func migrateDramaSegmentReferenceOverrides(tx *gorm.DB) error {

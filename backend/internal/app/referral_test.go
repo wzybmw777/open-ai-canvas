@@ -123,3 +123,17 @@ func TestReferralCommissionAmountAvoidsOverflow(t *testing.T) {
 		t.Fatalf("got %d", got)
 	}
 }
+
+func TestReferralSettingDefaultsRedeemCommissionEnabled(t *testing.T) {
+	s, db := newReferralTestService(t)
+	if err := db.Save(&model.SystemSetting{Key: referralSettingKey, ValueJSON: `{"enabled":true,"mode":"all","commissionRateBasisPoints":1000}`}).Error; err != nil {
+		t.Fatal(err)
+	}
+	setting, err := s.referralSetting()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !setting.RedeemCommissionEnabled {
+		t.Fatal("legacy referral settings must default redeem commission to enabled")
+	}
+}

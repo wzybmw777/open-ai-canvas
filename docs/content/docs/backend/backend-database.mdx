@@ -15,17 +15,19 @@ description: 影策后端核心持久化表与状态边界
 
 逐集追加（`POST /dramas/:id/episodes`）在同一事务内写入一行 `project_units`（`kind=chapter`，`position` 为末尾）和一行 `drama_episodes`（`number` 为当前最大值 + 1），并把 `drama_productions.plan_cursor` 推过这一章、保持 `plan_done=true`，调度循环不会再把这一章交给分集规划；`plan_done=false` 时拒绝追加。
 
-## 推广中心（Schema 72）
+## 推广中心（Schema 72、76）
 
-版本 72 `referral_center` 为 `users` 增加 `is_promoter`（非空布尔，默认 `false`，带索引），并新增三张表。开放方式保存在 `system_settings` 的 `referral` 键：`enabled`、`mode`（`all` 全民推广 / `assigned` 指定推广人）、`commissionRateBasisPoints`（万分比，0–5000）。默认关闭。
+版本 72 `referral_center` 为 `users` 增加 `is_promoter`（非空布尔，默认 `false`，带索引），并新增三张表。开放方式保存在 `system_settings` 的 `referral` 键：`enabled`、`mode`（`all` 全民推广 / `assigned` 指定推广人）、`commissionRateBasisPoints`（万分比，0–5000）和 `redeemCommissionEnabled`（兑换码是否参与返佣，默认开启）。推广中心默认关闭。
 
 | 表 | 关键字段 | 边界 |
 | --- | --- | --- |
 | `referral_profiles` | 主键 `user_id`，`code` 唯一 | 推广人首次打开推广中心时生成 8 位推广码，之后不变 |
 | `referral_bindings` | 主键 `invitee_user_id`，`inviter_user_id`、`code` | 注册时一次写入，已绑定不覆盖；推广码无效或推广人当时无资格则不绑定，且不影响注册 |
-| `referral_commissions` | `payment_order_id` 唯一，订单金额、到账积分、比例、返佣积分、`ledger_entry_id` | 只对积分充值订单返佣；同一事务写返佣记录、`credit_ledger_entries`（类型 `referral_commission`，`reference_key = referral:<paymentOrderId>`）并加推广人余额 |
+| `referral_commissions` | `payment_order_id` 或 `redeem_code_id` 分别唯一，订单金额、到账积分、比例、返佣积分、`ledger_entry_id` | 支付充值或开启后的兑换码到账返佣；同一事务写返佣记录、`credit_ledger_entries`（类型 `referral_commission`，引用对应支付订单或兑换码）并加推广人余额 |
 
-返佣在支付回调、主动查询和对账补发确认订单 `credited` 后计算，按当时的设置和推广人资格（账号正常，且全民模式或 `is_promoter = true`）判断；重复调用由唯一约束去重。返佣失败只记日志，不回滚已入账的充值。
+支付返佣在支付回调、主动查询和对账补发确认订单 `credited` 后计算；兑换码返佣在兑换成功后计算。两者都按当时的设置和推广人资格（账号正常，且全民模式或 `is_promoter = true`）判断，重复调用由唯一约束去重。返佣失败只记日志，不回滚已入账的充值或兑换码。
+
+版本 76 `referral_redeem_commission` 将支付订单关联改为可空，并增加兑换码关联字段和唯一索引，支持两种来源共用返佣流水。
 
 ## 存储空间套餐（Schema 69）
 

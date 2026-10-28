@@ -2349,11 +2349,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [enabled, mode, commissionRateBasisPoints]
+              required: [enabled, mode, commissionRateBasisPoints, redeemCommissionEnabled]
               properties:
                 enabled: { type: boolean }
                 mode: { type: string, enum: [all, assigned] }
                 commissionRateBasisPoints: { type: integer, minimum: 0, maximum: 5000, description: 万分比，1000 表示 10% }
+                redeemCommissionEnabled: { type: boolean, description: 兑换码到账是否参与推广返佣，默认开启 }
       responses:
         "200":
           $ref: "#/components/responses/Envelope"

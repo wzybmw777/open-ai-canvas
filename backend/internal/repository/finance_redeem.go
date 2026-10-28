@@ -133,8 +133,14 @@ func (r *Repository) AdminRedeemCodes(batchID string, status string, limit int, 
 	return items, total, err
 }
 
-func (r *Repository) RedeemCode(userID string, codeHash string, redeemedIP string) (*model.CreditAccount, error) {
-	var account model.CreditAccount
+type RedeemCodeResult struct {
+	Account            model.CreditAccount
+	CodeID             string
+	AmountMicrocredits int64
+}
+
+func (r *Repository) RedeemCode(userID string, codeHash string, redeemedIP string) (*RedeemCodeResult, error) {
+	result := &RedeemCodeResult{}
 	err := r.db.Transaction(func(tx *gorm.DB) error {
 		var code model.RedeemCode
 		if err := tx.First(&code, "code_hash = ?", codeHash).Error; err != nil {
@@ -155,8 +161,10 @@ func (r *Repository) RedeemCode(userID string, codeHash string, redeemedIP strin
 		if updated.RowsAffected != 1 {
 			return ErrRedeemCodeInvalid
 		}
-		account = model.CreditAccount{UserID: userID}
-		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&account).Error; err != nil {
+		result.CodeID = code.ID
+		result.AmountMicrocredits = code.AmountMicrocredits
+		result.Account = model.CreditAccount{UserID: userID}
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&result.Account).Error; err != nil {
 			return err
 		}
 		if err := tx.Model(&model.CreditAccount{}).Where("user_id = ?", userID).Updates(map[string]any{
@@ -166,7 +174,7 @@ func (r *Repository) RedeemCode(userID string, codeHash string, redeemedIP strin
 		}).Error; err != nil {
 			return err
 		}
-		if err := tx.First(&account, "user_id = ?", userID).Error; err != nil {
+		if err := tx.First(&result.Account, "user_id = ?", userID).Error; err != nil {
 			return err
 		}
 		return tx.Create(&model.CreditLedgerEntry{
@@ -175,11 +183,11 @@ func (r *Repository) RedeemCode(userID string, codeHash string, redeemedIP strin
 			Type:                       model.CreditLedgerRedeem,
 			AmountMicrocredits:         code.AmountMicrocredits,
 			AvailableDeltaMicrocredits: code.AmountMicrocredits,
-			AvailableAfterMicrocredits: account.AvailableMicrocredits,
-			ReservedAfterMicrocredits:  account.ReservedMicrocredits,
+			AvailableAfterMicrocredits: result.Account.AvailableMicrocredits,
+			ReservedAfterMicrocredits:  result.Account.ReservedMicrocredits,
 			RedeemCodeID:               code.ID,
 			Note:                       "兑换码充值",
 		}).Error
 	})
-	return &account, err
+	return result, err
 }

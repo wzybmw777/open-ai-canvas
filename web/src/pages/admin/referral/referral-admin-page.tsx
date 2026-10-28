@@ -24,7 +24,7 @@ export default function AdminReferralPage() {
         if (setting.data) setDraft(setting.data);
     }, [setting.data]);
 
-    const dirty = Boolean(draft && setting.data && (draft.enabled !== setting.data.enabled || draft.mode !== setting.data.mode || draft.commissionRateBasisPoints !== setting.data.commissionRateBasisPoints));
+    const dirty = Boolean(draft && setting.data && (draft.enabled !== setting.data.enabled || draft.mode !== setting.data.mode || draft.commissionRateBasisPoints !== setting.data.commissionRateBasisPoints || draft.redeemCommissionEnabled !== setting.data.redeemCommissionEnabled));
     const save = async () => {
         if (!draft) return;
         setSaving(true);
@@ -43,7 +43,7 @@ export default function AdminReferralPage() {
     return (
         <AdminPageFrame
             title="推广中心"
-            description="选择全民推广或只开放给指定推广人，并设置被邀请用户积分充值的返佣比例。"
+            description="选择全民推广或只开放给指定推广人，并设置积分充值与兑换码返佣规则。"
             scroll
             actions={
                 <Button icon={<RefreshCw className="size-3.5" />} loading={setting.isFetching || commissions.isFetching} onClick={() => void Promise.all([setting.refetch(), commissions.refetch()])}>
@@ -59,7 +59,7 @@ export default function AdminReferralPage() {
                     status={setting.data ? { label: setting.data.enabled ? "已开启" : "已关闭", color: setting.data.enabled ? "success" : undefined } : undefined}
                     footer={
                         <>
-                            <span className="text-xs text-foreground/55">返佣按被邀请用户每笔积分充值到账数量计算，以积分发放给推广人；存储空间订单不返佣。</span>
+                            <span className="text-xs text-foreground/55">返佣按被邀请用户到账积分计算，以积分发放给推广人；存储空间订单不返佣。</span>
                             <Button type="primary" icon={<Save className="size-3.5" />} loading={saving} disabled={!dirty} onClick={() => void save()}>
                                 保存
                             </Button>
@@ -100,6 +100,13 @@ export default function AdminReferralPage() {
                                     onChange={(mode) => setDraft({ ...draft, mode })}
                                 />
                             </div>
+                            <label className="flex items-center justify-between gap-3">
+                                <span>
+                                    <strong className="block text-sm">兑换码参与返佣</strong>
+                                    <span className="text-xs text-foreground/55">开启后，被邀请用户使用兑换码到账的积分也会按当前比例返给推广人。</span>
+                                </span>
+                                <Switch aria-label="兑换码参与返佣" checked={draft.redeemCommissionEnabled} onChange={(redeemCommissionEnabled) => setDraft({ ...draft, redeemCommissionEnabled })} />
+                            </label>
                             <div className="flex flex-wrap items-center justify-between gap-3">
                                 <span>
                                     <strong className="block text-sm">返佣比例</strong>
@@ -121,7 +128,7 @@ export default function AdminReferralPage() {
                 </SettingsSectionCard>
                 <SettingsSectionCard title="返佣记录" description="全站推广返佣明细，按入账时间倒序。" layout="stacked">
                     <AdminDataTable<ReferralCommission>
-                        empty={<AdminTableEmpty title="暂无返佣记录" description="被邀请用户完成积分充值后会出现在这里。" />}
+                        empty={<AdminTableEmpty title="暂无返佣记录" description="被邀请用户完成支付充值或兑换码到账后会出现在这里。" />}
                         footer={commissions.data && commissions.data.total > PAGE_SIZE ? <PaginationBar current={page} pageSize={PAGE_SIZE} total={commissions.data.total} pageSizeOptions={[PAGE_SIZE]} onChange={(next) => setPage(next)} /> : undefined}
                         table={{
                             rowKey: "id",
@@ -131,7 +138,8 @@ export default function AdminReferralPage() {
                             columns: [
                                 { key: "inviter", title: "推广人", dataIndex: "inviterName" },
                                 { key: "invitee", title: "被邀请用户", dataIndex: "inviteeName" },
-                                { key: "amount", title: "充值金额", dataIndex: "orderAmountFen", align: "right", render: (value: number) => <span className="tabular-nums">{formatReferralYuan(value)}</span> },
+                                { key: "source", title: "来源", dataIndex: "sourceType", align: "center", render: (value: ReferralCommission["sourceType"]) => value === "redeem" ? "兑换码" : "支付充值" },
+                                { key: "amount", title: "充值金额", dataIndex: "orderAmountFen", align: "right", render: (value: number, item: ReferralCommission) => <span className="tabular-nums">{item.sourceType === "redeem" ? "—" : formatReferralYuan(value)}</span> },
                                 { key: "credits", title: "到账积分", dataIndex: "orderCreditsMicrocredits", align: "right", render: (value: number) => <span className="tabular-nums">{formatReferralCredits(value)}</span> },
                                 { key: "rate", title: "比例", dataIndex: "rateBasisPoints", align: "center", render: (value: number) => formatReferralRate(value) },
                                 { key: "commission", title: "返佣积分", dataIndex: "commissionMicrocredits", align: "right", render: (value: number) => <span className="tabular-nums">+{formatReferralCredits(value)}</span> },
