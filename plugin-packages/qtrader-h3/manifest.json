@@ -4,7 +4,7 @@
   "name": "QT SparkCine H3",
   "version": "1.0.0",
   "author": "影策",
-  "description": "QT 上游 h3-video：OpenAI Videos multipart，seconds 与像素 size，最多 9 张参考图。",
+  "description": "QT 上游 H3 视频：h3-video 普通参考图与 h3-video-frames 首尾帧生成。",
   "permissions": [
     "generation.run",
     "media.read"
@@ -73,14 +73,17 @@
         "validations": [
           {
             "assert": {
-              "$eq": [
+              "$in": [
                 {
                   "$ref": "request.model"
                 },
-                "h3-video"
+                [
+                  "h3-video",
+                  "h3-video-frames"
+                ]
               ]
             },
-            "message": "此协议仅支持 h3-video"
+            "message": "此协议仅支持 h3-video 或 h3-video-frames"
           },
           {
             "assert": {
@@ -111,26 +114,66 @@
           },
           {
             "assert": {
-              "$and": [
+              "$or": [
                 {
-                  "$gte": [
+                  "$and": [
                     {
-                      "$ref": "request.duration"
+                      "$eq": [
+                        {
+                          "$ref": "request.model"
+                        },
+                        "h3-video"
+                      ]
                     },
-                    4
+                    {
+                      "$gte": [
+                        {
+                          "$ref": "request.duration"
+                        },
+                        4
+                      ]
+                    },
+                    {
+                      "$lte": [
+                        {
+                          "$ref": "request.duration"
+                        },
+                        30
+                      ]
+                    }
                   ]
                 },
                 {
-                  "$lte": [
+                  "$and": [
                     {
-                      "$ref": "request.duration"
+                      "$eq": [
+                        {
+                          "$ref": "request.model"
+                        },
+                        "h3-video-frames"
+                      ]
                     },
-                    30
+                    {
+                      "$gte": [
+                        {
+                          "$ref": "request.duration"
+                        },
+                        4
+                      ]
+                    },
+                    {
+                      "$lte": [
+                        {
+                          "$ref": "request.duration"
+                        },
+                        15
+                      ]
+                    }
                   ]
                 }
               ]
             },
-            "message": "时长需为 4–30 秒"
+            "message": "h3-video 时长需为 4–30 秒；h3-video-frames 时长需为 4–15 秒"
           },
           {
             "assert": {
@@ -259,16 +302,54 @@
           },
           {
             "assert": {
-              "$lte": [
+              "$or": [
                 {
-                  "$len": {
-                    "$ref": "request.images"
-                  }
+                  "$and": [
+                    {
+                      "$eq": [
+                        {
+                          "$ref": "request.model"
+                        },
+                        "h3-video"
+                      ]
+                    },
+                    {
+                      "$lte": [
+                        {
+                          "$len": {
+                            "$ref": "request.images"
+                          }
+                        },
+                        9
+                      ]
+                    }
+                  ]
                 },
-                9
+                {
+                  "$and": [
+                    {
+                      "$eq": [
+                        {
+                          "$ref": "request.model"
+                        },
+                        "h3-video-frames"
+                      ]
+                    },
+                    {
+                      "$lte": [
+                        {
+                          "$len": {
+                            "$ref": "request.images"
+                          }
+                        },
+                        2
+                      ]
+                    }
+                  ]
+                }
               ]
             },
-            "message": "最多 9 张参考图"
+            "message": "h3-video 最多 9 张参考图；h3-video-frames 最多 2 张首尾帧"
           },
           {
             "assert": {
@@ -295,457 +376,679 @@
                 }
               ]
             },
-            "message": "此 OpenAI 兼容入口仅开放参考图"
+            "message": "此入口不支持参考视频或参考音频"
           },
           {
             "assert": {
-              "$eq": [
+              "$or": [
                 {
-                  "$len": {
-                    "$filter": {
-                      "from": {
-                        "$ref": "request.images"
-                      },
-                      "as": "image",
-                      "where": {
-                        "$and": [
-                          {
-                            "$ne": [
-                              {
-                                "$ref": "image.role"
+                  "$and": [
+                    {
+                      "$eq": [
+                        {
+                          "$ref": "request.model"
+                        },
+                        "h3-video"
+                      ]
+                    },
+                    {
+                      "$eq": [
+                        {
+                          "$len": {
+                            "$filter": {
+                              "from": {
+                                "$ref": "request.images"
                               },
-                              "reference_image"
-                            ]
-                          },
-                          {
-                            "$ne": [
-                              {
-                                "$ref": "image.role"
-                              },
-                              ""
-                            ]
-                          },
-                          {
-                            "$ne": [
-                              {
-                                "$ref": "image.role"
-                              },
-                              null
-                            ]
+                              "as": "image",
+                              "where": {
+                                "$and": [
+                                  {
+                                    "$ne": [
+                                      {
+                                        "$ref": "image.role"
+                                      },
+                                      "reference_image"
+                                    ]
+                                  },
+                                  {
+                                    "$ne": [
+                                      {
+                                        "$ref": "image.role"
+                                      },
+                                      ""
+                                    ]
+                                  },
+                                  {
+                                    "$ne": [
+                                      {
+                                        "$ref": "image.role"
+                                      },
+                                      null
+                                    ]
+                                  }
+                                ]
+                              }
+                            }
                           }
-                        ]
-                      }
+                        },
+                        0
+                      ]
                     }
-                  }
+                  ]
                 },
-                0
+                {
+                  "$and": [
+                    {
+                      "$eq": [
+                        {
+                          "$ref": "request.model"
+                        },
+                        "h3-video-frames"
+                      ]
+                    },
+                    {
+                      "$gte": [
+                        {
+                          "$len": {
+                            "$filter": {
+                              "from": {
+                                "$ref": "request.images"
+                              },
+                              "as": "image",
+                              "where": {
+                                "$in": [
+                                  {
+                                    "$ref": "image.role"
+                                  },
+                                  [
+                                    "first_frame",
+                                    "last_frame"
+                                  ]
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        1
+                      ]
+                    },
+                    {
+                      "$eq": [
+                        {
+                          "$len": {
+                            "$filter": {
+                              "from": {
+                                "$ref": "request.images"
+                              },
+                              "as": "image",
+                              "where": {
+                                "$in": [
+                                  {
+                                    "$ref": "image.role"
+                                  },
+                                  [
+                                    "first_frame",
+                                    "last_frame"
+                                  ]
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "$len": {
+                            "$ref": "request.images"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$lte": [
+                        {
+                          "$len": {
+                            "$filter": {
+                              "from": {
+                                "$ref": "request.images"
+                              },
+                              "as": "image",
+                              "where": {
+                                "$in": [
+                                  {
+                                    "$ref": "image.role"
+                                  },
+                                  [
+                                    "first_frame"
+                                  ]
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        1
+                      ]
+                    },
+                    {
+                      "$lte": [
+                        {
+                          "$len": {
+                            "$filter": {
+                              "from": {
+                                "$ref": "request.images"
+                              },
+                              "as": "image",
+                              "where": {
+                                "$in": [
+                                  {
+                                    "$ref": "image.role"
+                                  },
+                                  [
+                                    "last_frame"
+                                  ]
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        1
+                      ]
+                    }
+                  ]
+                }
               ]
             },
-            "message": "h3-video 只接受普通参考图；首尾帧需使用未接入的 frames 型号"
+            "message": "h3-video 只接受普通参考图；h3-video-frames 必须提供至少一张首帧或尾帧，每种角色最多一张"
           }
         ],
         "create": {
           "method": "POST",
           "path": "/v1/videos",
           "contentType": "multipart/form-data",
+          "contentTypeTemplate": {
+            "$if": {
+              "condition": {
+                "$eq": [
+                  {
+                    "$ref": "request.model"
+                  },
+                  "h3-video-frames"
+                ]
+              },
+              "then": "application/json",
+              "else": "multipart/form-data"
+            }
+          },
           "body": {
-            "model": {
-              "$ref": "request.model"
-            },
-            "prompt": {
-              "$ref": "request.prompt"
-            },
-            "seconds": {
-              "$toString": {
-                "$ref": "request.duration"
-              }
-            },
-            "size": {
-              "$switch": {
-                "cases": [
+            "$if": {
+              "condition": {
+                "$eq": [
                   {
-                    "when": {
-                      "$eq": [
-                        {
-                          "$ref": "request.resolution"
-                        },
-                        "480p"
-                      ]
-                    },
-                    "then": {
-                      "$switch": {
-                        "cases": [
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "16:9"
-                              ]
-                            },
-                            "then": "854x480"
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "9:16"
-                              ]
-                            },
-                            "then": "480x854"
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "21:9"
-                              ]
-                            },
-                            "then": "1120x480"
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "4:3"
-                              ]
-                            },
-                            "then": "640x480"
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "1:1"
-                              ]
-                            },
-                            "then": "480x480"
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "3:4"
-                              ]
-                            },
-                            "then": "480x640"
-                          }
-                        ],
-                        "default": null
-                      }
-                    }
+                    "$ref": "request.model"
                   },
-                  {
-                    "when": {
-                      "$eq": [
-                        {
-                          "$ref": "request.resolution"
-                        },
-                        "720p"
-                      ]
-                    },
-                    "then": {
-                      "$switch": {
-                        "cases": [
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "16:9"
-                              ]
-                            },
-                            "then": "1280x720"
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "9:16"
-                              ]
-                            },
-                            "then": "720x1280"
+                  "h3-video-frames"
+                ]
+              },
+              "then": {
+                "model": {
+                  "$ref": "request.model"
+                },
+                "content": {
+                  "$concatArrays": [
+                    [
+                      {
+                        "type": "text",
+                        "text": {
+                          "$ref": "request.prompt"
+                        }
+                      }
+                    ],
+                    {
+                      "$map": {
+                        "from": {
+                          "$sortByOrder": {
+                            "$ref": "request.images"
                           }
-                        ],
-                        "default": null
+                        },
+                        "as": "media",
+                        "in": {
+                          "type": "image_url",
+                          "image_url": {
+                            "url": {
+                              "$ref": "media.value"
+                            }
+                          },
+                          "role": {
+                            "$ref": "media.role"
+                          }
+                        }
                       }
                     }
-                  },
-                  {
-                    "when": {
-                      "$eq": [
-                        {
-                          "$ref": "request.resolution"
-                        },
-                        "768p"
-                      ]
-                    },
-                    "then": {
-                      "$switch": {
-                        "cases": [
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "16:9"
-                              ]
-                            },
-                            "then": "1366x768"
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "9:16"
-                              ]
-                            },
-                            "then": "768x1366"
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "21:9"
-                              ]
-                            },
-                            "then": "1792x768"
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "4:3"
-                              ]
-                            },
-                            "then": "1024x768"
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "1:1"
-                              ]
-                            },
-                            "then": "768x768"
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "3:4"
-                              ]
-                            },
-                            "then": "768x1024"
-                          }
-                        ],
-                        "default": null
-                      }
-                    }
-                  },
-                  {
-                    "when": {
-                      "$eq": [
-                        {
-                          "$ref": "request.resolution"
-                        },
-                        "960p"
-                      ]
-                    },
-                    "then": {
-                      "$switch": {
-                        "cases": [
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "16:9"
-                              ]
-                            },
-                            "then": "1707x960"
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "9:16"
-                              ]
-                            },
-                            "then": "960x1707"
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "21:9"
-                              ]
-                            },
-                            "then": "2240x960"
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "4:3"
-                              ]
-                            },
-                            "then": "1280x960"
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "1:1"
-                              ]
-                            },
-                            "then": "960x960"
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "3:4"
-                              ]
-                            },
-                            "then": "960x1280"
-                          }
-                        ],
-                        "default": null
-                      }
-                    }
-                  },
-                  {
-                    "when": {
-                      "$eq": [
-                        {
-                          "$ref": "request.resolution"
-                        },
-                        "1080p"
-                      ]
-                    },
-                    "then": {
-                      "$switch": {
-                        "cases": [
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "16:9"
-                              ]
-                            },
-                            "then": "1920x1080"
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "9:16"
-                              ]
-                            },
-                            "then": "1080x1920"
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "21:9"
-                              ]
-                            },
-                            "then": "2520x1080"
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "4:3"
-                              ]
-                            },
-                            "then": "1440x1080"
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "1:1"
-                              ]
-                            },
-                            "then": "1080x1080"
-                          },
-                          {
-                            "when": {
-                              "$eq": [
-                                {
-                                  "$ref": "request.aspectRatio"
-                                },
-                                "3:4"
-                              ]
-                            },
-                            "then": "1080x1440"
-                          }
-                        ],
-                        "default": null
-                      }
-                    }
+                  ]
+                },
+                "duration": {
+                  "$ref": "request.duration"
+                },
+                "resolution": {
+                  "$upper": {
+                    "$ref": "request.resolution"
                   }
-                ],
-                "default": null
+                },
+                "ratio": {
+                  "$ref": "request.aspectRatio"
+                }
+              },
+              "else": {
+                "model": {
+                  "$ref": "request.model"
+                },
+                "prompt": {
+                  "$ref": "request.prompt"
+                },
+                "seconds": {
+                  "$toString": {
+                    "$ref": "request.duration"
+                  }
+                },
+                "size": {
+                  "$switch": {
+                    "cases": [
+                      {
+                        "when": {
+                          "$eq": [
+                            {
+                              "$ref": "request.resolution"
+                            },
+                            "480p"
+                          ]
+                        },
+                        "then": {
+                          "$switch": {
+                            "cases": [
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "16:9"
+                                  ]
+                                },
+                                "then": "854x480"
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "9:16"
+                                  ]
+                                },
+                                "then": "480x854"
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "21:9"
+                                  ]
+                                },
+                                "then": "1120x480"
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "4:3"
+                                  ]
+                                },
+                                "then": "640x480"
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "1:1"
+                                  ]
+                                },
+                                "then": "480x480"
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "3:4"
+                                  ]
+                                },
+                                "then": "480x640"
+                              }
+                            ],
+                            "default": null
+                          }
+                        }
+                      },
+                      {
+                        "when": {
+                          "$eq": [
+                            {
+                              "$ref": "request.resolution"
+                            },
+                            "720p"
+                          ]
+                        },
+                        "then": {
+                          "$switch": {
+                            "cases": [
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "16:9"
+                                  ]
+                                },
+                                "then": "1280x720"
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "9:16"
+                                  ]
+                                },
+                                "then": "720x1280"
+                              }
+                            ],
+                            "default": null
+                          }
+                        }
+                      },
+                      {
+                        "when": {
+                          "$eq": [
+                            {
+                              "$ref": "request.resolution"
+                            },
+                            "768p"
+                          ]
+                        },
+                        "then": {
+                          "$switch": {
+                            "cases": [
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "16:9"
+                                  ]
+                                },
+                                "then": "1366x768"
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "9:16"
+                                  ]
+                                },
+                                "then": "768x1366"
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "21:9"
+                                  ]
+                                },
+                                "then": "1792x768"
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "4:3"
+                                  ]
+                                },
+                                "then": "1024x768"
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "1:1"
+                                  ]
+                                },
+                                "then": "768x768"
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "3:4"
+                                  ]
+                                },
+                                "then": "768x1024"
+                              }
+                            ],
+                            "default": null
+                          }
+                        }
+                      },
+                      {
+                        "when": {
+                          "$eq": [
+                            {
+                              "$ref": "request.resolution"
+                            },
+                            "960p"
+                          ]
+                        },
+                        "then": {
+                          "$switch": {
+                            "cases": [
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "16:9"
+                                  ]
+                                },
+                                "then": "1707x960"
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "9:16"
+                                  ]
+                                },
+                                "then": "960x1707"
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "21:9"
+                                  ]
+                                },
+                                "then": "2240x960"
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "4:3"
+                                  ]
+                                },
+                                "then": "1280x960"
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "1:1"
+                                  ]
+                                },
+                                "then": "960x960"
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "3:4"
+                                  ]
+                                },
+                                "then": "960x1280"
+                              }
+                            ],
+                            "default": null
+                          }
+                        }
+                      },
+                      {
+                        "when": {
+                          "$eq": [
+                            {
+                              "$ref": "request.resolution"
+                            },
+                            "1080p"
+                          ]
+                        },
+                        "then": {
+                          "$switch": {
+                            "cases": [
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "16:9"
+                                  ]
+                                },
+                                "then": "1920x1080"
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "9:16"
+                                  ]
+                                },
+                                "then": "1080x1920"
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "21:9"
+                                  ]
+                                },
+                                "then": "2520x1080"
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "4:3"
+                                  ]
+                                },
+                                "then": "1440x1080"
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "1:1"
+                                  ]
+                                },
+                                "then": "1080x1080"
+                              },
+                              {
+                                "when": {
+                                  "$eq": [
+                                    {
+                                      "$ref": "request.aspectRatio"
+                                    },
+                                    "3:4"
+                                  ]
+                                },
+                                "then": "1080x1440"
+                              }
+                            ],
+                            "default": null
+                          }
+                        }
+                      }
+                    ],
+                    "default": null
+                  }
+                },
+                "optimize_prompt": false
               }
-            },
-            "optimize_prompt": false
+            }
           },
           "files": [
             {
               "name": "input_reference",
               "source": {
-                "$sortByOrder": {
-                  "$ref": "request.images"
+                "$if": {
+                  "condition": {
+                    "$eq": [
+                      {
+                        "$ref": "request.model"
+                      },
+                      "h3-video"
+                    ]
+                  },
+                  "then": {
+                    "$sortByOrder": {
+                      "$ref": "request.images"
+                    }
+                  },
+                  "else": []
                 }
               }
             }
@@ -818,5 +1121,5 @@
       }
     ]
   },
-  "documentation": "# QT SparkCine H3\n\n专用于 `https://api.qtrader.cc` 的 `h3-video`。使用 OpenAI Videos multipart 入口，\n不混用 MiniMax 原生、万有引力或 ComfyUI 的请求体。\n\n接口依据：[SparkCine 开发文档](https://hi.hi.run/developers)、QT 授权目录与模型广场分组 100。\n完整映射见 [接口说明](docs/interface.md)。\n\n---\n\n# QT H3 接口\n\n- 创建：`POST /v1/videos`，Bearer 鉴权，multipart/form-data。\n- 字段：`model=h3-video`、`prompt`、字符串 `seconds`、像素 `size`。\n- 参考图：按顺序重复 `input_reference` 文件字段，最多 9 张，每张最多 24 MiB。\n- 查询：`GET /v1/videos/{id}`；结果：`GET /v1/videos/{id}/content`。\n- 优先读取 `sparkcine.outputs[0].download_url`，结果链接临时有效，由宿主持久化。\n- 不声明取消接口，避免把 OpenAI 的删除语义误当成停止计费。\n\n`size` 按分辨率的短边和画幅换算为整数像素。SparkCine 按短边选择能覆盖它的最小分辨率，\n再匹配最近画幅，因此长边向上取整；短边不能向上跨入更贵规格。\n五档为 480p、720p、768p、960p、1080p。720p 仅横竖屏；其他档支持\n16:9、9:16、21:9、4:3、1:1、3:4。4–30 秒整数，960p/1080p 最长 15 秒，768p 21:9 最长 20 秒。\n\n`h3-video` 的图片是普通参考图。首尾帧属于未接入的 `h3-video-frames`，不能自动改作普通图片。\nSparkCine 原生 H3 入口另支持音频和参考视频；QT 当前提供的 OpenAI 兼容文档仅声明图片文件，\n本插件不向该入口虚构音频、视频或生成音频开关字段。默认保留上游生成音频。\n`optimize_prompt=false` 固定关闭额外收费的提示词优化。\n\n报价使用 QT 密钥所属分组 100 的实时人民币秒价；SparkCine 公共零售价不等于该分组成本。\n公开页面还说明单次最低费用，QT 分组未提供最低费用字段；真实账单的最低扣费规则须单独核对。\n\n<!-- YINGCE_MANIFEST_CONTRACT_START -->\n## Manifest 完整接口定义\n\n以下 JSON 与插件包内实际 `manifest.json` 逐字段一致，覆盖插件身份、权限、配置、鉴权、参数、校验、创建、Agent、查询、取消、结果下载、响应和 Agent 响应映射。`documentation` 字段的值就是当前完整文档；为避免文档在自身内部无限递归，JSON 中仅用等义占位文本表示正文。\n\n```json\n{\n  \"apiVersion\": \"yingce.plugin/v2\",\n  \"id\": \"qtrader-h3\",\n  \"name\": \"QT SparkCine H3\",\n  \"version\": \"1.0.0\",\n  \"author\": \"影策\",\n  \"description\": \"QT 上游 h3-video：OpenAI Videos multipart，seconds 与像素 size，最多 9 张参考图。\",\n  \"permissions\": [\n    \"generation.run\",\n    \"media.read\"\n  ],\n  \"configuration\": {\n    \"fields\": [\n      {\n        \"name\": \"apiKey\",\n        \"type\": \"secret\",\n        \"label\": \"API Key\",\n        \"required\": true\n      }\n    ]\n  },\n  \"contributes\": {\n    \"providers\": [\n      {\n        \"id\": \"qtrader-h3\",\n        \"label\": \"QT SparkCine H3\",\n        \"capabilities\": [\n          \"video\"\n        ],\n        \"scopes\": [\n          \"admin.system-channel\",\n          \"canvas\",\n          \"creation\"\n        ],\n        \"baseUrl\": \"https://api.qtrader.cc\",\n        \"requiresPublicMediaUrls\": false,\n        \"auth\": {\n          \"type\": \"bearer\",\n          \"field\": \"apiKey\"\n        },\n        \"parameters\": [\n          {\n            \"name\": \"model\",\n            \"type\": \"string\",\n            \"required\": true\n          },\n          {\n            \"name\": \"prompt\",\n            \"type\": \"string\",\n            \"required\": true\n          },\n          {\n            \"name\": \"duration\",\n            \"type\": \"integer\",\n            \"required\": true\n          },\n          {\n            \"name\": \"resolution\",\n            \"type\": \"string\",\n            \"required\": true\n          },\n          {\n            \"name\": \"aspectRatio\",\n            \"type\": \"string\",\n            \"required\": true\n          },\n          {\n            \"name\": \"images\",\n            \"type\": \"media[]\",\n            \"required\": false\n          }\n        ],\n        \"validations\": [\n          {\n            \"assert\": {\n              \"$eq\": [\n                {\n                  \"$ref\": \"request.model\"\n                },\n                \"h3-video\"\n              ]\n            },\n            \"message\": \"此协议仅支持 h3-video\"\n          },\n          {\n            \"assert\": {\n              \"$and\": [\n                {\n                  \"$gt\": [\n                    {\n                      \"$len\": {\n                        \"$ref\": \"request.prompt\"\n                      }\n                    },\n                    0\n                  ]\n                },\n                {\n                  \"$lte\": [\n                    {\n                      \"$len\": {\n                        \"$ref\": \"request.prompt\"\n                      }\n                    },\n                    12000\n                  ]\n                }\n              ]\n            },\n            \"message\": \"提示词需为 1–12000 字符\"\n          },\n          {\n            \"assert\": {\n              \"$and\": [\n                {\n                  \"$gte\": [\n                    {\n                      \"$ref\": \"request.duration\"\n                    },\n                    4\n                  ]\n                },\n                {\n                  \"$lte\": [\n                    {\n                      \"$ref\": \"request.duration\"\n                    },\n                    30\n                  ]\n                }\n              ]\n            },\n            \"message\": \"时长需为 4–30 秒\"\n          },\n          {\n            \"assert\": {\n              \"$and\": [\n                {\n                  \"$in\": [\n                    {\n                      \"$ref\": \"request.resolution\"\n                    },\n                    [\n                      \"480p\",\n                      \"720p\",\n                      \"768p\",\n                      \"960p\",\n                      \"1080p\"\n                    ]\n                  ]\n                },\n                {\n                  \"$in\": [\n                    {\n                      \"$ref\": \"request.aspectRatio\"\n                    },\n                    [\n                      \"16:9\",\n                      \"9:16\",\n                      \"21:9\",\n                      \"4:3\",\n                      \"1:1\",\n                      \"3:4\"\n                    ]\n                  ]\n                },\n                {\n                  \"$or\": [\n                    {\n                      \"$ne\": [\n                        {\n                          \"$ref\": \"request.resolution\"\n                        },\n                        \"720p\"\n                      ]\n                    },\n                    {\n                      \"$in\": [\n                        {\n                          \"$ref\": \"request.aspectRatio\"\n                        },\n                        [\n                          \"16:9\",\n                          \"9:16\"\n                        ]\n                      ]\n                    }\n                  ]\n                }\n              ]\n            },\n            \"message\": \"请选择支持的分辨率与画幅比例；720p 仅支持横竖屏\"\n          },\n          {\n            \"assert\": {\n              \"$or\": [\n                {\n                  \"$and\": [\n                    {\n                      \"$ne\": [\n                        {\n                          \"$ref\": \"request.resolution\"\n                        },\n                        \"960p\"\n                      ]\n                    },\n                    {\n                      \"$ne\": [\n                        {\n                          \"$ref\": \"request.resolution\"\n                        },\n                        \"1080p\"\n                      ]\n                    }\n                  ]\n                },\n                {\n                  \"$lte\": [\n                    {\n                      \"$ref\": \"request.duration\"\n                    },\n                    15\n                  ]\n                }\n              ]\n            },\n            \"message\": \"960p/1080p 最长 15 秒\"\n          },\n          {\n            \"assert\": {\n              \"$or\": [\n                {\n                  \"$ne\": [\n                    {\n                      \"$ref\": \"request.resolution\"\n                    },\n                    \"768p\"\n                  ]\n                },\n                {\n                  \"$ne\": [\n                    {\n                      \"$ref\": \"request.aspectRatio\"\n                    },\n                    \"21:9\"\n                  ]\n                },\n                {\n                  \"$lte\": [\n                    {\n                      \"$ref\": \"request.duration\"\n                    },\n                    20\n                  ]\n                }\n              ]\n            },\n            \"message\": \"768p 21:9 最长 20 秒\"\n          },\n          {\n            \"assert\": {\n              \"$lte\": [\n                {\n                  \"$len\": {\n                    \"$ref\": \"request.images\"\n                  }\n                },\n                9\n              ]\n            },\n            \"message\": \"最多 9 张参考图\"\n          },\n          {\n            \"assert\": {\n              \"$and\": [\n                {\n                  \"$eq\": [\n                    {\n                      \"$len\": {\n                        \"$ref\": \"request.videos\"\n                      }\n                    },\n                    0\n                  ]\n                },\n                {\n                  \"$eq\": [\n                    {\n                      \"$len\": {\n                        \"$ref\": \"request.audios\"\n                      }\n                    },\n                    0\n                  ]\n                }\n              ]\n            },\n            \"message\": \"此 OpenAI 兼容入口仅开放参考图\"\n          },\n          {\n            \"assert\": {\n              \"$eq\": [\n                {\n                  \"$len\": {\n                    \"$filter\": {\n                      \"from\": {\n                        \"$ref\": \"request.images\"\n                      },\n                      \"as\": \"image\",\n                      \"where\": {\n                        \"$and\": [\n                          {\n                            \"$ne\": [\n                              {\n                                \"$ref\": \"image.role\"\n                              },\n                              \"reference_image\"\n                            ]\n                          },\n                          {\n                            \"$ne\": [\n                              {\n                                \"$ref\": \"image.role\"\n                              },\n                              \"\"\n                            ]\n                          },\n                          {\n                            \"$ne\": [\n                              {\n                                \"$ref\": \"image.role\"\n                              },\n                              null\n                            ]\n                          }\n                        ]\n                      }\n                    }\n                  }\n                },\n                0\n              ]\n            },\n            \"message\": \"h3-video 只接受普通参考图；首尾帧需使用未接入的 frames 型号\"\n          }\n        ],\n        \"create\": {\n          \"method\": \"POST\",\n          \"path\": \"/v1/videos\",\n          \"contentType\": \"multipart/form-data\",\n          \"body\": {\n            \"model\": {\n              \"$ref\": \"request.model\"\n            },\n            \"prompt\": {\n              \"$ref\": \"request.prompt\"\n            },\n            \"seconds\": {\n              \"$toString\": {\n                \"$ref\": \"request.duration\"\n              }\n            },\n            \"size\": {\n              \"$switch\": {\n                \"cases\": [\n                  {\n                    \"when\": {\n                      \"$eq\": [\n                        {\n                          \"$ref\": \"request.resolution\"\n                        },\n                        \"480p\"\n                      ]\n                    },\n                    \"then\": {\n                      \"$switch\": {\n                        \"cases\": [\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"16:9\"\n                              ]\n                            },\n                            \"then\": \"854x480\"\n                          },\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"9:16\"\n                              ]\n                            },\n                            \"then\": \"480x854\"\n                          },\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"21:9\"\n                              ]\n                            },\n                            \"then\": \"1120x480\"\n                          },\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"4:3\"\n                              ]\n                            },\n                            \"then\": \"640x480\"\n                          },\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"1:1\"\n                              ]\n                            },\n                            \"then\": \"480x480\"\n                          },\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"3:4\"\n                              ]\n                            },\n                            \"then\": \"480x640\"\n                          }\n                        ],\n                        \"default\": null\n                      }\n                    }\n                  },\n                  {\n                    \"when\": {\n                      \"$eq\": [\n                        {\n                          \"$ref\": \"request.resolution\"\n                        },\n                        \"720p\"\n                      ]\n                    },\n                    \"then\": {\n                      \"$switch\": {\n                        \"cases\": [\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"16:9\"\n                              ]\n                            },\n                            \"then\": \"1280x720\"\n                          },\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"9:16\"\n                              ]\n                            },\n                            \"then\": \"720x1280\"\n                          }\n                        ],\n                        \"default\": null\n                      }\n                    }\n                  },\n                  {\n                    \"when\": {\n                      \"$eq\": [\n                        {\n                          \"$ref\": \"request.resolution\"\n                        },\n                        \"768p\"\n                      ]\n                    },\n                    \"then\": {\n                      \"$switch\": {\n                        \"cases\": [\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"16:9\"\n                              ]\n                            },\n                            \"then\": \"1366x768\"\n                          },\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"9:16\"\n                              ]\n                            },\n                            \"then\": \"768x1366\"\n                          },\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"21:9\"\n                              ]\n                            },\n                            \"then\": \"1792x768\"\n                          },\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"4:3\"\n                              ]\n                            },\n                            \"then\": \"1024x768\"\n                          },\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"1:1\"\n                              ]\n                            },\n                            \"then\": \"768x768\"\n                          },\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"3:4\"\n                              ]\n                            },\n                            \"then\": \"768x1024\"\n                          }\n                        ],\n                        \"default\": null\n                      }\n                    }\n                  },\n                  {\n                    \"when\": {\n                      \"$eq\": [\n                        {\n                          \"$ref\": \"request.resolution\"\n                        },\n                        \"960p\"\n                      ]\n                    },\n                    \"then\": {\n                      \"$switch\": {\n                        \"cases\": [\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"16:9\"\n                              ]\n                            },\n                            \"then\": \"1707x960\"\n                          },\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"9:16\"\n                              ]\n                            },\n                            \"then\": \"960x1707\"\n                          },\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"21:9\"\n                              ]\n                            },\n                            \"then\": \"2240x960\"\n                          },\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"4:3\"\n                              ]\n                            },\n                            \"then\": \"1280x960\"\n                          },\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"1:1\"\n                              ]\n                            },\n                            \"then\": \"960x960\"\n                          },\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"3:4\"\n                              ]\n                            },\n                            \"then\": \"960x1280\"\n                          }\n                        ],\n                        \"default\": null\n                      }\n                    }\n                  },\n                  {\n                    \"when\": {\n                      \"$eq\": [\n                        {\n                          \"$ref\": \"request.resolution\"\n                        },\n                        \"1080p\"\n                      ]\n                    },\n                    \"then\": {\n                      \"$switch\": {\n                        \"cases\": [\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"16:9\"\n                              ]\n                            },\n                            \"then\": \"1920x1080\"\n                          },\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"9:16\"\n                              ]\n                            },\n                            \"then\": \"1080x1920\"\n                          },\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"21:9\"\n                              ]\n                            },\n                            \"then\": \"2520x1080\"\n                          },\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"4:3\"\n                              ]\n                            },\n                            \"then\": \"1440x1080\"\n                          },\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"1:1\"\n                              ]\n                            },\n                            \"then\": \"1080x1080\"\n                          },\n                          {\n                            \"when\": {\n                              \"$eq\": [\n                                {\n                                  \"$ref\": \"request.aspectRatio\"\n                                },\n                                \"3:4\"\n                              ]\n                            },\n                            \"then\": \"1080x1440\"\n                          }\n                        ],\n                        \"default\": null\n                      }\n                    }\n                  }\n                ],\n                \"default\": null\n              }\n            },\n            \"optimize_prompt\": false\n          },\n          \"files\": [\n            {\n              \"name\": \"input_reference\",\n              \"source\": {\n                \"$sortByOrder\": {\n                  \"$ref\": \"request.images\"\n                }\n              }\n            }\n          ]\n        },\n        \"poll\": {\n          \"method\": \"GET\",\n          \"path\": \"/v1/videos/{{taskId}}\"\n        },\n        \"result\": {\n          \"method\": \"GET\",\n          \"path\": \"/v1/videos/{{taskId}}/content\",\n          \"headers\": {\n            \"Accept\": \"video/mp4\"\n          }\n        },\n        \"response\": {\n          \"taskId\": {\n            \"$coalesce\": [\n              {\n                \"$ref\": \"response.id\"\n              },\n              {\n                \"$ref\": \"response.task_id\"\n              },\n              {\n                \"$ref\": \"taskId\"\n              }\n            ]\n          },\n          \"status\": {\n            \"$coalesce\": [\n              {\n                \"$ref\": \"response.status\"\n              }\n            ]\n          },\n          \"message\": {\n            \"$coalesce\": [\n              {\n                \"$ref\": \"response.error.message\"\n              },\n              {\n                \"$ref\": \"response.message\"\n              }\n            ]\n          },\n          \"videos\": {\n            \"$coalesce\": [\n              {\n                \"$ref\": \"response.sparkcine.outputs.0.download_url\"\n              },\n              {\n                \"$ref\": \"response.metadata.direct_url\"\n              },\n              {\n                \"$ref\": \"response.video_url\"\n              },\n              {\n                \"$ref\": \"response.url\"\n              }\n            ]\n          },\n          \"errorPaths\": [\n            \"error.message\",\n            \"error.code\"\n          ],\n          \"resultEphemeral\": true\n        }\n      }\n    ]\n  },\n  \"documentation\": \"<当前插件的完整 documentation，由 README.md 与 docs/interface.md 拼接而成；为避免 JSON 递归，此处不重复展开正文。>\"\n}\n```\n<!-- YINGCE_MANIFEST_CONTRACT_END -->\n"
+  "documentation": "# QT SparkCine H3\n\n专用于 `https://api.qtrader.cc` 的 H3 视频协议。`h3-video` 使用 OpenAI Videos multipart 入口；\n`h3-video-frames` 使用 JSON 首尾帧入口，不混用 MiniMax 原生、万有引力或 ComfyUI 的请求体。\n\n接口依据：[SparkCine 开发文档](https://hi.hi.run/developers)、QT 授权目录与模型广场分组 100。\n完整映射见 [接口说明](docs/interface.md)。\n\n---\n\n# QT H3 接口\n\n- 普通 H3 创建：`POST /v1/videos`，Bearer 鉴权，multipart/form-data。\n- 普通 H3 字段：`model=h3-video`、`prompt`、字符串 `seconds`、像素 `size`。\n- 普通 H3 参考图：按顺序重复 `input_reference` 文件字段，最多 9 张，每张最多 24 MiB。\n- 首尾帧创建：同一地址使用 JSON 请求，`model=h3-video-frames`、`content`、`duration`、`resolution`、`ratio`。\n- 首尾帧图片必须在 `content` 中明确设置 `role=first_frame` 或 `role=last_frame`，至少一张、每种角色最多一张，不能混入普通参考图、音频或视频。\n- 首尾帧时长为 4–15 秒，分辨率支持 480p、720p、768p、960p、1080p；720p 仅支持 16:9 和 9:16。\n- 查询：`GET /v1/videos/{id}`；结果：`GET /v1/videos/{id}/content`。\n- 优先读取 `sparkcine.outputs[0].download_url`，结果链接临时有效，由宿主持久化。\n- 不声明取消接口，避免把 OpenAI 的删除语义误当成停止计费。\n\n`size` 按分辨率的短边和画幅换算为整数像素。SparkCine 按短边选择能覆盖它的最小分辨率，\n再匹配最近画幅，因此长边向上取整；短边不能向上跨入更贵规格。\n五档为 480p、720p、768p、960p、1080p。720p 仅横竖屏；其他档支持\n16:9、9:16、21:9、4:3、1:1、3:4。4–30 秒整数，960p/1080p 最长 15 秒，768p 21:9 最长 20 秒。\n\n`h3-video` 的图片是普通参考图；需要首尾帧时必须选择 `h3-video-frames`。\n首尾帧请求使用 `content` 中的 `image_url` 对象和角色字段，不会把首尾帧改作普通图片。\n两个型号均不接受参考视频或参考音频；默认保留上游生成音频。\n`optimize_prompt=false` 固定关闭额外收费的提示词优化。\n\n报价使用 QT 密钥所属分组 100 的实时人民币秒价；SparkCine 公共零售价不等于该分组成本。\n公开页面还说明单次最低费用，QT 分组未提供最低费用字段；真实账单的最低扣费规则须单独核对。\n\n<!-- YINGCE_MANIFEST_CONTRACT_START -->\n## Manifest 完整接口定义\n\n以下 JSON 与插件包内实际 manifest.json 逐字段一致，覆盖插件身份、权限、配置、鉴权、参数、校验、创建、Agent、查询、取消、结果下载、响应和 Agent 响应映射。documentation 字段的值就是当前完整文档；为避免文档在自身内部无限递归，此处使用占位文本。\n\n```json\n{\n  \"apiVersion\": \"yingce.plugin/v2\",\n  \"id\": \"qtrader-h3\",\n  \"name\": \"QT SparkCine H3\",\n  \"version\": \"1.0.0\",\n  \"author\": \"影策\",\n  \"description\": \"QT 上游 H3 视频：h3-video 普通参考图与 h3-video-frames 首尾帧生成。\",\n  \"permissions\": [\n    \"generation.run\",\n    \"media.read\"\n  ],\n  \"configuration\": {\n    \"fields\": [\n      {\n        \"name\": \"apiKey\",\n        \"type\": \"secret\",\n        \"label\": \"API Key\",\n        \"required\": true\n      }\n    ]\n  },\n  \"contributes\": {\n    \"providers\": [\n      {\n        \"id\": \"qtrader-h3\",\n        \"label\": \"QT SparkCine H3\",\n        \"capabilities\": [\n          \"video\"\n        ],\n        \"scopes\": [\n          \"admin.system-channel\",\n          \"canvas\",\n          \"creation\"\n        ],\n        \"baseUrl\": \"https://api.qtrader.cc\",\n        \"requiresPublicMediaUrls\": false,\n        \"auth\": {\n          \"type\": \"bearer\",\n          \"field\": \"apiKey\"\n        },\n        \"parameters\": [\n          {\n            \"name\": \"model\",\n            \"type\": \"string\",\n            \"required\": true\n          },\n          {\n            \"name\": \"prompt\",\n            \"type\": \"string\",\n            \"required\": true\n          },\n          {\n            \"name\": \"duration\",\n            \"type\": \"integer\",\n            \"required\": true\n          },\n          {\n            \"name\": \"resolution\",\n            \"type\": \"string\",\n            \"required\": true\n          },\n          {\n            \"name\": \"aspectRatio\",\n            \"type\": \"string\",\n            \"required\": true\n          },\n          {\n            \"name\": \"images\",\n            \"type\": \"media[]\",\n            \"required\": false\n          }\n        ],\n        \"validations\": [\n          {\n            \"assert\": {\n              \"$in\": [\n                {\n                  \"$ref\": \"request.model\"\n                },\n                [\n                  \"h3-video\",\n                  \"h3-video-frames\"\n                ]\n              ]\n            },\n            \"message\": \"此协议仅支持 h3-video 或 h3-video-frames\"\n          },\n          {\n            \"assert\": {\n              \"$and\": [\n                {\n                  \"$gt\": [\n                    {\n                      \"$len\": {\n                        \"$ref\": \"request.prompt\"\n                      }\n                    },\n                    0\n                  ]\n                },\n                {\n                  \"$lte\": [\n                    {\n                      \"$len\": {\n                        \"$ref\": \"request.prompt\"\n                      }\n                    },\n                    12000\n                  ]\n                }\n              ]\n            },\n            \"message\": \"提示词需为 1–12000 字符\"\n          },\n          {\n            \"assert\": {\n              \"$or\": [\n                {\n                  \"$and\": [\n                    {\n                      \"$eq\": [\n                        {\n                          \"$ref\": \"request.model\"\n                        },\n                        \"h3-video\"\n                      ]\n                    },\n                    {\n                      \"$gte\": [\n                        {\n                          \"$ref\": \"request.duration\"\n                        },\n                        4\n                      ]\n                    },\n                    {\n                      \"$lte\": [\n                        {\n                          \"$ref\": \"request.duration\"\n                        },\n                        30\n                      ]\n                    }\n                  ]\n                },\n                {\n                  \"$and\": [\n                    {\n                      \"$eq\": [\n                        {\n                          \"$ref\": \"request.model\"\n                        },\n                        \"h3-video-frames\"\n                      ]\n                    },\n                    {\n                      \"$gte\": [\n                        {\n                          \"$ref\": \"request.duration\"\n                        },\n                        4\n                      ]\n                    },\n                    {\n                      \"$lte\": [\n                        {\n                          \"$ref\": \"request.duration\"\n                        },\n                        15\n                      ]\n                    }\n                  ]\n                }\n              ]\n            },\n            \"message\": \"h3-video 时长需为 4–30 秒；h3-video-frames 时长需为 4–15 秒\"\n          },\n          {\n            \"assert\": {\n              \"$and\": [\n                {\n                  \"$in\": [\n                    {\n                      \"$ref\": \"request.resolution\"\n                    },\n                    [\n                      \"480p\",\n                      \"720p\",\n                      \"768p\",\n                      \"960p\",\n                      \"1080p\"\n                    ]\n                  ]\n                },\n                {\n                  \"$in\": [\n                    {\n                      \"$ref\": \"request.aspectRatio\"\n                    },\n                    [\n                      \"16:9\",\n                      \"9:16\",\n                      \"21:9\",\n                      \"4:3\",\n                      \"1:1\",\n                      \"3:4\"\n                    ]\n                  ]\n                },\n                {\n                  \"$or\": [\n                    {\n                      \"$ne\": [\n                        {\n                          \"$ref\": \"request.resolution\"\n                        },\n                        \"720p\"\n                      ]\n                    },\n                    {\n                      \"$in\": [\n                        {\n                          \"$ref\": \"request.aspectRatio\"\n                        },\n                        [\n                          \"16:9\",\n                          \"9:16\"\n                        ]\n                      ]\n                    }\n                  ]\n                }\n              ]\n            },\n            \"message\": \"请选择支持的分辨率与画幅比例；720p 仅支持横竖屏\"\n          },\n          {\n            \"assert\": {\n              \"$or\": [\n                {\n                  \"$and\": [\n                    {\n                      \"$ne\": [\n                        {\n                          \"$ref\": \"request.resolution\"\n                        },\n                        \"960p\"\n                      ]\n                    },\n                    {\n                      \"$ne\": [\n                        {\n                          \"$ref\": \"request.resolution\"\n                        },\n                        \"1080p\"\n                      ]\n                    }\n                  ]\n                },\n                {\n                  \"$lte\": [\n                    {\n                      \"$ref\": \"request.duration\"\n                    },\n                    15\n                  ]\n                }\n              ]\n            },\n            \"message\": \"960p/1080p 最长 15 秒\"\n          },\n          {\n            \"assert\": {\n              \"$or\": [\n                {\n                  \"$ne\": [\n                    {\n                      \"$ref\": \"request.resolution\"\n                    },\n                    \"768p\"\n                  ]\n                },\n                {\n                  \"$ne\": [\n                    {\n                      \"$ref\": \"request.aspectRatio\"\n                    },\n                    \"21:9\"\n                  ]\n                },\n                {\n                  \"$lte\": [\n                    {\n                      \"$ref\": \"request.duration\"\n                    },\n                    20\n                  ]\n                }\n              ]\n            },\n            \"message\": \"768p 21:9 最长 20 秒\"\n          },\n          {\n            \"assert\": {\n              \"$or\": [\n                {\n                  \"$and\": [\n                    {\n                      \"$eq\": [\n                        {\n                          \"$ref\": \"request.model\"\n                        },\n                        \"h3-video\"\n                      ]\n                    },\n                    {\n                      \"$lte\": [\n                        {\n                          \"$len\": {\n                            \"$ref\": \"request.images\"\n                          }\n                        },\n                        9\n                      ]\n                    }\n                  ]\n                },\n                {\n                  \"$and\": [\n                    {\n                      \"$eq\": [\n                        {\n                          \"$ref\": \"request.model\"\n                        },\n                        \"h3-video-frames\"\n                      ]\n                    },\n                    {\n                      \"$lte\": [\n                        {\n                          \"$len\": {\n                            \"$ref\": \"request.images\"\n                          }\n                        },\n                        2\n                      ]\n                    }\n                  ]\n                }\n              ]\n            },\n            \"message\": \"h3-video 最多 9 张参考图；h3-video-frames 最多 2 张首尾帧\"\n          },\n          {\n            \"assert\": {\n              \"$and\": [\n                {\n                  \"$eq\": [\n                    {\n                      \"$len\": {\n                        \"$ref\": \"request.videos\"\n                      }\n                    },\n                    0\n                  ]\n                },\n                {\n                  \"$eq\": [\n                    {\n                      \"$len\": {\n                        \"$ref\": \"request.audios\"\n                      }\n                    },\n                    0\n                  ]\n                }\n              ]\n            },\n            \"message\": \"此入口不支持参考视频或参考音频\"\n          },\n          {\n            \"assert\": {\n              \"$or\": [\n                {\n                  \"$and\": [\n                    {\n                      \"$eq\": [\n                        {\n                          \"$ref\": \"request.model\"\n                        },\n                        \"h3-video\"\n                      ]\n                    },\n                    {\n                      \"$eq\": [\n                        {\n                          \"$len\": {\n                            \"$filter\": {\n                              \"from\": {\n                                \"$ref\": \"request.images\"\n                              },\n                              \"as\": \"image\",\n                              \"where\": {\n                                \"$and\": [\n                                  {\n                                    \"$ne\": [\n                                      {\n                                        \"$ref\": \"image.role\"\n                                      },\n                                      \"reference_image\"\n                                    ]\n                                  },\n                                  {\n                                    \"$ne\": [\n                                      {\n                                        \"$ref\": \"image.role\"\n                                      },\n                                      \"\"\n                                    ]\n                                  },\n                                  {\n                                    \"$ne\": [\n                                      {\n                                        \"$ref\": \"image.role\"\n                                      },\n                                      null\n                                    ]\n                                  }\n                                ]\n                              }\n                            }\n                          }\n                        },\n                        0\n                      ]\n                    }\n                  ]\n                },\n                {\n                  \"$and\": [\n                    {\n                      \"$eq\": [\n                        {\n                          \"$ref\": \"request.model\"\n                        },\n                        \"h3-video-frames\"\n                      ]\n                    },\n                    {\n                      \"$gte\": [\n                        {\n                          \"$len\": {\n                            \"$filter\": {\n                              \"from\": {\n                                \"$ref\": \"request.images\"\n                              },\n                              \"as\": \"image\",\n                              \"where\": {\n                                \"$in\": [\n                                  {\n                                    \"$ref\": \"image.role\"\n                                  },\n                                  [\n                                    \"first_frame\",\n                                    \"last_frame\"\n                                  ]\n                                ]\n                              }\n                            }\n                          }\n                        },\n                        1\n                      ]\n                    },\n                    {\n                      \"$eq\": [\n                        {\n                          \"$len\": {\n                            \"$filter\": {\n                              \"from\": {\n                                \"$ref\": \"request.images\"\n                              },\n                              \"as\": \"image\",\n                              \"where\": {\n                                \"$in\": [\n                                  {\n                                    \"$ref\": \"image.role\"\n                                  },\n                                  [\n                                    \"first_frame\",\n                                    \"last_frame\"\n                                  ]\n                                ]\n                              }\n                            }\n                          }\n                        },\n                        {\n                          \"$len\": {\n                            \"$ref\": \"request.images\"\n                          }\n                        }\n                      ]\n                    },\n                    {\n                      \"$lte\": [\n                        {\n                          \"$len\": {\n                            \"$filter\": {\n                              \"from\": {\n                                \"$ref\": \"request.images\"\n                              },\n                              \"as\": \"image\",\n                              \"where\": {\n                                \"$in\": [\n                                  {\n                                    \"$ref\": \"image.role\"\n                                  },\n                                  [\n                                    \"first_frame\"\n                                  ]\n                                ]\n                              }\n                            }\n                          }\n                        },\n                        1\n                      ]\n                    },\n                    {\n                      \"$lte\": [\n                        {\n                          \"$len\": {\n                            \"$filter\": {\n                              \"from\": {\n                                \"$ref\": \"request.images\"\n                              },\n                              \"as\": \"image\",\n                              \"where\": {\n                                \"$in\": [\n                                  {\n                                    \"$ref\": \"image.role\"\n                                  },\n                                  [\n                                    \"last_frame\"\n                                  ]\n                                ]\n                              }\n                            }\n                          }\n                        },\n                        1\n                      ]\n                    }\n                  ]\n                }\n              ]\n            },\n            \"message\": \"h3-video 只接受普通参考图；h3-video-frames 必须提供至少一张首帧或尾帧，每种角色最多一张\"\n          }\n        ],\n        \"create\": {\n          \"method\": \"POST\",\n          \"path\": \"/v1/videos\",\n          \"contentType\": \"multipart/form-data\",\n          \"contentTypeTemplate\": {\n            \"$if\": {\n              \"condition\": {\n                \"$eq\": [\n                  {\n                    \"$ref\": \"request.model\"\n                  },\n                  \"h3-video-frames\"\n                ]\n              },\n              \"then\": \"application/json\",\n              \"else\": \"multipart/form-data\"\n            }\n          },\n          \"body\": {\n            \"$if\": {\n              \"condition\": {\n                \"$eq\": [\n                  {\n                    \"$ref\": \"request.model\"\n                  },\n                  \"h3-video-frames\"\n                ]\n              },\n              \"then\": {\n                \"model\": {\n                  \"$ref\": \"request.model\"\n                },\n                \"content\": {\n                  \"$concatArrays\": [\n                    [\n                      {\n                        \"type\": \"text\",\n                        \"text\": {\n                          \"$ref\": \"request.prompt\"\n                        }\n                      }\n                    ],\n                    {\n                      \"$map\": {\n                        \"from\": {\n                          \"$sortByOrder\": {\n                            \"$ref\": \"request.images\"\n                          }\n                        },\n                        \"as\": \"media\",\n                        \"in\": {\n                          \"type\": \"image_url\",\n                          \"image_url\": {\n                            \"url\": {\n                              \"$ref\": \"media.value\"\n                            }\n                          },\n                          \"role\": {\n                            \"$ref\": \"media.role\"\n                          }\n                        }\n                      }\n                    }\n                  ]\n                },\n                \"duration\": {\n                  \"$ref\": \"request.duration\"\n                },\n                \"resolution\": {\n                  \"$upper\": {\n                    \"$ref\": \"request.resolution\"\n                  }\n                },\n                \"ratio\": {\n                  \"$ref\": \"request.aspectRatio\"\n                }\n              },\n              \"else\": {\n                \"model\": {\n                  \"$ref\": \"request.model\"\n                },\n                \"prompt\": {\n                  \"$ref\": \"request.prompt\"\n                },\n                \"seconds\": {\n                  \"$toString\": {\n                    \"$ref\": \"request.duration\"\n                  }\n                },\n                \"size\": {\n                  \"$switch\": {\n                    \"cases\": [\n                      {\n                        \"when\": {\n                          \"$eq\": [\n                            {\n                              \"$ref\": \"request.resolution\"\n                            },\n                            \"480p\"\n                          ]\n                        },\n                        \"then\": {\n                          \"$switch\": {\n                            \"cases\": [\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"16:9\"\n                                  ]\n                                },\n                                \"then\": \"854x480\"\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"9:16\"\n                                  ]\n                                },\n                                \"then\": \"480x854\"\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"21:9\"\n                                  ]\n                                },\n                                \"then\": \"1120x480\"\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"4:3\"\n                                  ]\n                                },\n                                \"then\": \"640x480\"\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"1:1\"\n                                  ]\n                                },\n                                \"then\": \"480x480\"\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"3:4\"\n                                  ]\n                                },\n                                \"then\": \"480x640\"\n                              }\n                            ],\n                            \"default\": null\n                          }\n                        }\n                      },\n                      {\n                        \"when\": {\n                          \"$eq\": [\n                            {\n                              \"$ref\": \"request.resolution\"\n                            },\n                            \"720p\"\n                          ]\n                        },\n                        \"then\": {\n                          \"$switch\": {\n                            \"cases\": [\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"16:9\"\n                                  ]\n                                },\n                                \"then\": \"1280x720\"\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"9:16\"\n                                  ]\n                                },\n                                \"then\": \"720x1280\"\n                              }\n                            ],\n                            \"default\": null\n                          }\n                        }\n                      },\n                      {\n                        \"when\": {\n                          \"$eq\": [\n                            {\n                              \"$ref\": \"request.resolution\"\n                            },\n                            \"768p\"\n                          ]\n                        },\n                        \"then\": {\n                          \"$switch\": {\n                            \"cases\": [\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"16:9\"\n                                  ]\n                                },\n                                \"then\": \"1366x768\"\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"9:16\"\n                                  ]\n                                },\n                                \"then\": \"768x1366\"\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"21:9\"\n                                  ]\n                                },\n                                \"then\": \"1792x768\"\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"4:3\"\n                                  ]\n                                },\n                                \"then\": \"1024x768\"\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"1:1\"\n                                  ]\n                                },\n                                \"then\": \"768x768\"\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"3:4\"\n                                  ]\n                                },\n                                \"then\": \"768x1024\"\n                              }\n                            ],\n                            \"default\": null\n                          }\n                        }\n                      },\n                      {\n                        \"when\": {\n                          \"$eq\": [\n                            {\n                              \"$ref\": \"request.resolution\"\n                            },\n                            \"960p\"\n                          ]\n                        },\n                        \"then\": {\n                          \"$switch\": {\n                            \"cases\": [\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"16:9\"\n                                  ]\n                                },\n                                \"then\": \"1707x960\"\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"9:16\"\n                                  ]\n                                },\n                                \"then\": \"960x1707\"\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"21:9\"\n                                  ]\n                                },\n                                \"then\": \"2240x960\"\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"4:3\"\n                                  ]\n                                },\n                                \"then\": \"1280x960\"\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"1:1\"\n                                  ]\n                                },\n                                \"then\": \"960x960\"\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"3:4\"\n                                  ]\n                                },\n                                \"then\": \"960x1280\"\n                              }\n                            ],\n                            \"default\": null\n                          }\n                        }\n                      },\n                      {\n                        \"when\": {\n                          \"$eq\": [\n                            {\n                              \"$ref\": \"request.resolution\"\n                            },\n                            \"1080p\"\n                          ]\n                        },\n                        \"then\": {\n                          \"$switch\": {\n                            \"cases\": [\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"16:9\"\n                                  ]\n                                },\n                                \"then\": \"1920x1080\"\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"9:16\"\n                                  ]\n                                },\n                                \"then\": \"1080x1920\"\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"21:9\"\n                                  ]\n                                },\n                                \"then\": \"2520x1080\"\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"4:3\"\n                                  ]\n                                },\n                                \"then\": \"1440x1080\"\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"1:1\"\n                                  ]\n                                },\n                                \"then\": \"1080x1080\"\n                              },\n                              {\n                                \"when\": {\n                                  \"$eq\": [\n                                    {\n                                      \"$ref\": \"request.aspectRatio\"\n                                    },\n                                    \"3:4\"\n                                  ]\n                                },\n                                \"then\": \"1080x1440\"\n                              }\n                            ],\n                            \"default\": null\n                          }\n                        }\n                      }\n                    ],\n                    \"default\": null\n                  }\n                },\n                \"optimize_prompt\": false\n              }\n            }\n          },\n          \"files\": [\n            {\n              \"name\": \"input_reference\",\n              \"source\": {\n                \"$if\": {\n                  \"condition\": {\n                    \"$eq\": [\n                      {\n                        \"$ref\": \"request.model\"\n                      },\n                      \"h3-video\"\n                    ]\n                  },\n                  \"then\": {\n                    \"$sortByOrder\": {\n                      \"$ref\": \"request.images\"\n                    }\n                  },\n                  \"else\": []\n                }\n              }\n            }\n          ]\n        },\n        \"poll\": {\n          \"method\": \"GET\",\n          \"path\": \"/v1/videos/{{taskId}}\"\n        },\n        \"result\": {\n          \"method\": \"GET\",\n          \"path\": \"/v1/videos/{{taskId}}/content\",\n          \"headers\": {\n            \"Accept\": \"video/mp4\"\n          }\n        },\n        \"response\": {\n          \"taskId\": {\n            \"$coalesce\": [\n              {\n                \"$ref\": \"response.id\"\n              },\n              {\n                \"$ref\": \"response.task_id\"\n              },\n              {\n                \"$ref\": \"taskId\"\n              }\n            ]\n          },\n          \"status\": {\n            \"$coalesce\": [\n              {\n                \"$ref\": \"response.status\"\n              }\n            ]\n          },\n          \"message\": {\n            \"$coalesce\": [\n              {\n                \"$ref\": \"response.error.message\"\n              },\n              {\n                \"$ref\": \"response.message\"\n              }\n            ]\n          },\n          \"videos\": {\n            \"$coalesce\": [\n              {\n                \"$ref\": \"response.sparkcine.outputs.0.download_url\"\n              },\n              {\n                \"$ref\": \"response.metadata.direct_url\"\n              },\n              {\n                \"$ref\": \"response.video_url\"\n              },\n              {\n                \"$ref\": \"response.url\"\n              }\n            ]\n          },\n          \"errorPaths\": [\n            \"error.message\",\n            \"error.code\"\n          ],\n          \"resultEphemeral\": true\n        }\n      }\n    ]\n  },\n  \"documentation\": \"<当前插件的完整 documentation，由 README.md 与 docs/interface.md 拼接而成；为避免 JSON 递归，此处不重复展开正文。>\"\n}\n```\n<!-- YINGCE_MANIFEST_CONTRACT_END -->"
 }

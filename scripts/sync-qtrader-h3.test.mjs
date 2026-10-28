@@ -3,16 +3,19 @@ import assert from 'node:assert/strict';
 import { buildSetup } from './sync-qtrader-h3.mjs';
 
 function catalog() {
-  return { code: 0, data: { groups: [{ id: 100, name: 'sparkcine-h3组', rate_multiplier: 1,
+  return { code: 0, data: { groups: [{ id: 100, name: 'Minimax视频组', rate_multiplier: 1,
     peak_rate_enabled: false, models: [{ name: 'h3-video', description: 'H3 视频',
       pricing: { billing_mode: 'video', intervals: ['480p', '720p', '768p', '960p', '1080p'].map((tier_label, i) => ({
         tier_label, min_tokens: 0, max_tokens: null, per_request_price: [0.015, 0.015, 0.015, 0.12, 0.16][i],
+      })) } }, { name: 'h3-video-frames', description: 'H3 首尾帧视频',
+      pricing: { billing_mode: 'video', intervals: ['480p', '720p', '768p', '960p', '1080p'].map((tier_label, i) => ({
+        tier_label, min_tokens: 0, max_tokens: null, per_request_price: [0.0075, 0.0075, 0.0075, 0.06, 0.08][i],
       })) } }, { name: 'img-2-5s' }] }] } };
 }
 
 test('only H3 is imported; durations, ratios and prices match each exposed option', () => {
   const plan = buildSetup(catalog());
-  assert.deepEqual(plan.models.map(m => m.providerModelKey), ['h3-video', 'h3-video']);
+  assert.deepEqual(plan.models.map(m => m.providerModelKey), ['h3-video', 'h3-video', 'h3-video-frames']);
   assert.equal(plan.sync.importNew, false);
   assert.equal(plan.sync.groupId, 100);
   assert.equal(plan.models[0].capabilityConfig.video.duration.max, 30);
@@ -23,8 +26,12 @@ test('only H3 is imported; durations, ratios and prices match each exposed optio
   assert.doesNotMatch(plan.models[1].description, /30|480p|720p|768p/);
   assert.deepEqual(plan.models[0].capabilityConfig.video.ratios, ['16:9', '9:16']);
   assert.equal(plan.models[0].capabilityConfig.video.references.maxImages, 9);
+  assert.equal(plan.models[2].capabilityConfig.video.references.minImages, 1);
+  assert.equal(plan.models[2].capabilityConfig.video.references.maxImages, 2);
+  assert.deepEqual(plan.models[2].capabilityConfig.video.operations, ['image_to_video']);
+  assert.equal(plan.models[2].capabilityConfig.video.duration.max, 15);
   assert.ok(plan.models.every(m => m.tags.length <= 5 && m.tags.every(t => [...t.text].length <= 12 && ['purple', 'blue', 'green', 'gold', 'orange', 'pink'].includes(t.color))));
-  assert.deepEqual(plan.models.flatMap(m => m.priceTiers.map(t => t.unitPriceMicrocredits)), [18750, 18750, 18750, 150000, 200000]);
+  assert.deepEqual(plan.models.flatMap(m => m.priceTiers.map(t => t.unitPriceMicrocredits)), [18750, 18750, 18750, 150000, 200000, 9375, 9375, 9375, 75000, 100000]);
 });
 
 test('missing, duplicated, dynamic and invalid costs stop setup', () => {

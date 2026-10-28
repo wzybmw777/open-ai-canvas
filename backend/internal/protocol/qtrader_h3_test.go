@@ -43,6 +43,51 @@ func TestQtraderH3MultipartAndSize(t *testing.T) {
 	}
 }
 
+func TestQtraderH3FramesJSONAndRoles(t *testing.T) {
+	adapter := qtraderH3Adapter(t)
+	request := GenerationRequest{Model: "h3-video-frames", Prompt: "a continuous shot", Duration: 6, Resolution: "768p", AspectRatio: "16:9",
+		Images: []MediaReference{{URL: "https://cdn.example/last.png", Role: "last_frame", Order: 2}, {URL: "https://cdn.example/first.png", Role: "first_frame", Order: 1}}}
+	spec, err := adapter.BuildCreate(context.Background(), RequestContext{Request: request})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spec.Path != "/v1/videos" || spec.ContentType != "application/json" || len(spec.Files) != 0 {
+		t.Fatalf("invalid H3 Frames request envelope: %#v", spec)
+	}
+	body, ok := spec.Body.(map[string]any)
+	if !ok || body["model"] != "h3-video-frames" || body["duration"] != 6 || body["resolution"] != "768P" || body["ratio"] != "16:9" {
+		t.Fatalf("invalid H3 Frames request: %#v", body)
+	}
+	content, ok := body["content"].([]any)
+	if !ok || len(content) != 3 || content[0].(map[string]any)["type"] != "text" {
+		t.Fatalf("invalid H3 Frames content: %#v", body["content"])
+	}
+	first, _ := content[1].(map[string]any)
+	last, _ := content[2].(map[string]any)
+	if first["role"] != "first_frame" || last["role"] != "last_frame" {
+		t.Fatalf("frame roles were not preserved: %#v", content)
+	}
+}
+
+func TestQtraderH3FramesRejectsInvalidInputs(t *testing.T) {
+	adapter := qtraderH3Adapter(t)
+	for _, mutate := range []func(*GenerationRequest){
+		func(r *GenerationRequest) { r.Images = nil },
+		func(r *GenerationRequest) { r.Images = []MediaReference{{URL: "https://cdn.example/a.png", Role: "reference_image"}} },
+		func(r *GenerationRequest) { r.Images = []MediaReference{{URL: "https://cdn.example/a.png", Role: "first_frame"}, {URL: "https://cdn.example/b.png", Role: "first_frame"}} },
+		func(r *GenerationRequest) { r.Images = []MediaReference{{URL: "https://cdn.example/a.png", Role: "first_frame"}, {URL: "https://cdn.example/b.png", Role: "reference_image"}} },
+		func(r *GenerationRequest) { r.Duration = 16 },
+		func(r *GenerationRequest) { r.Audios = []MediaReference{{URL: "https://cdn.example/a.wav"}} },
+	} {
+		request := GenerationRequest{Model: "h3-video-frames", Prompt: "a clip", Duration: 6, Resolution: "768p", AspectRatio: "16:9",
+			Images: []MediaReference{{URL: "https://cdn.example/a.png", Role: "first_frame"}}}
+		mutate(&request)
+		if _, err := adapter.BuildCreate(context.Background(), RequestContext{Request: request}); err == nil {
+			t.Fatalf("invalid H3 Frames input accepted: %#v", request)
+		}
+	}
+}
+
 func TestQtraderH3RejectsUnsupportedInput(t *testing.T) {
 	adapter := qtraderH3Adapter(t)
 	for _, mutate := range []func(*GenerationRequest){
