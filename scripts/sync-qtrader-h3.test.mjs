@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSetup } from './sync-qtrader-h3.mjs';
+import { buildSetup, ensureH3Models } from './sync-qtrader-h3.mjs';
 
 function catalog() {
   return { code: 0, data: { groups: [{ id: 100, name: 'Minimax视频组', rate_multiplier: 1,
@@ -30,6 +30,7 @@ test('only H3 is imported; durations, ratios and prices match each exposed optio
   assert.equal(plan.models[2].capabilityConfig.video.references.maxImages, 2);
   assert.deepEqual(plan.models[2].capabilityConfig.video.operations, ['image_to_video']);
   assert.equal(plan.models[2].capabilityConfig.video.duration.max, 15);
+  assert.ok(plan.models.every(model => model.capabilityConfig.video.generateAudio.supported));
   assert.ok(plan.models.every(m => m.tags.length <= 5 && m.tags.every(t => [...t.text].length <= 12 && ['purple', 'blue', 'green', 'gold', 'orange', 'pink'].includes(t.color))));
   assert.deepEqual(plan.models.flatMap(m => m.priceTiers.map(t => t.unitPriceMicrocredits)), [18750, 18750, 18750, 150000, 200000, 9375, 9375, 9375, 75000, 100000]);
 });
@@ -47,4 +48,32 @@ test('missing, duplicated, dynamic and invalid costs stop setup', () => {
   ]) {
     const fixture = catalog(); mutate(fixture); assert.throws(() => buildSetup(fixture));
   }
+});
+
+test('upgrades an existing two-model channel and backfills native audio support', async () => {
+  const calls = [];
+  const nativeAudio = { generateAudio: { supported: true, default: true } };
+  const desiredModels = [
+    { modelKey: 'h3-video', providerModelKey: 'h3-video', capabilityConfig: { video: nativeAudio } },
+    { modelKey: 'h3-video-hd', providerModelKey: 'h3-video', capabilityConfig: { video: nativeAudio } },
+    { modelKey: 'h3-video-frames', providerModelKey: 'h3-video-frames', enabled: true, capabilityConfig: { video: nativeAudio } },
+  ];
+  let models = [
+    { id: 'long', modelKey: 'h3-video', providerModelKey: 'h3-video', enabled: true, capabilityConfig: { video: { generateAudio: { supported: false } } } },
+    { id: 'hd', modelKey: 'h3-video-hd', providerModelKey: 'h3-video', enabled: true, capabilityConfig: { video: { generateAudio: { supported: false } } } },
+  ];
+  const api = async (path, method = 'GET', body) => {
+    calls.push({ path, method, body });
+    if (method === 'POST') models = [...models, { id: 'frames', ...body }];
+    if (method === 'PATCH') models = models.map(model => model.id === path.split('/').at(-1) ? { ...model, ...body } : model);
+    return { models };
+  };
+
+  const result = await ensureH3Models(api, 'channel', desiredModels);
+
+  assert.equal(result.length, 3);
+  assert.equal(result.at(-1).providerModelKey, 'h3-video-frames');
+  assert.equal(calls.filter(call => call.method === 'POST').length, 1);
+  assert.equal(calls.filter(call => call.method === 'PATCH').length, 2);
+  assert.ok(result.every(model => model.capabilityConfig.video.generateAudio.supported));
 });

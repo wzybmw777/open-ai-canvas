@@ -81,6 +81,7 @@ const adminNavigation: Array<{ label: string; items: AdminNavigationItem[] }> = 
         label: "模型与资源",
         items: [
             { path: "/admin/channels", label: "系统渠道", shortLabel: "渠道", description: "渠道、模型与售价", icon: <RadioTower className="size-4" /> },
+            { path: "/admin/channel-sync", label: "渠道同步", shortLabel: "同步", description: "上游授权、价格与执行记录", icon: <RefreshCw className="size-4" /> },
             { path: "/admin/models", label: "前台模型", shortLabel: "模型", description: "展示、线路与用户价格", icon: <Layers3 className="size-4" />, requireFeature: "frontendModelsEnabled" },
             { path: "/admin/prompt-templates", label: "提示词模板", shortLabel: "模板", description: "平台创作策略版本", icon: <MessageSquareText className="size-4" /> },
             { path: "/admin/workbench-tools", label: "工作台工具", shortLabel: "工具", description: "生图/视频工具与预设", icon: <WandSparkles className="size-4" /> },

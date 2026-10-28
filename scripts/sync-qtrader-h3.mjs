@@ -64,7 +64,7 @@ export function buildSetup(catalog) {
           maxVideos: 0, maxVideoBytes: 0, maxVideoDurationSeconds: 0, maxAudios: 0, maxAudioBytes: 0, maxAudioDurationSeconds: 0 },
         duration: { selection: 'range', min: 4, max: variant.max, step: 1, default: 6 },
         ratios: variant.ratios, defaultRatio: '16:9', resolutions: variant.resolutions, defaultResolution: variant.default,
-        generateAudio: { supported: variant.frameMode ? false : true, default: true }, watermark: { supported: false, default: false },
+        generateAudio: { supported: true, default: true }, watermark: { supported: false, default: false },
       } },
       priceTiers: variant.resolutions.map(resolution => ({
         selector: { vquality: resolution }, providerModelKey: variant.providerKey, billingMode: 'per_second',
@@ -75,6 +75,53 @@ export function buildSetup(catalog) {
   });
   return { channel: { name: CHANNEL_NAME, baseUrl: UPSTREAM_URL, models: [], enabled: true }, models,
     sync: { enabled: true, script: 'model-plaza', sourceUrl: SOURCE_URL, groupId: 100, syncPrices: true, importNew: false } };
+}
+
+function hasReviewedH3Models(models, includeFrames) {
+  const expected = includeFrames ? ['h3-video', 'h3-video-hd', 'h3-video-frames'] : ['h3-video', 'h3-video-hd'];
+  return Array.isArray(models) && models.length === expected.length && models.every(model => {
+    if (!expected.includes(model.modelKey) || model.enabled === false) return false;
+    return model.modelKey === 'h3-video-frames' ? model.providerModelKey === 'h3-video-frames' : model.providerModelKey === 'h3-video';
+  });
+}
+
+function hasNativeAudio(model) {
+  return model?.capabilityConfig?.video?.generateAudio?.supported === true;
+}
+
+async function repairNativeAudio(api, channelID, models, desiredModels) {
+  const desiredByKey = new Map(desiredModels.map(model => [model.modelKey, model]));
+  for (const model of models) {
+    const desired = desiredByKey.get(model.modelKey);
+    if (!desired || hasNativeAudio(model) || !model.id) continue;
+    await api(`/admin/channels/${channelID}/models/${model.id}`, 'PATCH', {
+      ...model,
+      capabilityConfig: desired.capabilityConfig,
+      priceTiers: model.priceTiers,
+    });
+  }
+  return (await api(`/admin/channels/${channelID}/models`)).models;
+}
+
+// Existing H3 channels predate the frames model. Upgrade only the reviewed two-model
+// shape, repair a previously created frames model, and backfill native-audio support.
+export async function ensureH3Models(api, channelID, desiredModels) {
+  let models = (await api(`/admin/channels/${channelID}/models`)).models;
+  const frames = desiredModels.find(model => model.modelKey === 'h3-video-frames');
+  if (!frames) return models;
+  if (hasReviewedH3Models(models, false)) {
+    await api(`/admin/channels/${channelID}/models`, 'POST', frames);
+  } else if (!hasReviewedH3Models(models, true)) {
+    const existingFrames = models.find(model => model.modelKey === 'h3-video-frames');
+    if (existingFrames?.id) {
+      await api(`/admin/channels/${channelID}/models/${existingFrames.id}`, 'PATCH', { ...existingFrames, ...frames });
+    }
+  }
+  models = (await api(`/admin/channels/${channelID}/models`)).models;
+  if (hasReviewedH3Models(models, true) && models.some(model => !hasNativeAudio(model))) {
+    models = await repairNativeAudio(api, channelID, models, desiredModels);
+  }
+  return models;
 }
 
 async function jsonRequest(url, options = {}) {
@@ -94,7 +141,11 @@ async function main() {
   const mode = args[0] || '--dry-run';
   const setup = buildSetup(await jsonRequest(SOURCE_URL, { headers: { 'User-Agent': 'Mozilla/5.0 Yingce-Channel-Sync' } }));
   if (mode === '--dry-run') { console.log(JSON.stringify(setup, null, 2)); return; }
-  const base = new URL(process.env.CANVAS_ADMIN_BASE_URL || '');
+  const baseValue = process.env.CANVAS_ADMIN_BASE_URL?.trim();
+  if (!baseValue) throw new Error('CANVAS_ADMIN_BASE_URL is required for --apply/--sync');
+  let base;
+  try { base = new URL(baseValue); }
+  catch { throw new Error('CANVAS_ADMIN_BASE_URL must be a valid HTTPS origin'); }
   if (base.protocol !== 'https:' || base.username || base.password || base.search || base.hash || base.pathname !== '/') {
     throw new Error('CANVAS_ADMIN_BASE_URL must be a credential-free HTTPS origin');
   }
@@ -138,15 +189,24 @@ async function main() {
     }
   }
   if (!channel || !channel.enabled) throw new Error('An enabled, reviewed H3 channel is required');
-  const models = (await api(`/admin/channels/${channel.id}/models`)).models;
-  if (models.length !== 3 || models.some(model => !['h3-video', 'h3-video-hd', 'h3-video-frames'].includes(model.modelKey) ||
-      (model.modelKey === 'h3-video-frames' ? model.providerModelKey !== 'h3-video-frames' : model.providerModelKey !== 'h3-video'))) {
+  const models = await ensureH3Models(api, channel.id, setup.models);
+  if (!hasReviewedH3Models(models, true)) {
     throw new Error('Review H3-only channel contents before syncing');
   }
   const jobs = (await api('/admin/channel-sync')).jobs;
   const job = jobs.find(item => item.channelId === channel.id)?.job;
   if (!job || job.script !== 'model-plaza' || job.sourceUrl !== SOURCE_URL || job.groupId !== 100 || !job.syncPrices || job.importNew) {
-    throw new Error('H3 synchronization must use reviewed group 100 with imports disabled');
+    if (!job || job.script !== 'model-plaza' || job.sourceUrl !== SOURCE_URL || job.groupId !== 100 || !job.syncPrices) {
+      throw new Error('H3 synchronization must use reviewed group 100 with imports disabled');
+    }
+    await api(`/admin/channel-sync/${channel.id}`, 'PUT', {
+      enabled: job.enabled,
+      script: job.script,
+      sourceUrl: job.sourceUrl,
+      groupId: job.groupId,
+      syncPrices: job.syncPrices,
+      importNew: false,
+    });
   }
   const run = (await api(`/admin/channel-sync/${channel.id}/run`, 'POST')).run;
   console.log(JSON.stringify({ channelId: channel.id, runId: run.id, status: run.status, schedule: '*/30 * * * * Asia/Shanghai' }));

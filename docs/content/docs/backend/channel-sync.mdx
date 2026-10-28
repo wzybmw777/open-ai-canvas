@@ -32,7 +32,7 @@ description: 在后台管理每30分钟同步、授权目录、成本价格和�
 | 图片 | 影策 Image 2.5、GPT Image 2、GPT Image 2.5、Nano Banana 2、Nano Banana Pro | 影策图片 · 标准 / Adobe | 7 |
 | Seedance 视频 | Seedance 2.0、Seedance 2.5 | 宇熙渠道 · YX / 官渠 / Fast / Mini / G / OP / Stable | 13 |
 | Wan 视频 | 通义万相 Wan 3.0 | 万有引力渠道 · 标准文生视频 / 高速文生视频 / 标准图生视频 / 高速图生视频 / 720p 长视频 | 5 |
-| H3 视频 | MiniMax H3 | QT H3渠道 · 长视频 / 高清 | 2 |
+| H3 视频 | MiniMax H3 | QT H3渠道 · 长视频 / 高清 / 首尾帧 | 3 |
 | 音频 | 豆包音频生成模型 1.0（Seed-Audio 1.0） | 火山引擎 · Seed Audio | 1 |
 
 影策图片的 Adobe 选项仅用于两款 GPT Image 型号；Seedance 2.0 包含原 YX 按秒和官渠按次选项，可用性分别按各自上游授权与报价核对。一级目录使用模型品牌标识：GPT 使用 OpenAI，Nano Banana 使用 NanoBanana，Seedance 使用 ByteDance，Wan 使用 AlibabaCloud，影策自有模型使用 `Yingce` 标识，沿用站点内置影策图形。展示名是本站对现有上游型号的命名，不改变调用的型号 ID 或协议。
@@ -43,7 +43,7 @@ description: 在后台管理每30分钟同步、授权目录、成本价格和�
 
 已配置同步的五个渠道关闭“导入新型号”，每 30 分钟进行授权检查和原有价格同步；火山 Seed Audio 未配置渠道同步。上游新增型号须人工审核再上架，不能使用旧的全量自动启用脚本恢复已停用目录。
 
-H3 只调用 `h3-video`，使用 QT 模型广场分组 100 与独立 multipart 协议；两档按能力区分时长上限，
+H3 长视频和高清调用 `h3-video`，首尾帧调用 `h3-video-frames`，使用 QT 模型广场分组 100 与独立协议；三个选项均声明支持原声对白，两档按能力区分时长上限，
 初始售价为成本的 125%，后续同步保留现有比例。详见 [QT H3 渠道接入](/docs/backend/qtrader-h3)。
 
 宇熙组新增 `seedance2.5-yx-count`，归入 Seedance 2.5，二级展示为“宇熙渠道 · 按次（4–30秒）”。

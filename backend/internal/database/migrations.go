@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"yingce/backend/internal/kernel"
@@ -12,7 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const CurrentSchemaVersion int64 = 76
+const CurrentSchemaVersion int64 = 77
 
 const baselineSchemaChecksum = "sha256:open-ai-canvas-schema-v1-20260830"
 const schemaMigrationAppliedAtIndexChecksum = "sha256:schema-migrations-applied-at-index-v2-20260830"
@@ -270,6 +271,7 @@ var schemaMigrations = []migration{
 	{version: 74, name: "drama_episode_source_format", checksum: "sha256:drama-episode-source-format-v73-20261027", apply: migrateDramaEpisodeSourceFormat},
 	{version: 75, name: "drama_segment_references", checksum: "sha256:drama-segment-references-v74-20261027", apply: migrateDramaSegmentReferences},
 	{version: 76, name: "referral_redeem_commission", checksum: "sha256:referral-redeem-commission-v76-20261028", apply: migrateReferralRedeemCommission},
+	{version: 77, name: "qtrader_h3_native_audio", checksum: "sha256:qtrader-h3-native-audio-v77-20261028", apply: migrateQTRaderH3NativeAudio},
 }
 
 // migrateReferralCenter 增加推广人标记和推广码、绑定、返佣三张表；旧用户默认不是推广人。
@@ -299,6 +301,53 @@ func migrateReferralRedeemCommission(tx *gorm.DB) error {
 		}
 	}
 	return tx.AutoMigrate(&model.ReferralCommission{})
+}
+
+// migrateQTRaderH3NativeAudio repairs the reviewed H3 variants created before
+// native dialogue support was enabled for the HD and first/last-frame models.
+// Keep this scoped to the protocol and model family so unrelated video models
+// retain their declared audio capability.
+func migrateQTRaderH3NativeAudio(tx *gorm.DB) error {
+	var rows []model.ChannelModel
+	if err := tx.Where("protocol = ? AND model_key IN ?", "qtrader-h3", []string{"h3-video", "h3-video-hd", "h3-video-frames"}).Find(&rows).Error; err != nil {
+		return err
+	}
+	for _, row := range rows {
+		if strings.TrimSpace(row.CapabilityConfigJSON) == "" {
+			continue
+		}
+		var config map[string]any
+		if err := json.Unmarshal([]byte(row.CapabilityConfigJSON), &config); err != nil {
+			return fmt.Errorf("解析 QT H3 模型 %s 能力配置：%w", row.ID, err)
+		}
+		video, ok := config["video"].(map[string]any)
+		if !ok {
+			continue
+		}
+		audio, ok := video["generateAudio"].(map[string]any)
+		if !ok {
+			audio = map[string]any{}
+			video["generateAudio"] = audio
+		}
+		supported, supportedOK := audio["supported"].(bool)
+		defaultValue, defaultOK := audio["default"].(bool)
+		if supportedOK && supported && defaultOK && defaultValue {
+			continue
+		}
+		audio["supported"] = true
+		audio["default"] = true
+		encoded, err := json.Marshal(config)
+		if err != nil {
+			return fmt.Errorf("编码 QT H3 模型 %s 能力配置：%w", row.ID, err)
+		}
+		if err := tx.Model(&model.ChannelModel{}).Where("id = ?", row.ID).Updates(map[string]any{
+			"capability_config_json": string(encoded),
+			"capability_version":     row.CapabilityVersion + 1,
+		}).Error; err != nil {
+			return fmt.Errorf("保存 QT H3 模型 %s 能力配置：%w", row.ID, err)
+		}
+	}
+	return nil
 }
 
 func migrateDramaSegmentReferenceOverrides(tx *gorm.DB) error {
