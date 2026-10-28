@@ -4,9 +4,9 @@
 
 ## 请求
 
-创建为 `POST /v1/videos`，JSON 使用 `model`、`prompt`、字符串 `seconds` 和 `ratio`。统一字段 `duration` 转为 `seconds`，`aspectRatio=auto` 转为 `ratio=adaptive`；使用 ratio 时省略 size，输出固定 720p。
+创建为 `POST /v1/videos`，JSON 使用 `model`、`prompt`、字符串 `seconds` 和 `ratio`。统一字段 `duration` 转为 `seconds`，`aspectRatio=auto` 转为 `ratio=adaptive`；使用 ratio 时省略 size。分辨率、时长和参考素材数量由渠道模型的能力配置决定，插件不替模型猜测限制。
 
-`images` 按顺序映射到 `reference_images`，`videos` 和 `audios` 保留对应数组名称，传 HTTPS 或 data URL。空参考数组省略。2.0 支持 5/10/15 秒，默认 15 秒，最多 9 图、3 视频、3 音频；2.5 支持 4–30 秒，默认 30 秒，最多 30 图、10 视频、10 音频。这些限制由模型能力配置校验。
+`images` 按顺序映射到 `reference_images`，`videos` 和 `audios` 保留对应数组名称，传 HTTPS 或 data URL。空参考数组省略。YX 2.0 系列按型号支持 4–15 秒、最多 9 图/3 视频/3 音频；YX 2.5 系列支持 4–30 秒、最多 30 图/10 视频/10 音频。宇熙渠道的 Seedance 能力配置声明支持原声对白并默认开启；不同型号的 480p、720p、1080p 和 4K 价格档以及输入限制由渠道模型能力配置校验。
 
 ## 响应与下载
 

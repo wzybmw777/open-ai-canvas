@@ -1,5 +1,5 @@
 # 玉玺盒子 YX 视频
 
-基于 [YX 官方文档](https://yuxibox.cn/docs) 的独立声明式协议。支持 `seedance-2.0（YX）`、`seedance-2.5（YX）` 和 `seedance-2.5（YX）-按次`。
+基于 [YX 官方文档](https://yuxibox.cn/docs) 的独立声明式协议。支持 Seedance 2.0/2.5 的 YX、官渠、Fast、Mini、G、OP 与 Stable 型号，模型标识原样传递给上游；宇熙渠道内的 Seedance 型号声明支持原声对白，默认开启。
 
 使用系统渠道已保存的 Bearer 凭证和渠道地址。创建后保存任务 ID，只轮询已创建任务，不因超时重新提交。协议可在插件中心安装，不需要重新编译后端。
