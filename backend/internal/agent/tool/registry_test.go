@@ -96,7 +96,7 @@ func TestScopeAndApprovalDoNotGrantMediaInReadOnlyMode(t *testing.T) {
 		if p.Write() && !p.ApprovalRequired("request_approval") {
 			t.Errorf("%s bypasses request_approval", name)
 		}
-		if p.ApprovalRequired("auto") {
+		if p.ApprovalRequired("auto") && !p.Media() && !p.AlwaysApprove {
 			t.Errorf("%s requires an approval in auto", name)
 		}
 	}

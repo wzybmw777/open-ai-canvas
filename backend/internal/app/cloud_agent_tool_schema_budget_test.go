@@ -10,7 +10,7 @@ import (
 // 平台工具全集按 auto + canvas + 技能 + 视觉工具构造，覆盖最大条件工具集。
 func platformToolSchema(t *testing.T) ([]map[string]any, []byte) {
 	t.Helper()
-	req := CloudAgentRequest{PermissionMode: "auto", ContextScope: []string{"canvas"}, SkillIDs: []string{"capability-list"}, VisionEnabled: true}
+	req := CloudAgentRequest{PermissionMode: "auto", ContextScope: []string{"canvas"}, SkillsEnabled: true, MemoryMode: "auto", VisionEnabled: true}
 	req.Budget.MaxGenerationTasks = 1
 	tools := cloudAgentTools(req)
 	raw, err := json.Marshal(tools)

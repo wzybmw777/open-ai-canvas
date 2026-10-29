@@ -100,7 +100,7 @@ func TestVerificationRegistrationAndLogin(t *testing.T) {
 				t.Fatal("SMS registration required email")
 			}
 			if method != "email" {
-				users, count, err := svc.repo.AdminUsers("13800138000", "", "", 20, 0)
+				users, count, err := svc.repo.AdminUsers("13800138000", "", "", "", 20, 0)
 				if err != nil || count != 1 || users[0].ID != result.User.ID {
 					t.Fatalf("phone search count=%d err=%v", count, err)
 				}

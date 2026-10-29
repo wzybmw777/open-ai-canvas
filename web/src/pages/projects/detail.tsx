@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { App, Button } from "antd";
-import { ArrowLeft, CheckCheck, Clapperboard, Film, Inbox, Pause, Pencil, Play, ScrollText, Settings2, Sparkles, UsersRound } from "lucide-react";
+import { ArrowLeft, Brush, CheckCheck, Clapperboard, Film, Inbox, Pause, Pencil, Play, ScrollText, Settings2, UsersRound } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { WorkspacePage } from "@/components/layout/workspace-page";
 import { WorkspaceErrorState, WorkspaceLoadingState } from "@/components/layout/workspace-state";
-import { approveDramaEpisode, deleteDramaShot, generateDramaSegments, insertDramaShot, pauseDrama, reprocessDramaSegmentVideo, regenerateDramaCast, releaseDramaMedia, renameDramaEpisode, rescriptDramaEpisode, retryFailedDrama, startDrama, updateDramaSegment, updateDramaSegmentReferences, writeDramaSegmentPrompts, updateDramaShot, type DramaInboxItem, type DramaJob, type DramaModelChoice, type DramaSegment, type DramaSegmentPatch, type DramaShot, type DramaShotPatch } from "@/services/api/drama";
+import { approveDramaEpisode, deleteDramaShot, generateDramaSegments, insertDramaShot, pauseDrama, reprocessDramaSegmentVideo, regenerateDramaCast, releaseDramaMedia, renameDramaEpisode, rescriptDramaEpisode, retryFailedDrama, startDrama, updateDramaSegment, updateDramaSegmentReferences, writeDramaSegmentPrompts, updateDramaShot, type DramaInboxItem, type DramaJob, type DramaModelChoice, type DramaSegment, type DramaShot, type DramaShotPatch } from "@/services/api/drama";
 
 import { formatCount, formatDuration, sourceFormatOf, StagePips, STAGE_LABEL, STATUS_LABEL } from "./drama-shared";
 import { CastPanel, InboxPanel, SettingsPanel } from "./studio/panels";
@@ -18,7 +18,7 @@ import { SegmentDialog } from "./studio/segment-dialog";
 import { QueueBar } from "./studio/queue-bar";
 import { ScriptView } from "./studio/script-view";
 import { Storyboard, type EpisodeEmpty } from "./studio/storyboard";
-import { isTypingTarget, useDramaCast, useDramaEpisode, useDramaInvalidate, useDramaSummary } from "./studio/use-studio";
+import { isTypingTarget, useDramaCast, useDramaEpisode, useDramaInvalidate, useDramaSummary, useOpenDramaCanvas } from "./studio/use-studio";
 import { progressFillStyle } from "@/lib/progress-fill";
 import "./drama.css";
 
@@ -40,6 +40,7 @@ export default function DramaStudioPage() {
 
     const summaryQuery = useDramaSummary(projectId);
     const summary = summaryQuery.data;
+    const canvas = useOpenDramaCanvas(summary);
     const episodes = summary?.episodes || [];
     const episodeId = episodes.some((episode) => episode.id === routeEpisodeId) ? routeEpisodeId : (episodes.find((episode) => episode.stage === "review") || episodes.find((episode) => episode.stage !== "done") || episodes[0])?.id || "";
     const episodeRow = episodes.find((episode) => episode.id === episodeId);
@@ -103,17 +104,9 @@ export default function DramaStudioPage() {
         onError: (error) => errorMessage(error, "删除失败"),
     });
     const saveSegment = useMutation({
-        mutationFn: ({ segment, patch }: { segment: DramaSegment; patch: DramaSegmentPatch }) => updateDramaSegment(projectId, episodeId, segment.index, patch),
-        onSuccess: (_, { patch }) => { invalidate(episodeId); message.success(patch.excludedCastIds ? "已更新本段参考图" : patch.videoPromptOverride ? "已保存完整视频提示词" : "已恢复模型撰写的版本"); },
+        mutationFn: ({ segment, override }: { segment: DramaSegment; override: string }) => updateDramaSegment(projectId, episodeId, segment.index, { videoPromptOverride: override }),
+        onSuccess: (_, { override }) => { invalidate(episodeId); message.success(override ? "已保存完整视频提示词" : "已恢复模型撰写的版本"); },
         onError: (error) => errorMessage(error, "保存失败"),
-    });
-    const removeSegmentReference = useMutation({
-        mutationFn: ({ segment, castId }: { segment: DramaSegment; castId: string }) => {
-            const excludedCastIds = Array.from(new Set([...(segment.excludedCastIds || []), castId]));
-            return updateDramaSegment(projectId, episodeId, segment.index, { excludedCastIds });
-        },
-        onSuccess: () => { invalidate(episodeId); message.success("已移除本段参考图，提示词需要重新撰写"); },
-        onError: (error) => errorMessage(error, "移除参考图失败"),
     });
     const saveReferences = useMutation({
         mutationFn: ({ segment, castIds }: { segment: DramaSegment; castIds: string[] | null }) => updateDramaSegmentReferences(projectId, episodeId, segment.index, castIds),
@@ -248,14 +241,17 @@ export default function DramaStudioPage() {
                         <button type="button" className="drama-nav-item" aria-current={view === "settings" ? "page" : undefined} onClick={() => openView("settings")}><Settings2 className="size-4" />设置</button>
                     </nav>
                     <div className="drama-topbar-actions">
-                        {awaitingCount ? <Button icon={<Sparkles className="size-4" />} loading={release.isPending && release.variables?.target === "all"} onClick={confirmReleaseAll}>全部生成视频 · {awaitingCount} 集</Button> : null}
+                        <Button icon={<Brush className="size-4" />} loading={canvas.opening === "canvas"} onClick={() => void canvas.open()} title="打开这部短剧的精修画布：投送设定、剧情段或成片，精修后采用回短剧">
+                            精修画布
+                        </Button>
+                        {awaitingCount ? <Button icon={<Play className="size-4" />} loading={release.isPending && release.variables?.target === "all"} onClick={confirmReleaseAll}>全部生成视频 · {awaitingCount} 集</Button> : null}
                         {production.status !== "completed" ? (
                             <Button type={running ? "default" : "primary"} icon={running ? <Pause className="size-4" /> : <Play className="size-4" />} loading={toggleRun.isPending} onClick={() => toggleRun.mutate()}>{running ? "暂停" : production.status === "draft" ? "开始制作" : "继续制作"}</Button>
                         ) : null}
                     </div>
                 </header>
 
-                {view === "cast" ? <CastPanel projectId={projectId} cast={cast} ratios={{ character: production.settings.assets.characterRatio }} focusId={castFocus} retrying={retry.isPending} assetsPending={production.settings.mediaMode === "manual" && !production.assetsReleased} releasing={release.isPending && release.variables?.target === "assets"} onReleaseAssets={() => release.mutate({ target: "assets" })} onFocus={(id) => setParams({ cast: id })} onRetry={() => retry.mutate()} onChanged={() => invalidate(episodeId)} />
+                {view === "cast" ? <CastPanel projectId={projectId} cast={cast} ratios={{ character: production.settings.assets.characterRatio }} focusId={castFocus} retrying={retry.isPending} assetsPending={production.settings.mediaMode === "manual" && !production.assetsReleased} releasing={release.isPending && release.variables?.target === "assets"} onReleaseAssets={() => release.mutate({ target: "assets" })} onFocus={(id) => setParams({ cast: id })} onRetry={() => retry.mutate()} onChanged={() => invalidate(episodeId)} onOpenCanvas={(castId) => void canvas.open({ kind: "cast", castId })} canvasOpening={canvas.opening?.startsWith("cast:") ? canvas.opening.slice("cast:".length) : undefined} />
                 : view === "inbox" ? <InboxPanel items={summary.inbox} castById={castById} retrying={retry.isPending} retryingGroup={retryingGroup} releasing={release.isPending} onRetryAll={() => retry.mutate()} onRetryGroup={(key, items) => retryGroup.mutate({ key, items })} onOpen={openInbox} onOpenSettings={() => openView("settings")} onReleaseAll={confirmReleaseAll} />
                 : view === "settings" ? <SettingsPanel projectId={projectId} summary={summary} cast={cast} onChanged={() => invalidate(episodeId)} />
                 : !episodes.length ? <StudioGenesis summary={summary} /> : (
@@ -288,6 +284,9 @@ export default function DramaStudioPage() {
                                         <button type="button" role="tab" className="drama-tab" aria-selected={tab === "board"} onClick={() => setParams({ tab: null })}><Clapperboard className="size-3.5" />分镜</button>
                                         <button type="button" role="tab" className="drama-tab" aria-selected={tab === "final"} onClick={() => setParams({ tab: "final" })}><Film className="size-3.5" />成片</button>
                                     </div>
+                                    <Button size="small" icon={<Brush className="size-3.5" />} disabled={!episodeRow.stats.segments} loading={canvas.opening === `episode:${episodeRow.id}`} onClick={() => void canvas.open({ kind: "episode", episodeId: episodeRow.id })} title={episodeRow.stats.segments ? "把本集全部剧情段投送到精修画布" : "本集还没有剧情段"}>
+                                        在画布中打开本集
+                                    </Button>
                                 </div>
                             ) : null}
                             <div className="drama-banners">
@@ -299,14 +298,14 @@ export default function DramaStudioPage() {
                             ) : null}
                             {episodeRow?.awaitingMedia ? (
                                 <div className="drama-banner is-ready">
-                                    <Sparkles className="size-5 shrink-0 text-[var(--workspace-accent)]" />
+                                    <Clapperboard className="size-5 shrink-0 text-[var(--workspace-accent)]" />
                                     <div className="drama-banner-text">
                                         <strong>剧本与视频提示词已就绪，还没有生成视频</strong>
                                         <span>先看看剧情、镜头拆分、设定和各段视频提示词是否合适；可以改台词、动作、外观或直接改提示词，确认后再生成本集的参考图与段视频。</span>
                                     </div>
                                     <div className="flex shrink-0 gap-2">
                                         {tab !== "script" ? <Button onClick={() => setParams({ tab: "script" })}>看剧本与原文</Button> : null}
-                                        <Button type="primary" icon={<Sparkles className="size-4" />} loading={release.isPending && release.variables?.target === "episodes"} onClick={() => release.mutate({ target: "episodes", episodeIds: [episodeRow.id] })}>生成本集视频</Button>
+                                        <Button type="primary" icon={<Play className="size-4" />} loading={release.isPending && release.variables?.target === "episodes"} onClick={() => release.mutate({ target: "episodes", episodeIds: [episodeRow.id] })}>生成本集视频</Button>
                                     </div>
                                 </div>
                             ) : null}
@@ -361,7 +360,14 @@ export default function DramaStudioPage() {
                                         empty={episodeEmpty}
                                     />
                                 ) : (
-                                    <FinalView title={summary.project.name} detail={detail} aspectRatio={aspectRatio} onOpenSegment={(index) => setParams({ tab: null, segment: String(index), shot: null })} />
+                                    <FinalView
+                                        title={summary.project.name}
+                                        detail={detail}
+                                        aspectRatio={aspectRatio}
+                                        onOpenSegment={(index) => setParams({ tab: null, segment: String(index), shot: null })}
+                                        onOpenCut={() => void canvas.open({ kind: "cut", episodeId: detail.episode.id })}
+                                        cutOpening={canvas.opening === `cut:${detail.episode.id}`}
+                                    />
                                 )}
                             </div>
                         </main>
@@ -376,7 +382,9 @@ export default function DramaStudioPage() {
                             onClose={() => openSegment(null)}
                             onNavigate={openSegment}
                             onPatchShot={(shot, patch) => patchShot.mutate({ shot, patch })}
-                            onSavePrompt={(segment, override) => saveSegment.mutate({ segment, patch: { videoPromptOverride: override } })}
+                            onInsertShot={(shot, position) => insertShot.mutate({ shot, position })}
+                            onDeleteShot={(shot) => removeShot.mutate(shot)}
+                            onSavePrompt={(segment, override) => saveSegment.mutate({ segment, override })}
                             onSaveReferences={(segment, castIds) => saveReferences.mutate({ segment, castIds })}
                             onWritePrompt={(segment) => writeSegment.mutate([segment.index])}
                             onGenerate={(segment, videoModel) => generateSegments.mutate({ segments: [segment.index], videoModel })}
@@ -384,7 +392,8 @@ export default function DramaStudioPage() {
                             onReprocess={(segment) => reprocessSegment.mutate(segment.index)}
                             defaultVideoModel={production.settings.models.video}
                             onOpenCast={(id) => openView("cast", { cast: id, segment: null, shot: null })}
-                            onRemoveReference={(segment, castId) => removeSegmentReference.mutate({ segment, castId })}
+                            onOpenCanvas={(segment) => void canvas.open({ kind: "segment", episodeId, segmentIndex: segment.index })}
+                            canvasOpening={Boolean(canvas.opening?.startsWith("segment:"))}
                         />
                     </div>
                 )}

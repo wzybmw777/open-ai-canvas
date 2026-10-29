@@ -101,7 +101,7 @@ func (s *Service) CreateImageCleanupTask(userID string, req ImageCleanupRequest,
 	}
 	input["prompt"] = prompt
 	parameters := map[string]any{"size": req.Parameters.Size, "quality": req.Parameters.Quality, "imageResolution": req.Parameters.ImageResolution, "count": 1}
-	config, err := s.resolveWorkbenchProviderConfig(WorkbenchKindImage, "image", strings.TrimSpace(req.Model), strings.TrimSpace(req.LogicalModelID), strings.TrimSpace(req.ChannelID), parameters, input)
+	config, err := s.resolveWorkbenchProviderConfig(userID, WorkbenchKindImage, "image", strings.TrimSpace(req.Model), strings.TrimSpace(req.LogicalModelID), strings.TrimSpace(req.ChannelID), parameters, input)
 	if err != nil {
 		return nil, err
 	}

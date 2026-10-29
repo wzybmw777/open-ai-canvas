@@ -52,7 +52,7 @@ func TestCreateWorkbenchVideoTaskUsesReferenceModeAndPrice(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			config, err := s.resolveWorkbenchProviderConfig(req.Kind, resolved.Operation, resolved.Model, resolved.LogicalModelID, resolved.ChannelID, resolved.Parameters, resolved.Input)
+			config, err := s.resolveWorkbenchProviderConfig(testGroupUserID(s), req.Kind, resolved.Operation, resolved.Model, resolved.LogicalModelID, resolved.ChannelID, resolved.Parameters, resolved.Input)
 			if err != nil || config["priceTierId"] != tc.price {
 				t.Fatalf("pre-admission config = %v, error = %v, want price %q", config, err, tc.price)
 			}
@@ -125,7 +125,7 @@ func TestCreateWorkbenchVideoTaskUsesReferenceModeAndPrice(t *testing.T) {
 func TestResolveWorkbenchProviderConfigMapsWorkbenchParameters(t *testing.T) {
 	service := &Service{}
 
-	image, err := service.resolveWorkbenchProviderConfig(WorkbenchKindImage, "image", "image-model", "logical-image", "", map[string]any{
+	image, err := service.resolveWorkbenchProviderConfig(testGroupUserID(service), WorkbenchKindImage, "image", "image-model", "logical-image", "", map[string]any{
 		"size": "1024x1024", "quality": "high", "imageResolution": "2k", "count": 2,
 	}, map[string]any{})
 	if err != nil {
@@ -137,7 +137,7 @@ func TestResolveWorkbenchProviderConfigMapsWorkbenchParameters(t *testing.T) {
 		}
 	}
 
-	video, err := service.resolveWorkbenchProviderConfig(WorkbenchKindVideo, "text_to_video", "video-model", "logical-video", "", map[string]any{
+	video, err := service.resolveWorkbenchProviderConfig(testGroupUserID(service), WorkbenchKindVideo, "text_to_video", "video-model", "logical-video", "", map[string]any{
 		"seconds": 8, "ratio": "9:16", "resolution": "1080P", "generateAudio": true, "watermark": false,
 	}, map[string]any{})
 	if err != nil {

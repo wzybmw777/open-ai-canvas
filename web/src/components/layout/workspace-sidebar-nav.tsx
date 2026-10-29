@@ -6,6 +6,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 
 import { BrandLogoFrame } from "@/components/brand/brand-logo";
 import { UserAvatar } from "@/components/layout/user-avatar";
+import { UserGroupAvatarRing, UserGroupBadge } from "@/components/layout/user-group-badge";
 import { Kbd } from "@/components/ui/base/kbd";
 import { navigationTools, type NavigationToolSlug } from "@/constant/navigation-tools";
 import { useWorkspaceLogout } from "@/hooks/use-workspace-logout";
@@ -82,6 +83,7 @@ function WorkspaceSidebarProfile({ collapsed, user, onExpand, onCollapse }: { co
     const { text } = useLocaleText();
     const [menuOpen, setMenuOpen] = useState(false);
     const profileName = user?.displayName || user?.username || text("未登录", "Signed out");
+    const userGroup = useUserStore((state) => state.userGroup);
 
     if (!user) {
         return <Link to="/login" className={cn("app-workspace-sidebar-profile", collapsed && "is-collapsed")} aria-label={text("登录", "Sign in")} title={text("登录", "Sign in")}><span className="app-workspace-sidebar-profile-avatar"><CircleUserRound aria-hidden /></span>{!collapsed ? <span>{text("游客模式", "Guest mode")}</span> : null}</Link>;
@@ -104,8 +106,13 @@ function WorkspaceSidebarProfile({ collapsed, user, onExpand, onCollapse }: { co
             <div className={cn("app-workspace-sidebar-profile-row", collapsed && "is-collapsed")}>
                 <Popover open={menuOpen} onOpenChange={setMenuOpen} trigger="click" placement="topLeft" arrow={false} rootClassName="workspace-account-popover" content={content}>
                     <button type="button" className={cn("app-workspace-sidebar-profile", collapsed && "is-collapsed")} aria-label={text("打开账户菜单", "Open account menu")} title={profileName}>
-                        <UserAvatar user={user} className="app-workspace-sidebar-profile-avatar" />
-                        {!collapsed ? <span className="app-workspace-sidebar-profile-copy"><strong>{profileName}</strong><span>{text("创作工作台", "Creator workspace")}</span></span> : null}
+                        <UserGroupAvatarRing><UserAvatar user={user} className="app-workspace-sidebar-profile-avatar" /></UserGroupAvatarRing>
+                        {!collapsed ? (
+                            <span className="app-workspace-sidebar-profile-copy">
+                                <strong>{profileName}</strong>
+                                {userGroup?.badgeStyle === "vip" || userGroup?.badgeStyle === "svip" ? <UserGroupBadge className="self-start" /> : <span>{text("创作工作台", "Creator workspace")}</span>}
+                            </span>
+                        ) : null}
                     </button>
                 </Popover>
                 {!collapsed ? <button type="button" className="app-workspace-sidebar-collapse-toggle" aria-label={text("收起侧栏", "Collapse sidebar")} title={text("收起侧栏", "Collapse sidebar")} onClick={onCollapse}>
