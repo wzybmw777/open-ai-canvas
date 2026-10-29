@@ -271,7 +271,7 @@ var schemaMigrations = []migration{
 	{version: 74, name: "drama_episode_source_format", checksum: "sha256:drama-episode-source-format-v73-20261027", apply: migrateDramaEpisodeSourceFormat},
 	{version: 75, name: "drama_segment_references", checksum: "sha256:drama-segment-references-v74-20261027", apply: migrateDramaSegmentReferences},
 	{version: 76, name: "referral_redeem_commission", checksum: "sha256:referral-redeem-commission-v76-20261028", apply: migrateReferralRedeemCommission},
-	{version: 77, name: "qtrader-h3-native-audio", checksum: "sha256:qtrader-h3-native-audio-v77-20261028", apply: migrateQTRaderH3NativeAudio},
+	{version: 77, name: "qtrader_h3_native_audio", checksum: "sha256:qtrader-h3-native-audio-v77-20261028", apply: migrateQTRaderH3NativeAudio},
 	// These migrations extend the local v77 schema with upstream user groups and Agent memory discovery.
 	{version: 78, name: "user_groups_pricing_currency", checksum: "sha256:user-groups-pricing-currency-v78-20261029", apply: migrateUserGroupsPricingCurrency},
 	{version: 79, name: "agent_memory_document_skill_discovery", checksum: "sha256:agent-memory-document-skill-discovery-v79-20261029", apply: migrateAgentMemoryDocumentSkillDiscovery},
@@ -279,7 +279,7 @@ var schemaMigrations = []migration{
 }
 
 // migrateAgentMemoryDocumentColumns 补齐记忆文件的条目序号与修订的工具调用 ID。
-// 早期构建执行 v76 时这两列还不存在，v76 已记为完成不会重跑；新库由 v76 建全，这里是空操作。
+// 早期上游构建执行记忆文件迁移时这两列还不存在；本地 v79 已建全时，这里是空操作。
 func migrateAgentMemoryDocumentColumns(tx *gorm.DB) error {
 	if err := tx.AutoMigrate(&model.AgentMemoryDocument{}, &model.AgentMemoryDocumentRevision{}); err != nil {
 		return err

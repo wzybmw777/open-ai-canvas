@@ -26,6 +26,41 @@ func TestCurrentSchemaVersionMatchesMigrationPlan(t *testing.T) {
 	}
 }
 
+func TestMigrateSchemaPreservesDeployedLocalV77History(t *testing.T) {
+	db, err := Open(Config{Driver: "sqlite", DSN: "file:" + t.TempDir() + "/local-v77.db"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	if err := MigrateSchema(db); err != nil {
+		t.Fatal(err)
+	}
+	// Preserve the exact migration identity already recorded by the deployed v77.
+	if err := db.Exec("UPDATE schema_migrations SET name = ? WHERE version = 77", "qtrader_h3_native_audio").Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec("DELETE FROM schema_migrations WHERE version > 77").Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := MigrateSchema(db); err != nil {
+		t.Fatalf("upgrade from deployed local v77: %v", err)
+	}
+	if err := RequireSchemaVersion(db); err != nil {
+		t.Fatal(err)
+	}
+	var stored schemaMigration
+	if err := db.First(&stored, "version = ?", 77).Error; err != nil {
+		t.Fatal(err)
+	}
+	if stored.Name != "qtrader_h3_native_audio" || stored.Checksum != "sha256:qtrader-h3-native-audio-v77-20261028" {
+		t.Fatalf("deployed v77 identity changed: %#v", stored)
+	}
+}
+
 type channelModelProtocolV58 struct {
 	ID       string `gorm:"primaryKey;size:36"`
 	Protocol string `gorm:"size:32;index"`

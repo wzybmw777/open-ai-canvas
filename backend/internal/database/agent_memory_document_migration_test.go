@@ -10,8 +10,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// 早期构建执行 v76 时记忆表还没有 next_entry_seq / call_id，v76 记为完成后不会重跑；
-// v77 必须补齐这两列，否则每次建 Agent 运行写记忆文件都会报 500。
+// 模拟记忆文件迁移完成但缺少 next_entry_seq / call_id 的旧表；
+// 本地 v80 必须补齐这两列，否则每次建 Agent 运行写记忆文件都会报 500。
 func TestAgentMemoryDocumentColumnsMigrationRepairsEarlyV76Tables(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "migration.db")), &gorm.Config{})
 	if err != nil {
