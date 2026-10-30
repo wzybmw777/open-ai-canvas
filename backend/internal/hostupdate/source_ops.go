@@ -68,6 +68,11 @@ func (m *Manager) runSourceUpdate(from, target string) {
 		return
 	}
 	defer cleanup()
+	plan, err := m.sourceBuildPlan(from, merged)
+	if err != nil {
+		m.failWithoutRollback(PhaseFailed, err)
+		return
+	}
 	if err := m.sourceRun("docker", append(m.sourceComposeAt(worktree), "config", "--quiet"), nil); err != nil {
 		m.failWithoutRollback(PhaseFailed, err)
 		return
@@ -147,25 +152,8 @@ func (m *Manager) runSourceUpdate(from, target string) {
 		return
 	}
 	fail := func(err error) { m.sourceRollbackAfterFailure(err, from, backup) }
-	id := randomID()
-	if err := setEnvValue(m.envPath(), "CANVAS_SOURCE_BACKEND_IMAGE", composeProjectName(m.config.InstallDir)+"-backend:source-"+id); err != nil {
-		fail(err)
-		return
-	}
-	if err := setEnvValue(m.envPath(), "CANVAS_SOURCE_AGENT_IMAGE", composeProjectName(m.config.InstallDir)+"-yingce-agent:source-"+id); err != nil {
-		fail(err)
-		return
-	}
-	m.setPhase(PhasePulling, "安装锁定依赖并构建本站后端、Agent 和前端")
-	if err := m.sourceDependencies(); err != nil {
-		fail(err)
-		return
-	}
-	if err := m.sourceRun(m.config.BunBinary, []string{"run", "--cwd", filepath.Join(m.config.InstallDir, "web"), "build"}, nil); err != nil {
-		fail(err)
-		return
-	}
-	if err := m.compose(m.composePath(), "", m.config.StepTimeout, nil, "build", "backend", "yingce-agent"); err != nil {
+	m.setPhase(PhasePulling, "按变更检查前端并构建必要镜像，复用未变更的依赖与镜像")
+	if err := m.sourceBuild(plan); err != nil {
 		fail(err)
 		return
 	}
@@ -174,7 +162,7 @@ func (m *Manager) runSourceUpdate(from, target string) {
 		fail(err)
 		return
 	}
-	if err := m.sourceStartServices(); err != nil {
+	if err := m.sourceStartUpdatedServices(plan); err != nil {
 		fail(err)
 		return
 	}
