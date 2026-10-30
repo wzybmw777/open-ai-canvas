@@ -10,7 +10,7 @@ test("retains the update notice through downtime and offers refresh only after r
         const response = responses.shift()!;
         if (response instanceof Error) throw response;
         return response;
-    });
+    }, async () => ({ ready: false }));
     const stop = monitor.start();
     try {
         await monitor.check();
@@ -35,7 +35,7 @@ test("does not call an unknown outage a confirmed update", async () => {
     const monitor = createSystemUpdateMonitor(async () => {
         if (!online) throw new Error("offline");
         return { updating: false };
-    });
+    }, async () => ({ ready: false }));
     const stop = monitor.start();
     try {
         await monitor.check();
@@ -48,7 +48,7 @@ test("does not call an unknown outage a confirmed update", async () => {
 
 test("deduplicates concurrent probes and ignores a stopped request after remount", async () => {
     const pending: Array<{ signal: AbortSignal; resolve: (status: { updating: boolean }) => void }> = [];
-    const monitor = createSystemUpdateMonitor((signal) => new Promise((resolve) => pending.push({ signal, resolve })));
+    const monitor = createSystemUpdateMonitor((signal) => new Promise((resolve) => pending.push({ signal, resolve })), async () => ({ ready: false }));
     const stop = monitor.start();
     const first = monitor.check();
     expect(monitor.check()).toBe(first);
@@ -63,6 +63,45 @@ test("deduplicates concurrent probes and ignores a stopped request after remount
         pending[1].resolve({ updating: true });
         await current;
         pending[0].resolve({ updating: false });
+        await first;
+        expect(monitor.getSnapshot()).toBe("updating");
+    } finally { stopAgain(); }
+});
+
+test("readiness does not declare a confirmed update finished when the updater is unreachable", async () => {
+    let reachable = true;
+    const monitor = createSystemUpdateMonitor(async () => {
+        if (!reachable) throw new Error("updater unreachable");
+        return { updating: true };
+    }, async () => ({ ready: true }));
+    const stop = monitor.start();
+    try {
+        await monitor.check();
+        expect(monitor.getSnapshot()).toBe("updating");
+        reachable = false;
+        await monitor.check();
+        expect(monitor.getSnapshot()).toBe("updating");
+    } finally { stop(); }
+});
+
+test("a canceled readiness probe cannot overwrite a newly mounted monitor", async () => {
+    let updateReachable = false;
+    let resolveReadiness!: (status: { ready: boolean }) => void;
+    let readinessSignal!: AbortSignal;
+    const monitor = createSystemUpdateMonitor(async () => {
+        if (!updateReachable) throw new Error("updater unreachable");
+        return { updating: true };
+    }, (signal) => new Promise((resolve) => { readinessSignal = signal; resolveReadiness = resolve; }));
+    const stop = monitor.start();
+    const first = monitor.check();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    stop();
+    expect(readinessSignal.aborted).toBe(true);
+    updateReachable = true;
+    const stopAgain = monitor.start();
+    try {
+        await monitor.check();
+        resolveReadiness({ ready: false });
         await first;
         expect(monitor.getSnapshot()).toBe("updating");
     } finally { stopAgain(); }

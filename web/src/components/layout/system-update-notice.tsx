@@ -1,11 +1,11 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { CircleCheck, Info, RefreshCw, X } from "lucide-react";
-import { getPublicSystemUpdateStatus } from "@/services/api/system-update";
+import { getPublicSystemUpdateStatus, getSystemReadiness } from "@/services/api/system-update";
 import { createSystemUpdateMonitor } from "@/services/system-update-monitor";
 import "./system-update-notice.css";
 
 export function SystemUpdateNotice() {
-    const [monitor] = useState(() => createSystemUpdateMonitor(getPublicSystemUpdateStatus));
+    const [monitor] = useState(() => createSystemUpdateMonitor(getPublicSystemUpdateStatus, getSystemReadiness));
     const state = useSyncExternalStore(monitor.subscribe, monitor.getSnapshot, monitor.getSnapshot);
     useEffect(() => {
         const stop = monitor.start();
