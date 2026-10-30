@@ -63,7 +63,6 @@ function buildNav(features: FeatureAvailability, locale: AppLocale): { groups: W
             heading: text("创作工具", "Creative tools"),
             initiallyCollapsed: false,
             items: [
-                { ...toolItem("inspirations", "/inspirations"), title: text("灵感库", "Inspiration library") },
                 { ...toolItem("skills", "/skills"), title: text("技能", "Skills") },
                 ...(features.pluginCenterEnabled ? [{ ...toolItem("plugins", "/plugins"), title: text("插件", "Plugins") }] : []),
                 ...(features.imageWorkbenchEnabled ? [{ id: "toolbox-image", title: text("图片生成", "Image generation"), icon: ImageIcon, to: "/toolbox/image" }] : []),

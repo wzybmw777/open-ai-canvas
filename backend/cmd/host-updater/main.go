@@ -29,6 +29,11 @@ func run(ctx context.Context) error {
 	socketPath := env("CANVAS_UPDATER_SOCKET", "/run/open-ai-canvas-updater/updater.sock")
 	token := strings.TrimSpace(os.Getenv("CANVAS_UPDATER_TOKEN"))
 	manager, err := hostupdate.NewManager(hostupdate.Config{
+		Mode:         env("CANVAS_UPDATER_MODE", "release"),
+		SourceRemote: env("CANVAS_UPDATER_SOURCE_REMOTE", "origin"),
+		SourceBranch: env("CANVAS_UPDATER_SOURCE_BRANCH", "main"),
+		ComposeFiles: strings.FieldsFunc(os.Getenv("CANVAS_UPDATER_COMPOSE_FILES"), func(r rune) bool { return r == ',' }),
+		BunBinary:    env("CANVAS_UPDATER_BUN_BINARY", "/usr/local/bin/open-ai-canvas-bun"),
 		Repository:   env("CANVAS_UPDATER_REPOSITORY", "ddcat-ai/open-ai-canvas"),
 		InstallDir:   env("CANVAS_UPDATER_INSTALL_DIR", "/opt/open-ai-canvas"),
 		ComposeFile:  env("CANVAS_UPDATER_COMPOSE_FILE", "docker-compose.deploy.yml"),

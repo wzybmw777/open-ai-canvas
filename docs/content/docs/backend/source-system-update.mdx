@@ -1,0 +1,48 @@
+---
+title: 保留本站定制的源码更新
+description: 为既有源码热更新部署接入 Host Updater
+---
+
+# 保留本站定制的源码更新
+
+源码模式适用于已经使用 `docker-compose.deploy.yml` 与 `docker-compose.hot.yml` 的 Linux/systemd 部署。管理员在「系统配置 → 系统更新」检查并合并指定远端分支，本站已提交的品牌和业务定制保留在 Git 历史中。官方 Release 镜像部署仍使用原有镜像更新模式，两者不混用。
+
+## 接入现有部署
+
+宿主机需要 Docker Compose、Git、Go 1.25 或更新版本、Bun。先把本站定制保存为本地 Git 提交，确认 `.env`、数据库、素材和构建产物没有进入提交。使用现有仓库和环境文件运行：
+
+```bash
+sudo env CANVAS_UPDATER_MODE=source \
+  INSTALL_DIR=/path/to/open-ai-canvas \
+  CANVAS_UPDATER_SOURCE_REMOTE=origin \
+  CANVAS_UPDATER_SOURCE_BRANCH=main \
+  bash scripts/install-host-updater.sh
+
+docker compose --env-file .env \
+  -f docker-compose.deploy.yml \
+  -f docker-compose.hot.yml \
+  -f docker-compose.source-update.yml \
+  up -d --no-deps --force-recreate --timeout 600 --wait backend web
+```
+
+安装器从本地源码编译更新器，复制 Bun 到 systemd 可访问的位置，复用或生成更新器凭据；既有 Agent 凭据不变。后端只挂载更新器 Unix Socket，通过 Bearer 凭据访问，不能直接访问 Docker Socket。远端与分支写入宿主机更新器配置，网页不能提交任意远端、分支或 Shell 命令。systemd 不读取用户家目录凭据，远端必须能在该服务的运行环境内访问。
+
+默认 Compose 文件列表为 `docker-compose.deploy.yml,docker-compose.hot.yml,docker-compose.source-update.yml`，可用 `CANVAS_UPDATER_COMPOSE_FILES` 指定逗号分隔列表。所有更新步骤复用同一项目名、环境文件与文件列表。源码模式不自动替换宿主机更新器二进制；更新器实现变化后，管理员重新运行安装脚本。
+
+## 检查与更新
+
+1. 检查只抓取配置的远端分支，展示上游完整提交及提交摘要。是否有更新以提交祖先关系判断，已合并的上游不会重复提示。
+2. 启动更新时校验检查时的本地 HEAD、上游目标和干净工作区；未提交文件、未跟踪文件、检查后新增提交均阻断更新。独立临时 worktree 完成预合并，有冲突则停止，运行目录不变；不会自动 stash、强制 reset 或解决冲突。
+3. 先为打开的页面保留状态轮询时间，再停止后端与独立 Agent，等待现有服务优雅退出；站点仍提供更新提示。停止写入后新建 PostgreSQL 与数据目录 ZIP 备份，验证 SHA-256、所需归档条目及 PostgreSQL dump 目录可读取。
+4. 快进到预合并提交，用锁文件安装前端依赖、构建前端与本地后端/Agent 镜像，运行源码数据库迁移，然后重建应用服务。PostgreSQL、Redis、现有环境和数据挂载继续沿用。
+5. 验证就绪接口及稳定窗口，要求运行后端的 `build.commit` 等于本次合并提交。旧进程、未知构建或错误版本不能通过。
+
+受管源码模式关闭 Vite HMR，防止断线重连或源码变更自动刷新编辑页。全站状态监测在服务恢复后提供手动刷新，用户应先保存编辑内容。
+
+## 失败与回退
+
+合并预检失败不停止服务；停止服务后、切换源码前失败会重启原服务。切换后安装、迁移或健康验证失败，自动恢复更新前源码、环境、数据库和数据目录，并使用备份中固定的旧镜像 ID；依赖恢复使用原锁文件。
+
+回退创建 `codex/source-rollback-*` 分支，失败提交仍保留在原分支。更新后若存在新提交或未提交文件，手动回退会拒绝覆盖。备份在停止服务前校验失败不影响当前服务；已开始恢复后再次失败会停止后端与 Agent，进入人工处理状态，避免部分恢复的数据库继续被写入。
+
+备份包含数据库、素材及敏感环境文件，保存在服务器私有目录，不应通过静态网站公开。真实停机更新、失败注入、回退和浏览器体验仍须在独立验收环境演练；专项测试与检查接口不能替代该验收。

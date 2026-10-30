@@ -22,6 +22,8 @@ export default defineConfig({
         "import.meta.env.VITE_BUILD_TIME": JSON.stringify(buildTime),
     },
     server: {
+        // Managed source deployments keep open editors until users choose to refresh.
+        ...(process.env.VITE_MANAGED_SOURCE_UPDATES === "true" ? { hmr: false as const } : {}),
         ...(allowedHosts?.length ? { allowedHosts } : {}),
         proxy: {
             "/api": {

@@ -8,6 +8,10 @@ SOCKET_DIR="${CANVAS_UPDATER_SOCKET_DIR:-/run/open-ai-canvas-updater}"
 UPDATER_BIN="/usr/local/bin/open-ai-canvas-host-updater"
 UPDATER_ENV="/etc/open-ai-canvas-updater.env"
 UPDATER_SERVICE="/etc/systemd/system/open-ai-canvas-updater.service"
+UPDATER_MODE="${CANVAS_UPDATER_MODE:-release}"
+SOURCE_REMOTE="${CANVAS_UPDATER_SOURCE_REMOTE:-origin}"
+SOURCE_BRANCH="${CANVAS_UPDATER_SOURCE_BRANCH:-main}"
+SOURCE_COMPOSE_FILES="${CANVAS_UPDATER_COMPOSE_FILES:-docker-compose.deploy.yml,docker-compose.hot.yml,docker-compose.source-update.yml}"
 
 fail() {
     printf 'Host Updater 安装失败：%s\n' "$1" >&2
@@ -23,6 +27,15 @@ require_root() {
     command -v openssl >/dev/null 2>&1 || fail "缺少 openssl"
     [[ -f "${INSTALL_DIR}/.env" ]] || fail "未找到 ${INSTALL_DIR}/.env"
     [[ -f "${INSTALL_DIR}/docker-compose.deploy.yml" ]] || fail "未找到部署 Compose"
+    if [[ "$UPDATER_MODE" == "source" ]]; then
+        command -v git >/dev/null 2>&1 || fail "缺少 Git"
+        command -v go >/dev/null 2>&1 || fail "源码模式需要 Go 1.25 或更新版本"
+        command -v bun >/dev/null 2>&1 || [[ -x /usr/local/bin/open-ai-canvas-bun ]] || fail "源码模式需要 Bun"
+        git -C "$INSTALL_DIR" rev-parse --is-inside-work-tree >/dev/null || fail "源码模式需要 Git 工作区"
+        [[ -f "${INSTALL_DIR}/docker-compose.source-update.yml" ]] || fail "缺少源码更新 Compose"
+        return
+    fi
+    [[ "$UPDATER_MODE" == "release" ]] || fail "CANVAS_UPDATER_MODE 必须是 release 或 source"
     local backend_image web_image
     backend_image="$(sed -n 's/^CANVAS_BACKEND_IMAGE=//p' "${INSTALL_DIR}/.env" | tail -n 1)"
     web_image="$(sed -n 's/^CANVAS_WEB_IMAGE=//p' "${INSTALL_DIR}/.env" | tail -n 1)"
@@ -60,6 +73,20 @@ install_binary() {
     rm -f "$temporary" "$checksum_file"
 }
 
+install_source_binary() {
+    local temporary bun_source
+    temporary="$(mktemp)"
+    (cd "${INSTALL_DIR}/backend" && go build -o "$temporary" ./cmd/host-updater)
+    install -m 0755 "$temporary" "$UPDATER_BIN"
+    rm -f "$temporary"
+    if command -v bun >/dev/null 2>&1; then
+        bun_source="$(command -v bun)"
+        if [[ "$bun_source" != /usr/local/bin/open-ai-canvas-bun ]]; then
+            install -m 0755 "$bun_source" /usr/local/bin/open-ai-canvas-bun
+        fi
+    fi
+}
+
 ensure_token() {
     local token temporary
     token="$(sed -n 's/^CANVAS_UPDATER_TOKEN=//p' "${INSTALL_DIR}/.env" | tail -n 1)"
@@ -78,6 +105,9 @@ ensure_token() {
     [[ ${#token} -ge 32 ]] || fail "CANVAS_UPDATER_TOKEN 长度不足"
     umask 077
     printf 'CANVAS_UPDATER_TOKEN=%s\nCANVAS_UPDATER_INSTALL_DIR=%s\nCANVAS_UPDATER_SOCKET=%s/updater.sock\n' "$token" "$INSTALL_DIR" "$SOCKET_DIR" > "$UPDATER_ENV"
+    if [[ "$UPDATER_MODE" == "source" ]]; then
+        printf 'CANVAS_UPDATER_MODE=source\nCANVAS_UPDATER_SELF_UPDATE=false\nCANVAS_UPDATER_SOURCE_REMOTE=%s\nCANVAS_UPDATER_SOURCE_BRANCH=%s\nCANVAS_UPDATER_COMPOSE_FILES=%s\n' "$SOURCE_REMOTE" "$SOURCE_BRANCH" "$SOURCE_COMPOSE_FILES" >> "$UPDATER_ENV"
+    fi
 }
 
 install_service() {
@@ -100,6 +130,7 @@ install_service() {
         'RestartSec=5s' \
         'NoNewPrivileges=true' \
         'PrivateTmp=true' \
+        'Environment=PATH=/usr/local/bin:/usr/bin:/bin' \
         'ProtectHome=true' \
         'ProtectSystem=full' \
         "ReadWritePaths=${INSTALL_DIR} /var/lib/open-ai-canvas-updater ${SOCKET_DIR} /usr/local/bin" \
@@ -115,12 +146,20 @@ install_service() {
 
 main() {
     require_root
-    read_image_tag
-    install_binary
+    if [[ "$UPDATER_MODE" == "source" ]]; then
+        install_source_binary
+    else
+        read_image_tag
+        install_binary
+    fi
     ensure_token
     install_service
     printf 'Host Updater 已安装，Socket：%s/updater.sock\n' "$SOCKET_DIR"
     printf '请重建 backend 容器，使 Token 与 Socket 挂载生效。\n'
+    if [[ "$UPDATER_MODE" == "source" ]]; then
+        printf '源码模式：合并 %s/%s，未提交文件或合并冲突会阻止更新。\n' "$SOURCE_REMOTE" "$SOURCE_BRANCH"
+        printf 'Compose 文件：%s\n' "$SOURCE_COMPOSE_FILES"
+    fi
 }
 
 main "$@"

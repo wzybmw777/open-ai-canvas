@@ -94,7 +94,7 @@ function unwrapTransportError(error: unknown): never {
 function transportFailureMessage(status?: number, fallback?: string) {
     switch (status) {
         case 502:
-            return "网站正在更新，请10分钟后再试";
+            return "后端服务暂时不可用，请稍后重试";
         case 503:
             return "服务暂时不可用，请稍后重试";
         case 504:

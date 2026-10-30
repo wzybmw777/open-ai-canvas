@@ -6,6 +6,7 @@ import zhCN from "antd/locale/zh_CN";
 
 import { AuthSessionHydrator } from "@/components/auth/auth-session-hydrator";
 import { AppFeedbackProvider } from "@/components/layout/app-feedback";
+import { SystemUpdateNotice } from "@/components/layout/system-update-notice";
 import { FullScreenLoader } from "@/components/ui/aceternity/full-screen-loader";
 import { getAntThemeConfig } from "@/lib/app-theme";
 import { applySkinTheme } from "@/lib/skin-themes";
@@ -63,6 +64,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
         <ConfigProvider locale={zhCN} theme={getAntThemeConfig(dark, appearance.activeSkin)} wave={{ disabled: true }} button={{ autoInsertSpace: false }}>
             <AppFeedbackProvider>
                 <QueryClientProvider client={appQueryClient}>
+                    {!isolateDevRepro && <SystemUpdateNotice />}
                     {isolateDevRepro ? (
                         children
                     ) : (

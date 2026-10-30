@@ -247,6 +247,7 @@ type (
 	PromptTemplateVariable                 = app.PromptTemplateVariable
 	ProviderTaskQueryResult                = app.ProviderTaskQueryResult
 	PublicAppearanceSetting                = app.PublicAppearanceSetting
+	PublicSystemUpdateStatus               = app.PublicSystemUpdateStatus
 	PublicArkPrivateAssetSetting           = app.PublicArkPrivateAssetSetting
 	PublicAuthSettings                     = app.PublicAuthSettings
 	PublicCanvasShare                      = app.PublicCanvasShare

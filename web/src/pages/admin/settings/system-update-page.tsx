@@ -36,6 +36,7 @@ export default function SystemUpdatePage() {
     const [reconnecting, setReconnecting] = useState(false);
     const [loadError, setLoadError] = useState("");
     const mountedRef = useRef(true);
+    const sourceMode = status?.deployment === "docker-compose-source-updater";
 
     const load = useCallback(
         async (initial = false) => {
@@ -93,12 +94,12 @@ export default function SystemUpdatePage() {
         if (!status?.latestRelease) return;
         const target = status.latestRelease.version;
         modal.confirm({
-            title: `更新到 ${target}？`,
+            title: sourceMode ? `合并上游提交 ${target.slice(0, 12)}？` : `更新到 ${target}？`,
             width: 560,
             content: (
                 <div className="space-y-3 text-sm text-foreground/70">
-                    <p>系统会先创建并校验数据库 ZIP 与数据目录备份，再停止旧 Backend、执行迁移并切换镜像。</p>
-                    <p>更新期间后端会短暂切换，网页会显示“系统更新中”。任何前置检查失败都不会切换服务；切换后验证失败会自动恢复旧版本和数据库。</p>
+                    <p>{sourceMode ? "系统会先在隔离工作区检查合并，保留本站已提交的定制。未提交文件或合并冲突会阻止更新。停止应用写入并备份后，才会合并源码、安装依赖和执行迁移。" : "系统会先创建并校验数据库 ZIP 与数据目录备份，再停止旧 Backend、执行迁移并切换镜像。"}</p>
+                    <p>{sourceMode ? "更新期间网页会显示提示。切换后失败会恢复代码、数据库和素材，失败的合并提交仍会保留。" : "更新期间后端会短暂切换，网页会显示“系统更新中”。任何前置检查失败都不会切换服务；切换后验证失败会自动恢复旧版本和数据库。"}</p>
                 </div>
             ),
             okText: "确认并开始更新",
@@ -127,7 +128,7 @@ export default function SystemUpdatePage() {
             width: 520,
             content: (
                 <div className="space-y-3">
-                    <p className="text-sm text-foreground/65">回退会停止当前服务、恢复最近一次已校验数据库备份并重新启动旧镜像。请先确认备份时间与业务影响。</p>
+                    <p className="text-sm text-foreground/65">{sourceMode ? "回退会恢复更新前的代码、数据库、素材和应用镜像，并创建回退分支保留历史。更新后的新提交或未提交修改会阻止自动回退。" : "回退会停止当前服务、恢复最近一次已校验数据库备份并重新启动旧镜像。请先确认备份时间与业务影响。"}</p>
                     <Input.TextArea rows={3} maxLength={300} showCount placeholder="填写回退原因（必填）" onChange={(event) => (reason = event.target.value)} />
                 </div>
             ),
@@ -159,7 +160,7 @@ export default function SystemUpdatePage() {
     return (
         <AdminPageFrame
             title="系统更新"
-            description="检查 GitHub Release，并在完成备份、迁移和健康验证后切换版本。"
+            description={sourceMode ? "合并上游源码，保留本站定制；备份、迁移和健康验证由宿主机更新器完成。" : "检查 GitHub Release，并在完成备份、迁移和健康验证后切换版本。"}
             scroll
             actions={
                 <Button icon={<RefreshCw className="size-4" />} loading={checking} disabled={operationActive || !status?.supported} onClick={() => void requestCheck()}>
@@ -184,12 +185,12 @@ export default function SystemUpdatePage() {
                         className="admin-system-update-release"
                         layout="stacked"
                         icon={<ServerCog className="size-4" />}
-                        title="可用版本"
-                        description={status?.updateAvailable ? `当前运行 ${status.currentVersion}，可更新到 ${status.latestRelease?.version}。` : "检查 GitHub Release 与当前运行的镜像标签。"}
-                        status={<PhaseBadge phase={status?.operation.phase ?? "idle"} />}
+                        title={sourceMode ? "源码更新" : "可用版本"}
+                        description={sourceMode ? "检查上游分支，使用 Git 合并保留本站提交。" : status?.updateAvailable ? `当前运行 ${status.currentVersion}，可更新到 ${status.latestRelease?.version}。` : "检查 GitHub Release 与当前运行的镜像标签。"}
+                        status={<PhaseBadge phase={status?.operation.phase ?? "idle"} source={sourceMode} />}
                         footer={
                             <>
-                                <span className="text-xs leading-5 text-foreground/50">每次在线更新都会重新备份数据库，并校验镜像摘要、迁移结果和服务健康状态。</span>
+                                <span className="text-xs leading-5 text-foreground/50">{sourceMode ? "本站定制需先提交；合并冲突会中止，切换前备份数据库和素材。" : "每次在线更新都会重新备份数据库，并校验镜像摘要、迁移结果和服务健康状态。"}</span>
                                 <Button type="primary" loading={starting} disabled={!status?.connected || !status.updateAvailable || operationActive || blockingCheckFailed} onClick={requestStart}>
                                     开始更新
                                 </Button>
@@ -200,27 +201,27 @@ export default function SystemUpdatePage() {
                             <div className="admin-system-update-versions">
                                 <div>
                                     <span>当前运行</span>
-                                    <strong>{status?.currentVersion || "未识别"}</strong>
-                                    {status?.currentVersion && !isReleaseVersion(status.currentVersion) ? <AdminStatusBadge label="非正式版本" tone="warning" /> : null}
+                                    <strong title={status?.currentVersion}>{sourceMode ? status?.currentVersion.slice(0, 12) : status?.currentVersion || "未识别"}</strong>
+                                    {!sourceMode && status?.currentVersion && !isReleaseVersion(status.currentVersion) ? <AdminStatusBadge label="非正式版本" tone="warning" /> : null}
                                 </div>
                                 <div>
-                                    <span>最新发布</span>
-                                    <strong>{status?.latestRelease?.version || "尚未检查"}</strong>
+                                    <span>{sourceMode ? "上游提交" : "最新发布"}</span>
+                                    <strong title={status?.latestRelease?.version}>{sourceMode ? status?.latestRelease?.version.slice(0, 12) || "尚未检查" : status?.latestRelease?.version || "尚未检查"}</strong>
                                     {status?.latestRelease?.prerelease ? <AdminStatusBadge label="预览版" tone="warning" /> : null}
                                     {status?.updateAvailable ? <AdminStatusBadge label="可更新" tone="success" /> : null}
                                 </div>
                             </div>
                             {status?.updateAvailable && status.latestRelease ? (
                                 <p className="admin-system-update-hint">
-                                    {isReleaseVersion(status.currentVersion)
+                                    {sourceMode ? "将上游提交合并到本站源码，保留本地定制；存在冲突时不会修改运行目录。" : isReleaseVersion(status.currentVersion)
                                         ? `可以从 ${status.currentVersion} 更新到 ${status.latestRelease.version}。`
                                         : `当前镜像标签不是正式版本号，所以会显示成 ${status.currentVersion}。点开始更新后会切换到 ${status.latestRelease.version}。`}
                                 </p>
                             ) : null}
                             <dl className="admin-system-update-facts">
                                 <dt>部署方式</dt>
-                                <dd>{status?.deployment || "未知"}</dd>
-                                <dt>发布时间</dt>
+                                <dd>{sourceMode ? "源码部署 · 保留本站定制" : status?.deployment || "未知"}</dd>
+                                <dt>{sourceMode ? "检查时间" : "发布时间"}</dt>
                                 <dd>{formatDate(status?.latestRelease?.publishedAt)}</dd>
                                 <dt>代码仓库</dt>
                                 <dd>{status?.repository || "ddcat-ai/open-ai-canvas"}</dd>
@@ -230,7 +231,7 @@ export default function SystemUpdatePage() {
                                     <div className="flex items-center justify-between gap-3">
                                         <h3>更新日志</h3>
                                         <a href={status.latestRelease.url} target="_blank" rel="noreferrer">
-                                            查看 Release <ExternalLink className="size-3" />
+                                            {sourceMode ? "查看提交" : "查看 Release"} <ExternalLink className="size-3" />
                                         </a>
                                     </div>
                                     <pre>{status.latestRelease.body || "本版本未填写更新日志。"}</pre>
@@ -254,7 +255,7 @@ export default function SystemUpdatePage() {
                     </SettingsSectionCard>
                 </div>
 
-                <SettingsSectionCard layout="stacked" icon={<History className="size-4" />} title="更新进度" description="操作状态和日志由宿主机持久化，服务重启后仍可读取。" status={<PhaseBadge phase={status?.operation.phase ?? "idle"} />}>
+                <SettingsSectionCard layout="stacked" icon={<History className="size-4" />} title="更新进度" description="操作状态和日志由宿主机持久化，服务重启后仍可读取。" status={<PhaseBadge phase={status?.operation.phase ?? "idle"} source={sourceMode} />}>
                     <div className="admin-system-update-progress">
                         {status?.operation.error ? <UpdateAlert tone="error" title="本次操作失败" detail={status.operation.error} compact /> : null}
                         {(status?.operation.logs || []).length ? (
@@ -263,7 +264,7 @@ export default function SystemUpdatePage() {
                                     <li key={`${entry.at}-${index}`}>
                                         <span className="admin-system-update-dot" data-active={index === status.operation.logs.length - 1} />
                                         <div>
-                                            <strong>{phaseLabels[entry.phase]}</strong>
+                                            <strong>{sourceMode && entry.phase === "pulling" ? "安装依赖与构建" : phaseLabels[entry.phase]}</strong>
                                             <p>{entry.message}</p>
                                         </div>
                                         <time>{formatTime(entry.at)}</time>
@@ -284,7 +285,7 @@ export default function SystemUpdatePage() {
                     status={{ label: status?.lastBackup ? "备份已校验" : "暂无备份", color: status?.lastBackup ? "success" : "warning" }}
                     footer={
                         <>
-                            <span className="text-xs text-foreground/50">人工回退同样会执行停服、数据库恢复、旧镜像启动和健康验证。</span>
+                            <span className="text-xs text-foreground/50">{sourceMode ? "回退会恢复代码、数据库和素材，并保留 Git 历史。" : "人工回退同样会执行停服、数据库恢复、旧镜像启动和健康验证。"}</span>
                             <Button danger icon={<RotateCcw className="size-4" />} disabled={!status?.rollbackVersion || operationActive || !status?.connected} onClick={requestRollback}>
                                 回退到上一版本
                             </Button>
@@ -315,9 +316,9 @@ export default function SystemUpdatePage() {
     );
 }
 
-function PhaseBadge({ phase }: { phase: UpdatePhase }) {
+function PhaseBadge({ phase, source = false }: { phase: UpdatePhase; source?: boolean }) {
     const tone = phase === "succeeded" || phase === "ready" ? "success" : phase === "failed" || phase === "manual_intervention" ? "error" : phase === "rolling_back" || phase === "rolled_back" ? "warning" : activePhases.has(phase) ? "info" : "neutral";
-    return <AdminStatusBadge label={phaseLabels[phase]} tone={tone} />;
+    return <AdminStatusBadge label={source && phase === "pulling" ? "安装依赖与构建" : phaseLabels[phase]} tone={tone} />;
 }
 
 function UpdateCheckRow({ check }: { check: SystemUpdateStatus["checks"][number] }) {

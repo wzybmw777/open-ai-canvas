@@ -1,5 +1,11 @@
 import { http } from "./request";
 
+export type PublicSystemUpdateStatus = { updating: boolean };
+
+export function getPublicSystemUpdateStatus(signal?: AbortSignal) {
+    return http.get<PublicSystemUpdateStatus>("/public/system-update", { signal, timeout: 5000 });
+}
+
 export type UpdatePhase =
     | "idle"
     | "checking"

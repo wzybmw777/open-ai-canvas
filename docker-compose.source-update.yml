@@ -1,0 +1,18 @@
+# Source updates keep the existing hot deployment and add only the updater bridge
+# and a locally built Agent. PostgreSQL, Redis and data mounts come from deploy/hot.
+services:
+  web:
+    environment:
+      VITE_MANAGED_SOURCE_UPDATES: "true"
+  backend:
+    environment:
+      CANVAS_UPDATER_TOKEN: ${CANVAS_UPDATER_TOKEN:?请先安装源码 Host Updater}
+      CANVAS_UPDATER_SOCKET: /run/open-ai-canvas-updater/updater.sock
+    volumes:
+      - ${CANVAS_UPDATER_SOCKET_DIR:-/run/open-ai-canvas-updater}:/run/open-ai-canvas-updater:ro
+
+  yingce-agent:
+    image: ${CANVAS_SOURCE_AGENT_IMAGE:-open-ai-canvas-yingce-agent:hot}
+    build:
+      context: .
+      dockerfile: yingce-agent/Dockerfile

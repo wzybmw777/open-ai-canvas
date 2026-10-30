@@ -9,6 +9,15 @@ import (
 )
 
 func RegisterAdminUpdateRoutes(r *gin.RouterGroup, svc *service.Service) {
+	r.GET("/public/system-update", func(c *gin.Context) {
+		c.Header("Cache-Control", "no-store")
+		status, err := svc.PublicSystemUpdateStatus(c.Request.Context())
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		ok(c, status)
+	})
 	r.GET("/admin/system-update", func(c *gin.Context) {
 		actor, err := currentUser(c, svc)
 		if err != nil {

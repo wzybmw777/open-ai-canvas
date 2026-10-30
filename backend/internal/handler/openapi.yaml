@@ -34,6 +34,31 @@ tags:
   - name: referral
     description: 推广中心：推广码、邀请记录与返佣
 paths:
+  /public/system-update:
+    get:
+      tags: [meta]
+      security: []
+      summary: 获取公开系统更新状态
+      description: 只公开是否正在更新，不包含版本、日志或备份信息。未配置更新器时 updating 为 false；已配置但不可连接时返回 503，不能推断更新已结束。
+      responses:
+        "200":
+          description: 当前更新状态，Cache-Control 为 no-store
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: false
+                        required: [updating]
+                        properties:
+                          updating:
+                            type: boolean
+        "503":
+          description: 暂时无法确认更新状态，使用标准错误信封
   /rewards:
     get:
       tags: [rewards]

@@ -22,6 +22,11 @@ import (
 const maxReleaseResponseBytes = 4 << 20
 
 type Config struct {
+	Mode         string
+	SourceRemote string
+	SourceBranch string
+	ComposeFiles []string
+	BunBinary    string
 	Repository   string
 	InstallDir   string
 	ComposeFile  string
@@ -53,10 +58,13 @@ func (r execRunner) Run(ctx context.Context, name string, args, environment []st
 }
 
 type persistedState struct {
-	LatestRelease   *Release  `json:"latestRelease,omitempty"`
-	LastBackup      *Backup   `json:"lastBackup,omitempty"`
-	RollbackVersion string    `json:"rollbackVersion,omitempty"`
-	Operation       Operation `json:"operation"`
+	SourceMergedCommit string    `json:"sourceMergedCommit,omitempty"`
+	SourcePreviousEnv  string    `json:"sourcePreviousEnv,omitempty"`
+	SourceCheckedHead  string    `json:"sourceCheckedHead,omitempty"`
+	LatestRelease      *Release  `json:"latestRelease,omitempty"`
+	LastBackup         *Backup   `json:"lastBackup,omitempty"`
+	RollbackVersion    string    `json:"rollbackVersion,omitempty"`
+	Operation          Operation `json:"operation"`
 }
 
 type Manager struct {
@@ -68,6 +76,24 @@ type Manager struct {
 }
 
 func NewManager(config Config) (*Manager, error) {
+	if config.Mode != "" && config.Mode != "release" && config.Mode != "source" {
+		return nil, errors.New("更新模式必须是 release 或 source")
+	}
+	if config.SourceRemote == "" {
+		config.SourceRemote = "origin"
+	}
+	if config.SourceBranch == "" {
+		config.SourceBranch = "main"
+	}
+	if config.BunBinary == "" {
+		config.BunBinary = "/usr/local/bin/open-ai-canvas-bun"
+	}
+	if config.Mode == "source" {
+		config.SelfUpdate = false
+		if len(config.ComposeFiles) == 0 {
+			config.ComposeFiles = []string{"docker-compose.deploy.yml", "docker-compose.hot.yml", "docker-compose.source-update.yml"}
+		}
+	}
 	config.Repository = strings.TrimSpace(config.Repository)
 	if config.Repository == "" {
 		config.Repository = "ddcat-ai/open-ai-canvas"
@@ -108,6 +134,11 @@ func NewManager(config Config) (*Manager, error) {
 	if err := manager.loadState(); err != nil {
 		return nil, err
 	}
+	if manager.state.Operation.Phase == PhaseChecking {
+		manager.state.Operation.Phase = PhaseFailed
+		manager.state.Operation.Error = "检查期间更新器已重启，请重新检查更新"
+		_ = manager.saveStateLocked()
+	}
 	if manager.state.Operation.Phase.Active() {
 		manager.state.Operation.Phase = PhaseManualIntervention
 		manager.state.Operation.Error = "更新器进程在操作期间退出，请检查容器与数据库状态后手动处理"
@@ -124,6 +155,9 @@ func (m *Manager) Snapshot() Status {
 }
 
 func (m *Manager) Check(ctx context.Context) (Status, error) {
+	if m.config.Mode == "source" {
+		return m.checkSource(ctx)
+	}
 	m.mu.Lock()
 	if m.state.Operation.Phase.Active() {
 		status := m.snapshotLocked()
@@ -170,6 +204,9 @@ func (m *Manager) Check(ctx context.Context) (Status, error) {
 }
 
 func (m *Manager) StartUpdate(targetVersion string) (Status, error) {
+	if m.config.Mode == "source" {
+		return m.startSourceUpdate(targetVersion)
+	}
 	targetVersion = strings.TrimSpace(targetVersion)
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -201,6 +238,9 @@ func (m *Manager) StartUpdate(targetVersion string) (Status, error) {
 }
 
 func (m *Manager) StartRollback(reason string) (Status, error) {
+	if m.config.Mode == "source" {
+		return m.startSourceRollback(reason)
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.state.Operation.Phase.Active() {
@@ -441,6 +481,9 @@ func (m *Manager) runRollback(targetVersion string, backup Backup, automatic boo
 }
 
 func (m *Manager) snapshotLocked() Status {
+	if m.config.Mode == "source" {
+		return m.sourceSnapshotLocked()
+	}
 	current, err := m.currentVersion()
 	checks := m.checks(current, err)
 	status := Status{

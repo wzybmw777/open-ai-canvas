@@ -72,6 +72,9 @@ func (m *Manager) latestRelease(ctx context.Context) (*Release, error) {
 }
 
 func (m *Manager) currentVersion() (string, error) {
+	if m.config.Mode == "source" {
+		return m.sourceGit("rev-parse", "--verify", "HEAD")
+	}
 	values, err := readEnvFile(m.envPath())
 	if err != nil {
 		return "", err
@@ -276,15 +279,21 @@ func (m *Manager) composeWithImages(composePath, imageTag string, images deploym
 		}
 		defer os.Remove(envFile)
 	}
-	args := []string{"compose", "--project-name", composeProjectName(m.config.InstallDir), "--env-file", envFile, "-f", composePath}
+	args := m.composeArgs(composePath, envFile)
 	args = append(args, arguments...)
 	var stderr bytes.Buffer
 	if stdout == nil {
 		stdout = io.Discard
 	}
 	environment := []string{"CANVAS_IMAGE_TAG=" + strings.TrimPrefix(imageTag, "v")}
+	if m.config.Mode == "source" {
+		environment = nil
+	}
 	err := m.runner.Run(ctx, "docker", args, environment, stdout, &stderr)
 	if err != nil {
+		if m.config.Mode == "source" {
+			return fmt.Errorf("docker compose %s 执行失败，请在服务器检查对应服务", arguments[0])
+		}
 		message := strings.TrimSpace(stderr.String())
 		if len(message) > 1000 {
 			message = message[len(message)-1000:]
@@ -295,6 +304,21 @@ func (m *Manager) composeWithImages(composePath, imageTag string, images deploym
 		return fmt.Errorf("docker compose %s：%w", strings.Join(arguments, " "), err)
 	}
 	return nil
+}
+
+func (m *Manager) composeArgs(composePath, envFile string) []string {
+	args := []string{"compose", "--project-name", composeProjectName(m.config.InstallDir), "--env-file", envFile}
+	if m.config.Mode == "source" {
+		args = append(args, "--project-directory", m.config.InstallDir)
+		for _, path := range m.config.ComposeFiles {
+			if !filepath.IsAbs(path) {
+				path = filepath.Join(m.config.InstallDir, path)
+			}
+			args = append(args, "-f", path)
+		}
+		return args
+	}
+	return append(args, "-f", composePath)
 }
 
 func composeProjectName(installDir string) string {
@@ -442,7 +466,11 @@ func (m *Manager) createBackup(version string) (Backup, error) {
 	if err != nil {
 		return Backup{}, err
 	}
-	if err := m.compose(m.composePath(), version, m.config.StepTimeout, dataEntry, "exec", "-T", "--user", "root", "backend", "tar", "-C", "/data", "-cf", "-", "."); err != nil {
+	dataArgs := []string{"exec", "-T", "--user", "root", "backend", "tar", "-C", "/data", "-cf", "-", "."}
+	if m.config.Mode == "source" {
+		dataArgs = []string{"run", "--rm", "--no-deps", "-T", "--user", "root", "--entrypoint", "tar", "backend", "-C", "/data", "-cf", "-", "."}
+	}
+	if err := m.compose(m.composePath(), version, m.config.StepTimeout, dataEntry, dataArgs...); err != nil {
 		return Backup{}, fmt.Errorf("备份数据目录：%w", err)
 	}
 	if err := archive.Close(); err != nil {
@@ -562,10 +590,17 @@ func (m *Manager) restoreDatabase(backup Backup) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), m.config.StepTimeout)
 	defer cancel()
-	args := []string{"compose", "--env-file", m.envPath(), "-f", m.composePath(), "exec", "-T", "postgres", "pg_restore", "-U", postgresUser, "-d", postgresDB, "--no-owner", "--no-privileges"}
+	args := append(m.composeArgs(m.composePath(), m.envPath()), "exec", "-T", "postgres", "pg_restore", "-U", postgresUser, "-d", postgresDB, "--no-owner", "--no-privileges")
 	var stderr bytes.Buffer
 	command := execCommandWithInput{runner: m.runner, input: reader}
-	if err := command.Run(ctx, "docker", args, []string{"CANVAS_IMAGE_TAG=" + strings.TrimPrefix(backup.Version, "v")}, io.Discard, &stderr); err != nil {
+	environment := []string{"CANVAS_IMAGE_TAG=" + strings.TrimPrefix(backup.Version, "v")}
+	if m.config.Mode == "source" {
+		environment = nil
+	}
+	if err := command.Run(ctx, "docker", args, environment, io.Discard, &stderr); err != nil {
+		if m.config.Mode == "source" {
+			return errors.New("恢复 PostgreSQL 失败，需要在服务器检查")
+		}
 		return fmt.Errorf("恢复 PostgreSQL：%s", strings.TrimSpace(stderr.String()))
 	}
 	return nil
@@ -635,6 +670,7 @@ func (m *Manager) checkHealthOnce(healthURL, targetVersion string) error {
 		Data struct {
 			Build struct {
 				Version string `json:"version"`
+				Commit  string `json:"commit"`
 			} `json:"build"`
 		} `json:"data"`
 	}
@@ -643,6 +679,9 @@ func (m *Manager) checkHealthOnce(healthURL, targetVersion string) error {
 	}
 	if payload.Code != 0 {
 		return errors.New("健康接口业务状态异常")
+	}
+	if m.config.Mode == "source" && payload.Data.Build.Commit != targetVersion {
+		return errors.New("运行源码提交与目标不一致，等待正确版本就绪")
 	}
 	if IsReleaseVersion(targetVersion) && payload.Data.Build.Version != "" && CompareVersions(payload.Data.Build.Version, targetVersion) != 0 {
 		return fmt.Errorf("运行版本仍为 %s，期望 %s", payload.Data.Build.Version, targetVersion)

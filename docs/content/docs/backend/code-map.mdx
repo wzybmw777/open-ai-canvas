@@ -5,6 +5,14 @@ description: 从产品功能快速定位主要代码入口
 
 # 代码功能地图
 
+## 系统更新与全站提示
+
+- 管理入口：`web/src/pages/admin/settings/system-update-page.tsx`；业务 API：`web/src/services/api/system-update.ts`。
+- 全站状态监测：`web/src/services/system-update-monitor.ts`；提示组件：`components/layout/system-update-notice.tsx`，工作区与独立欢迎页共用。
+- 后端权限、公开投影与 Socket 桥：`backend/internal/app/admin_update.go`、`handler/admin_update.go`、`internal/hostupdate/client.go`。
+- 宿主机更新器：`backend/cmd/host-updater/`、`internal/hostupdate/manager.go`；源码预合并与流程：`source.go` / `source_ops.go`；安装与部署：`scripts/install-host-updater.sh`、`docker-compose.source-update.yml`。
+- 边界和操作说明见[保留本站定制的源码更新](./source-system-update)。
+
 ## 短剧自动制作
 
 - 纯逻辑：`backend/internal/production/`（作品圣经、分集与剧本提示词 `prompts.go`，模型输出解析 `parse.go`，分镜规则与时长 `storyboard.go` / `timing.go`，按视频模型上限切剧情段 `SegmentShotsForVideo`，段提示词素材稿 `segment_prompt.go` 与撰写要求 `segment_writer.go`，参考图方案 `assets.go`，用户分镜表直接导入 `storyboard_import.go`，原文台词逐句核对 `dialogue_check.go`）。

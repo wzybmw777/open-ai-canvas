@@ -5,6 +5,20 @@ description: 信封、错误码与 OpenAPI
 
 # HTTP API 合同
 
+## 公开系统更新状态
+
+`GET /api/public/system-update` 无需登录，返回标准业务信封，`data` 仅包含 `{ updating: boolean }`，响应设置 `Cache-Control: no-store`。备份、拉取、排空、迁移、切换、验证和回退期间为 `true`；空闲或更新流程结束为 `false`。此接口不公开更新器日志、备份路径、管理员操作信息或凭据，也不能启动更新。
+
+未配置 Host Updater 时返回 `updating=false`；已配置但不可连接时返回 HTTP 503，不能将状态读取失败视为更新成功。公开读取更新器的超时上限为 2 秒。
+
+工作区、登录页和独立欢迎页每 10 秒检查一次，窗口恢复焦点、重新联网或页面重新可见时立即检查；浏览器单次请求超时为 5 秒。同一页面不重叠请求，卸载时取消请求。已确认更新时，即使后端暂时不可连接也继续显示“系统更新中”；未确认更新的连接故障显示自动重连提示。服务恢复后提示保存编辑内容并手动刷新，可选择稍后刷新，不自动重载或跳转页面。源码热更新等未接入更新器的部署只在连接异常期间显示自动重连提示。
+
+## 管理员源码更新
+
+既有 `/api/admin/system-update` 的状态、检查、更新和回退接口继续要求管理员权限。源码部署返回 `deployment=docker-compose-source-updater`；`currentVersion` 与 `latestRelease.version` 为完整 Git commit SHA，`latestRelease` 在该模式承载上游提交摘要，页面显示短 SHA。更新请求只接受最近检查确认的目标，检查后本地 HEAD 或远端跟踪目标变化、工作区不干净时拒绝启动。远端与分支只能在宿主机配置，不能由网页指定。
+
+检查不执行更新，更新与回退以持久化异步任务推进；阶段、检查项及错误使用既有状态合同。流程、安装、备份和回退边界见[保留本站定制的源码更新](./source-system-update)。
+
 ## 画布实时会话
 
 `GET /api/canvas-projects/:id/realtime` 使用登录 Cookie 升级为 WebSocket，握手校验当前用户对画布的归属和请求 Origin。首帧 `welcome` 提供服务端分配的 `selfId` 和窗口 Presence；客户端发送 `presence`，服务端推送 `peer`、`leave`、`invalidate` 和 `heartbeat`。Presence 只含有界世界坐标和拖拽矩形，不包含密钥、编辑租约 token、画布正文或实际保存指令。

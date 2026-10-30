@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"yingce/backend/internal/hostupdate"
 	"yingce/backend/internal/model"
@@ -18,6 +19,26 @@ type UpdateManager interface {
 
 func (s *Service) ConfigureUpdateManager(manager UpdateManager) {
 	s.updateManager = manager
+}
+
+type PublicSystemUpdateStatus struct {
+	Updating bool `json:"updating"`
+}
+
+// PublicSystemUpdateStatus exposes only availability, never updater logs or backup paths.
+func (s *Service) PublicSystemUpdateStatus(ctx context.Context) (PublicSystemUpdateStatus, error) {
+	var result PublicSystemUpdateStatus
+	if s.updateManager == nil {
+		return result, nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	status, err := s.updateManager.Status(ctx)
+	if err != nil {
+		return result, NewAppError(http.StatusServiceUnavailable, "暂时无法确认系统更新状态")
+	}
+	result.Updating = status.Operation.Phase.Active()
+	return result, nil
 }
 
 func (s *Service) AdminUpdateStatus(ctx context.Context, actor *model.User) (hostupdate.Status, error) {
