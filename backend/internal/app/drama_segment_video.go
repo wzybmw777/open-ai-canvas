@@ -101,15 +101,17 @@ func segmentVideoChoice(segment model.DramaSegment, fallback DramaModelChoice) D
 // prepareDramaSegment is shared by the request preview and provider submission.
 // Reference numbering remains stable even when a model cannot accept every image.
 func (s *Service) prepareDramaSegment(settings DramaSettings, draft dramaSegmentDraft, segment model.DramaSegment, previous *model.DramaSegment, casts map[string]model.DramaCast) (DramaSegmentRequest, []any, error) {
+	request := DramaSegmentRequest{References: []DramaSegmentReference{}}
 	if settings.parallelVideo() {
 		// 并行出片：每段只按参考图独立生成，不带上一段尾帧，也就不依赖上一段完成。
 		previous = nil
 	}
 	profile, err := s.dramaVideoProfile(segmentVideoChoice(segment, settings.Models.Video))
 	if err != nil {
-		return DramaSegmentRequest{}, nil, err
+		return request, nil, err
 	}
-	request := DramaSegmentRequest{Seconds: production.SnapVideoSeconds(draft.view.DurationMs, profile.Durations), MaxVideoSeconds: profile.maxSeconds(), References: []DramaSegmentReference{}}
+	request.Seconds = production.SnapVideoSeconds(draft.view.DurationMs, profile.Durations)
+	request.MaxVideoSeconds = profile.maxSeconds()
 	if draft.view.DurationMs > int64(request.MaxVideoSeconds)*1000 {
 		return request, nil, errors.New("剧情段超过所选视频模型的时长上限，请调整分镜时长或重新改编")
 	}

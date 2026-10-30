@@ -113,6 +113,50 @@ func TestDramaSegmentReferenceCanBeExcludedPerSegment(t *testing.T) {
 	}
 }
 
+func TestDramaEpisodePreviewKeepsReferenceArrayWhenVideoModelDisabled(t *testing.T) {
+	svc, fake := newDramaTestService(t)
+	project := createTestDramaWithMedia(t, svc, DramaReviewEvery, DramaMediaManual).Project.ID
+	runDramaTicks(t, svc, project, 20)
+	summary, err := svc.DramaSummary("usr-drama", project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := fake.db.Model(&model.ChannelModel{}).Where("id = ?", "drama-video").Update("enabled", false).Error; err != nil {
+		t.Fatal(err)
+	}
+	detail, err := svc.DramaEpisodeDetail("usr-drama", project, summary.Episodes[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(detail.Segments) == 0 {
+		t.Fatal("test requires storyboard segments")
+	}
+	for _, segment := range detail.Segments {
+		if segment.Request.Warning == "" {
+			t.Fatal("unavailable model must retain its preview warning")
+		}
+		encoded, err := json.Marshal(segment.Request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(encoded), `"references":[]`) {
+			t.Fatalf("preview must return an empty array, not null: %s", encoded)
+		}
+	}
+	rows, err := svc.repo.DramaSegments(detail.Episode.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	production, err := svc.repo.DramaProduction(project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := parseDramaSettings(production.SettingsJSON)
+	if _, _, err := svc.prepareDramaSegment(settings, dramaSegmentDraft{}, rows[0], nil, nil); err == nil {
+		t.Fatal("unavailable model must still reject provider submission")
+	}
+}
+
 func TestDramaShotScriptEditAndPromptRewrite(t *testing.T) {
 	svc, fake := newDramaTestService(t)
 	project := createTestDramaWithMedia(t, svc, DramaReviewEvery, DramaMediaManual).Project.ID
