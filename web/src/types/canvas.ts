@@ -41,7 +41,6 @@ export enum CanvasNodeType {
     ColorGrade = "colorgrade",
     MediaConversion = "media-conversion",
     BatchTable = "batch-table",
-    KeyframeGroup = "keyframe-group",
 }
 
 /** Runtime IDs contributed by plugins share the persisted node type field. */
@@ -88,8 +87,7 @@ export type StoryboardColumn =
     | "videoMotionPrompt"
     | "assets"
     | "continuityOut"
-    | "negativePrompt"
-    | "keyframes";
+    | "negativePrompt";
 
 export type StoryboardAssetRole = "character" | "environment" | "wardrobe" | "prop" | "weapon" | "style" | "motion" | "audio";
 
@@ -98,20 +96,6 @@ export type StoryboardAssetBinding = {
     role: StoryboardAssetRole;
     priority: number;
 };
-
-export type StoryboardKeyframePromptDescription = {
-    id: string;
-    order: number;
-    timeRatio: number;
-    prompt: string;
-    assetBindings: StoryboardAssetBinding[];
-    imageNodeId?: string;
-    status?: CanvasNodeStatus;
-    errorDetails?: string;
-    promptTemplateVariables?: Record<string, string>;
-};
-
-export type StoryboardKeyframePromptDescriptionInput = Partial<StoryboardKeyframePromptDescription> & Pick<StoryboardKeyframePromptDescription, "prompt" | "assetBindings">;
 
 export type StoryboardCharacterReference = {
     characterName: string;
@@ -147,10 +131,6 @@ export type StoryboardRow = {
     continuityOut: string;
     negativePrompt: string;
     assetBindings: StoryboardAssetBinding[];
-    /** 关键帧图片提示词描述；关键帧数量由此数组长度派生。 */
-    keyframePromptDescriptions?: StoryboardKeyframePromptDescriptionInput[];
-    /** 由该分镜行输出创建的关键帧组节点。 */
-    keyframeGroupNodeId?: string;
     /** 原视频拆解时的时间范围，用于自动抽取关键帧。 */
     sourceStartMs?: number;
     sourceEndMs?: number;
@@ -405,12 +385,6 @@ export type CanvasNodeMetadata = {
     audioEmotionSurprised?: string;
     audioEmotionCalm?: string;
     references?: string[];
-    /** 当前节点解除的参考关联；不修改分镜、批次或共享配置中的原始素材。 */
-    excludedReferenceNodeIds?: string[];
-    /** 目标自己的参考顺序，不重排共享配置节点的输入。 */
-    referenceNodeOrder?: string[];
-    /** 用户已调整当前输入；重新生成应读取当前图而非历史请求快照。 */
-    referenceInputsEdited?: boolean;
     naturalWidth?: number;
     naturalHeight?: number;
     freeResize?: boolean;
@@ -571,13 +545,6 @@ export type CanvasNodeMetadata = {
     videoCameraMovePrompt?: string;
     videoStartFrameNodeId?: string;
     videoEndFrameNodeId?: string;
-    /** 关键帧组视频来源及其稳定输入身份。 */
-    keyframeGroupNodeId?: string;
-    keyframeIds?: string[];
-    needsRegeneration?: boolean;
-    storyboardNodeId?: string;
-    rowId?: string;
-    keyframeId?: string;
     videoFrameSourceNodeId?: string;
     videoFrameTimeMs?: number;
     versionOfNodeId?: string;

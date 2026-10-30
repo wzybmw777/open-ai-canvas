@@ -5,9 +5,9 @@ import { useActiveTheme } from "@/stores/canvas/use-canvas-theme-store";
 import type { AiConfig } from "@/stores/use-config-store";
 import { CanvasSettingsPopover, type CanvasSettingsPlacement } from "./canvas-settings-popover";
 
-type VideoPopoverProps = { config: AiConfig; onConfigChange: (key: keyof AiConfig, value: string) => void; buttonClassName?: string; placement?: CanvasSettingsPlacement; referenceVideoCount?: number };
+type VideoPopoverProps = { config: AiConfig; onConfigChange: (key: keyof AiConfig, value: string) => void; buttonClassName?: string; placement?: CanvasSettingsPlacement };
 
-export function CanvasVideoSettingsPopover({ config, onConfigChange, referenceVideoCount = 0, ...popover }: VideoPopoverProps) {
+export function CanvasVideoSettingsPopover({ config, onConfigChange, ...popover }: VideoPopoverProps) {
     const theme = canvasThemes[useActiveTheme()];
     const profile = modelCapabilityConfigFor(config, config.model).video;
     const parts: string[] = [];
@@ -15,6 +15,6 @@ export function CanvasVideoSettingsPopover({ config, onConfigChange, referenceVi
     if (profile?.ratios.length) parts.push(videoSizeLabel(resolveVideoRatioValue(profile, config.size)));
     parts.push(videoSecondsLabel(config.videoSeconds));
     return <CanvasSettingsPopover {...popover} label="视频设置" summary={parts.join(" · ")}>
-        <VideoSettingsPanel config={config} onConfigChange={onConfigChange} theme={theme} className="space-y-3" referenceVideoCount={referenceVideoCount} />
+        <VideoSettingsPanel config={config} onConfigChange={onConfigChange} theme={theme} className="space-y-3" />
     </CanvasSettingsPopover>;
 }

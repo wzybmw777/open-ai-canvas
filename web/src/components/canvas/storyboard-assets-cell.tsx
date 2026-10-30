@@ -1,13 +1,11 @@
-import { Checkbox, Input, Modal, Popover } from "antd";
+import { Modal } from "antd";
 import { Tooltip } from "@/components/ui/base/tooltip";
 import { useEffect, useMemo, useState } from "react";
 
 import { Image as ImageIcon, Music2, Play, Plus, UserRound } from "lucide-react";
 
 import { CanvasVideoPreviewImage } from "@/components/canvas/canvas-video-preview-image";
-import { isStoryboardBindableAsset, storyboardAssetRoleForNode } from "@/lib/canvas/canvas-storyboard-assets";
-import { isStoryboardPreviewAsset, MAX_STORYBOARD_ROW_ASSETS, setStoryboardAssetBinding } from "@/lib/canvas/canvas-storyboard-materializer";
-import { useLocaleText } from "@/lib/i18n";
+import { isStoryboardPreviewAsset } from "@/lib/canvas/canvas-storyboard-materializer";
 import { resolveMediaUrl } from "@/services/file-storage";
 import { CanvasNodeType, type CanvasNodeData, type StoryboardAssetBinding } from "@/types/canvas";
 import "./storyboard-assets-cell.css";
@@ -22,42 +20,26 @@ export const STORYBOARD_ASSET_ROLE_LABELS: Record<StoryboardAssetBinding["role"]
     motion: "动态",
     audio: "音频",
 };
-const ROLE_LABELS_EN: Record<StoryboardAssetBinding["role"], string> = {
-    character: "Character",
-    environment: "Scene",
-    wardrobe: "Wardrobe",
-    prop: "Prop",
-    weapon: "Weapon",
-    style: "Style",
-    motion: "Motion",
-    audio: "Audio",
-};
 
-export function StoryboardAssetsCell({ bindings, nodes, limit = 4, onChange, onOpenProjectAssets, onEdit, disabled = false }: { bindings: StoryboardAssetBinding[]; nodes: CanvasNodeData[]; limit?: number; onChange?: (bindings: StoryboardAssetBinding[]) => void; onEdit?: () => void; disabled?: boolean; onOpenProjectAssets?: () => void }) {
-    const { text } = useLocaleText();
+export function StoryboardAssetsCell({ bindings, nodes, limit = 4, onEdit, disabled = false }: { bindings: StoryboardAssetBinding[]; nodes: CanvasNodeData[]; limit?: number; onEdit?: () => void; disabled?: boolean }) {
     const [previewNode, setPreviewNode] = useState<CanvasNodeData | null>(null);
-    const [pickerOpen, setPickerOpen] = useState(false);
-    const [query, setQuery] = useState("");
     const nodeById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
     const assets = bindings.map((binding) => ({ binding, node: nodeById.get(binding.nodeId) })).filter((item) => !item.node || isStoryboardPreviewAsset(item.node));
     const visible = assets.slice(0, onEdit ? Math.min(limit, 2) : limit);
     const hiddenCount = Math.max(0, assets.length - visible.length);
-    const selectableNodes = pickerOpen ? nodes.filter((node) => isStoryboardBindableAsset(node) || bindings.some((binding) => binding.nodeId === node.id)) : [];
-    const matchingNodes = selectableNodes.filter((node) => node.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
-    const missingBindings = pickerOpen ? bindings.filter((binding) => !nodeById.has(binding.nodeId) && text("资产已失效", "Missing asset").toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) : [];
 
+    if (!assets.length && !onEdit) return <span className="text-[var(--fs-caption)] text-foreground/35">未关联</span>;
     return (
         <>
-            <div className="storyboard-assets-cell flex max-w-full min-w-0 items-center gap-1.5" aria-label={text(`已关联 ${assets.length} 个资产`, `${assets.length} linked assets`)}>
-                {!assets.length ? <span className="truncate text-[var(--fs-caption)] text-foreground/35">{text("未关联", "None")}</span> : null}
+            <div className="storyboard-assets-cell flex min-w-0 max-w-full items-center gap-2" aria-label={`已关联 ${assets.length} 个资产`}>
                 {visible.map(({ binding, node }) => (
-                    <Tooltip key={binding.nodeId} title={`${node?.title || text("资产已失效", "Missing asset")} · ${text(STORYBOARD_ASSET_ROLE_LABELS[binding.role], ROLE_LABELS_EN[binding.role])}`}>
+                    <Tooltip key={binding.nodeId} title={`${node?.title || "资产已失效"} · ${STORYBOARD_ASSET_ROLE_LABELS[binding.role]}`}>
                         <button
                             type="button"
                             data-icon-only
                             disabled={!node}
                             className="storyboard-assets-cell-preview relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-md border border-foreground/10 bg-foreground/[0.035] text-foreground/45 outline-none transition enabled:hover:border-foreground/30 enabled:hover:text-foreground/70 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:cursor-not-allowed"
-                            aria-label={text(`预览${node?.title || "失效资产"}`, `Preview ${node?.title || "missing asset"}`)}
+                            aria-label={`预览${node?.title || "失效资产"}`}
                             onMouseDown={(event) => event.stopPropagation()}
                             onPointerDown={(event) => event.stopPropagation()}
                             onClick={(event) => {
@@ -66,99 +48,15 @@ export function StoryboardAssetsCell({ bindings, nodes, limit = 4, onChange, onO
                             }}
                         >
                             {node ? <AssetThumbnail node={node} /> : <ImageIcon className="size-4" />}
-                            <span className="absolute bottom-0.5 right-0.5 rounded bg-black/65 px-1 text-[8px] leading-3 text-white">{text(STORYBOARD_ASSET_ROLE_LABELS[binding.role], ROLE_LABELS_EN[binding.role]).slice(0, 1)}</span>
+                            <span className="absolute bottom-0.5 right-0.5 rounded bg-black/65 px-1 text-[var(--fs-label)] leading-3 text-white">{STORYBOARD_ASSET_ROLE_LABELS[binding.role].slice(0, 1)}</span>
                         </button>
                     </Tooltip>
                 ))}
                 {hiddenCount ? <span className="shrink-0 text-[var(--fs-caption)] font-medium text-foreground/45">+{hiddenCount}</span> : null}
-                {onChange && !disabled ? (
-                    <Popover
-                        trigger="click"
-                        placement="bottomRight"
-                        open={pickerOpen}
-                        onOpenChange={setPickerOpen}
-                        content={(
-                            <div className="w-72 max-w-[calc(100vw-48px)]" data-canvas-no-zoom onMouseDown={(event) => event.stopPropagation()}>
-                                <div className="mb-2 flex items-center justify-between text-xs font-medium">
-                                    <span>{text("画布资产", "Canvas assets")}</span>
-                                    <span className="text-foreground/45">{bindings.length}/{MAX_STORYBOARD_ROW_ASSETS}</span>
-                                </div>
-                                <Input.Search
-                                    size="small"
-                                    allowClear
-                                    value={query}
-                                    onChange={(event) => setQuery(event.target.value)}
-                                    placeholder={text("搜索资产", "Search assets")}
-                                    aria-label={text("搜索画布资产", "Search canvas assets")}
-                                />
-                                <div className="mt-2 max-h-56 overflow-y-auto" data-canvas-wheel-scroll onWheel={(event) => event.stopPropagation()}>
-                                    {matchingNodes.map((candidate) => {
-                                        const checked = bindings.some((binding) => binding.nodeId === candidate.id);
-                                        const role = storyboardAssetRoleForNode(candidate);
-                                        return (
-                                            <div key={candidate.id} className="flex min-h-9 items-center gap-2 rounded px-1.5 py-1 text-xs hover:bg-foreground/[0.05]">
-                                                <Checkbox
-                                                    className="min-w-0 flex-1"
-                                                    checked={checked}
-                                                    disabled={!checked && bindings.length >= MAX_STORYBOARD_ROW_ASSETS}
-                                                    onChange={(event) => onChange(setStoryboardAssetBinding(bindings, candidate, event.target.checked))}
-                                                >
-                                                    <span className="block truncate" title={candidate.title}>{candidate.title || text("未命名资产", "Untitled asset")}</span>
-                                                </Checkbox>
-                                                {role ? <span className="shrink-0 text-foreground/45">{text(STORYBOARD_ASSET_ROLE_LABELS[role], ROLE_LABELS_EN[role])}</span> : null}
-                                            </div>
-                                        );
-                                    })}
-                                    {missingBindings.map((binding) => (
-                                        <div key={binding.nodeId} className="flex min-h-9 items-center gap-2 rounded px-1.5 py-1 text-xs hover:bg-foreground/[0.05]">
-                                            <Checkbox className="min-w-0 flex-1" checked onChange={() => onChange(bindings.filter((item) => item.nodeId !== binding.nodeId))}>
-                                                <span className="block truncate text-foreground/45">{text("资产已失效", "Missing asset")}</span>
-                                            </Checkbox>
-                                        </div>
-                                    ))}
-                                    {!matchingNodes.length && !missingBindings.length ? <div className="py-3 text-center text-xs text-foreground/45">{text("没有匹配的画布资产", "No matching canvas assets")}</div> : null}
-                                </div>
-                                {onEdit ? (
-                                    <button
-                                        type="button"
-                                        className="mt-2 flex h-8 w-full items-center border-t px-1.5 pt-1 text-xs hover:text-[var(--color-primary)]"
-                                        onClick={() => { setPickerOpen(false); onEdit(); }}
-                                    >
-                                        {text("管理关联资产", "Manage linked assets")}
-                                    </button>
-                                ) : null}
-                                {onOpenProjectAssets ? (
-                                    <button
-                                        type="button"
-                                        className="mt-2 flex h-8 w-full items-center gap-2 border-t px-1.5 pt-1 text-xs hover:text-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-45"
-                                        disabled={bindings.length >= MAX_STORYBOARD_ROW_ASSETS}
-                                        onClick={() => { setPickerOpen(false); onOpenProjectAssets(); }}
-                                    >
-                                        <Plus className="size-3.5" />
-                                        {text("从资产库引入", "Add from asset library")}
-                                    </button>
-                                ) : null}
-                            </div>
-                        )}
-                    >
-                        <button
-                            type="button"
-                            data-icon-only
-                            className="grid size-7 shrink-0 place-items-center rounded border border-foreground/15 text-foreground/55 outline-none transition hover:border-foreground/35 hover:text-foreground focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
-                            aria-label={text("添加或移除关联资产", "Add or remove linked assets")}
-                            title={text("添加或移除关联资产", "Add or remove linked assets")}
-                            onMouseDown={(event) => event.stopPropagation()}
-                            onPointerDown={(event) => event.stopPropagation()}
-                            onClick={(event) => event.stopPropagation()}
-                        >
-                            <Plus className="size-3.5" />
-                        </button>
-                    </Popover>
-                ) : null}
-                {onEdit && !onChange ? (
+                {onEdit ? (
                     <button
                         type="button"
-                        aria-label={assets.length ? text("管理关联资产", "Manage linked assets") : text("选择关联资产", "Select linked assets")}
+                        aria-label={assets.length ? "管理关联资产" : "选择关联资产"}
                         disabled={disabled}
                         data-icon-only={assets.length ? true : undefined}
                         className={`inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-md border border-dashed border-foreground/20 text-xs text-foreground/60 outline-none transition hover:border-foreground/40 hover:text-foreground focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-40 ${assets.length ? "w-8 p-0" : "px-2"}`}
@@ -170,7 +68,7 @@ export function StoryboardAssetsCell({ bindings, nodes, limit = 4, onChange, onO
                         }}
                     >
                         <Plus className="size-3.5" />
-                        {assets.length ? null : text("选择资产", "Select assets")}
+                        {assets.length ? null : "选择资产"}
                     </button>
                 ) : null}
             </div>

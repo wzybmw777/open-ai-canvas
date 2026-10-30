@@ -51,8 +51,6 @@ type CanvasUploadProgress = {
 type FileNodeUploadOptions = {
     // 批量上传由批量入口统一展示进度、选中结果和汇总提示，并在全部完成后只刷新一次项目。
     batch?: { onLocalOnly: () => void };
-    preserveSelection?: boolean;
-    isCurrent?: () => boolean;
 };
 
 const SILENT_UPLOAD_PROGRESS: CanvasUploadProgress = { update: () => {}, done: () => {}, fail: () => {} };
@@ -185,7 +183,6 @@ export function useCanvasUpload({
 
     const activeUploadsRef = useRef(new Set<string>());
     const createFileNode = useCallback(async (file: File, position: Position, replaceId?: string, options: FileNodeUploadOptions = {}) => {
-        if (options.isCurrent && !options.isCurrent()) return null;
         const original = replaceId ? nodesRef.current.find((node) => node.id === replaceId) : undefined;
         if (replaceId && (!original || activeUploadsRef.current.has(replaceId))) return null;
         const id = replaceId || `upload-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -201,7 +198,7 @@ export function useCanvasUpload({
                 ...item, width: placeholder.width, height: placeholder.height,
                 metadata: { ...item.metadata, fileUpload: "uploading", fileUploadProgress: undefined, status: undefined, size: undefined, errorDetails: undefined },
             } : item) : [...current, placeholder]);
-            if (!batch && !options.preserveSelection) selectInsertedNode(id, "close");
+            if (!batch) selectInsertedNode(id, "close");
             let lastPercent: number | undefined;
             let lastPaintAt = 0;
             const onProgress = (loaded: number, total: number) => {
@@ -230,7 +227,6 @@ export function useCanvasUpload({
                 metadata = placeholder.type === CanvasNodeType.Video ? videoMetadata(media) : audioMetadata(media);
             }
             progress.update("更新画布节点", 3);
-            if (options.isCurrent && !options.isCurrent()) return null;
             const currentNode = nodesRef.current.find((item) => item.id === id);
             if (!currentNode) {
                 progress.done("上传完成，画布占位已移除");

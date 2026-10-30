@@ -6,11 +6,10 @@ import { createGenerationTaskSubscriptionService, type GenerationTask } from "..
 import { removeCreationConversationSnapshot, updateCreationConversationSnapshot } from "../src/services/creation-conversation-store";
 import { moduleGroupSource } from "./helpers/module-group-source";
 
-test("Create offers one accessible copy action that restores the message draft", async () => {
+test("Create exposes one accessible copy action beside each displayed user prompt", async () => {
     const source = await Promise.resolve(moduleGroupSource("pages/create/creation-workspace.tsx"));
-    expect(source).toContain('aria-label={text("复制并带入输入框", "Copy and add to editor")}');
-    expect(source).toContain('copyText(visiblePrompt, text("提示词已复制", "Prompt copied"))');
-    expect(source).toContain('onReuseUserMessage(item)');
+    expect(source).toContain('aria-label="复制提示词"');
+    expect(source).toContain('copyText(visiblePrompt, "提示词已复制")');
 });
 
 test("Create submit button does not forward the browser click event as retry context", async () => {

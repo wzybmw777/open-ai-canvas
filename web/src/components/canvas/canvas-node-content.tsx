@@ -64,7 +64,6 @@ export function canvasNodeUsesCustomContent(node: CanvasNodeData, isEditingConte
     return (
         node.type === CanvasNodeType.Config ||
         node.type === CanvasNodeType.Script ||
-        node.type === CanvasNodeType.KeyframeGroup ||
         node.type === CanvasNodeType.BatchTable ||
         Boolean(node.metadata?.previsSceneId) ||
         (node.metadata?.workflowKind === "character" && Boolean(node.metadata.characterAssetId)) ||

@@ -13,7 +13,6 @@ export const AGENT_TOOL_NAMES = [
     "ask_user",
     "canvas_apply_ops",
     "canvas_arrange_nodes",
-    "canvas_bind_storyboard_assets",
     "canvas_create_character",
     "canvas_create_storyboard",
     "canvas_edit_batch_table",
@@ -54,7 +53,6 @@ export const AGENT_TOOL_METADATA: Record<string, AgentToolMetadataEntry> = {
     canvas_get_state: { summary: "已读取画布清单（未查看画面）", failureMessage: "获取画布清单失败" },
     task_get: { summary: "已查询任务状态", failureMessage: "查询任务状态失败" },
     canvas_apply_ops: { summary: ({ pending }) => (pending ? "准备更新画布内容" : "画布内容已保存至服务端"), failureMessage: "更新画布内容失败" },
-    canvas_bind_storyboard_assets: { summary: ({ pending }) => pending ? "准备关联分镜资产" : "分镜资产关联已保存", failureMessage: "分镜资产关联未完成" },
     model_list: { summary: "已获取可用模型", failureMessage: "获取可用模型失败" },
     canvas_create_character: { summary: ({ pending }) => (pending ? "准备创建角色卡" : "角色卡已创建并放到画布"), failureMessage: "创建角色卡失败" },
     // 短剧工具只在关联短剧的精修画布上出现：读取作品上下文，或把画布媒体采用为短剧的新版本（总要审批）。
@@ -110,7 +108,7 @@ const AGENT_CANVAS_READ_TOOLS = new Set(["canvas_get_state", "canvas_list_node_t
 const AGENT_INFO_READ_TOOLS = new Set(["model_list", "task_get", "skill_search", "skill_market_search", "skill_read_file", "skills_load", "agent_profile_read", "drama_get_context"]);
 const AGENT_VISION_TOOLS = new Set(["canvas_inspect_image"]);
 const AGENT_CREATE_TOOLS = new Set(["generate_media", "canvas_create_storyboard", "canvas_create_character", "image_annotation_render"]);
-const AGENT_OPERATE_TOOLS = new Set(["canvas_apply_ops", "canvas_arrange_nodes", "canvas_bind_storyboard_assets", "canvas_edit_storyboard", "canvas_edit_batch_table", "image_layer_split", "image_text_detect"]);
+const AGENT_OPERATE_TOOLS = new Set(["canvas_apply_ops", "canvas_arrange_nodes", "canvas_edit_storyboard", "canvas_edit_batch_table", "image_layer_split", "image_text_detect"]);
 
 export type AgentToolCategory = "read" | "vision" | "create" | "operate" | "other";
 
@@ -157,7 +155,6 @@ export function isAgentCanvasReadTool(toolName: string): boolean {
 }
 
 export function agentToolCategoryLabel(toolName: string, category: AgentToolCategory): string {
-    if (toolName === "canvas_bind_storyboard_assets") return "关联分镜资产";
     if (category === "vision") return "查看画面";
     if (category === "read") return AGENT_CANVAS_READ_TOOLS.has(toolName) ? "读取清单" : "读取信息";
     if (category === "create") return "创建节点";

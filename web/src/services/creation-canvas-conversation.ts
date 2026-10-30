@@ -9,7 +9,7 @@ type SourceMessage = {
     settings?: unknown; attachments?: Array<{ name: string; storageKey?: string }>;
     references?: Array<{ id: string; label: string; kind: string }>;
 };
-type SourceConversation = { id: string; title: string; updatedAt: string; projectId?: string; canvasId?: string; messages: SourceMessage[] };
+type SourceConversation = { id: string; title: string; updatedAt: string; canvasId?: string; messages: SourceMessage[] };
 
 // Same source IDs merge into the same canvas conversation, without replaying tasks
 // or replacing messages produced by the canvas Agent after the handoff.
@@ -56,7 +56,7 @@ export async function continueCreationConversationOnCanvas(source: SourceConvers
         } catch (cause) { syncError = cause; }
     } else {
         const session: CanvasAssistantSession = { id: sessionId, title: source.title, createdAt: source.messages[0].createdAt, updatedAt: source.updatedAt, messages };
-        const created = await createCanvasProjectWithRemoteSync(source.title || "创作画布", source.projectId, { chatSessions: [session], activeChatId: sessionId });
+        const created = await createCanvasProjectWithRemoteSync(source.title || "创作画布", undefined, { chatSessions: [session], activeChatId: sessionId });
         id = created.id;
         syncError = created.syncError;
         await flushCanvasStorePersistence();

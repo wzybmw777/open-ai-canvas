@@ -406,11 +406,7 @@ func applyCloudAgentBatchTableMutation(repo *repository.Repository, userID, canv
 			return nil, err
 		}
 	}
-	nodeID := ""
-	if len(appliedPreview.Items) > 0 {
-		nodeID = appliedPreview.Items[0].NodeID
-	}
-	return cloudAgentAppliedMutationResult(canvasID, nodeID, cloudAgentNodeHash(plan.Document, nodeID), appliedPreview.Items), nil
+	return map[string]any{"canvasId": canvasID, "nodeId": appliedPreview.Items[0].NodeID, "snapshotHash": cloudAgentNodeHash(plan.Document, appliedPreview.Items[0].NodeID), "summary": appliedPreview.Description, "preview": appliedPreview}, nil
 }
 
 func cloudAgentBatchTableReadResult(view any, nodeID, nodeHash string) (map[string]any, error) {

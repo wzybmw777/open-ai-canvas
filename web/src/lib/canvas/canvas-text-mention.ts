@@ -19,10 +19,7 @@ export function connectCanvasTextMention(nodes: CanvasNodeData[], connections: C
         pending.push(...connections.filter((edge) => edge.fromNodeId === id).map((edge) => edge.toNodeId));
     }
     const nextConnections = connections.some((edge) => edge.fromNodeId === sourceId && edge.toNodeId === receiverId) ? connections : [...connections, { id: connectionId, fromNodeId: sourceId, toNodeId: receiverId }];
-    const restoredNodes = target.metadata?.excludedReferenceNodeIds?.includes(sourceId)
-        ? nodes.map((node) => node.id === targetId ? { ...node, metadata: { ...node.metadata, excludedReferenceNodeIds: node.metadata!.excludedReferenceNodeIds!.filter((id) => id !== sourceId), referenceInputsEdited: true } } : node)
-        : nodes;
-    const nextNodes = applyCanvasConnectionPromptSync(nodes, connections, restoredNodes, nextConnections);
+    const nextNodes = applyCanvasConnectionPromptSync(nodes, connections, nodes, nextConnections);
     const reference = buildCanvasNodeMentionReferenceMap(nextNodes, nextConnections).get(targetId)?.find((item) => item.nodeId === sourceId);
     if (!reference) throw new Error("文本引用未建立");
     return { nodes: nextNodes, connections: nextConnections, reference };

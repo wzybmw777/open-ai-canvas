@@ -24,7 +24,6 @@
   "model_list",
   "canvas_create_storyboard",
   "canvas_edit_storyboard",
-  "canvas_bind_storyboard_assets",
   "canvas_create_character",
   "canvas_edit_batch_table",
   "canvas_apply_ops",

@@ -6,14 +6,12 @@ import "tldraw/tldraw.css";
 import type { CanvasDrawingEditorHandle, CanvasDrawingEditorProps } from "@/components/canvas/canvas-drawing-editor-types";
 import { resolveTldrawLicenseKey } from "@/lib/canvas/canvas-drawing-engine";
 import { useUserStore } from "@/stores/use-user-store";
-import { useLocaleStore } from "@/lib/i18n";
 
 const SINGLE_PAGE_OPTIONS = { maxPages: 1 } as const;
 const DRAWING_RENDER_MAX_DIMENSION = 2048;
 const DRAWING_RENDER_PADDING = 24;
 
 export const CanvasDrawingTldrawEditor = forwardRef<CanvasDrawingEditorHandle, CanvasDrawingEditorProps>(function CanvasDrawingTldrawEditor({ snapshot, colorScheme, onReady }, ref) {
-    const locale = useLocaleStore((state) => state.locale);
     const tldrawLicenseKey = useUserStore((state) => state.drawingEngine.tldrawLicenseKey);
     const store = useMemo(() => {
         const next = createTLStore();
@@ -48,7 +46,7 @@ export const CanvasDrawingTldrawEditor = forwardRef<CanvasDrawingEditorHandle, C
     return (
         <Tldraw
             store={store}
-            locale={locale === "en-US" ? "en" : "zh-cn"}
+            locale="zh-cn"
             colorScheme={colorScheme}
             options={SINGLE_PAGE_OPTIONS}
             licenseKey={resolveTldrawLicenseKey(tldrawLicenseKey)}

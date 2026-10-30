@@ -12,7 +12,6 @@ import { canvasConnectionError, connectionInputSummary } from "@/lib/canvas/canv
 import { resolveCanvasConnectionTarget, type CanvasConnectionDropTarget as ConnectionDropTarget } from "@/lib/canvas/canvas-connection-hit";
 import { audioModelForConnectionInput } from "@/lib/model-selection";
 import { attachNodeToStoryboardRow, createCanvasNode, normalizeConnection, storyboardPromptTemplateMetadata, storyboardRowFromHandle } from "@/lib/canvas/canvas-project-domain";
-import { effectiveStoryboardKeyframeAssets, normalizeStoryboardKeyframes } from "@/lib/canvas/canvas-storyboard-keyframes";
 import { createCanvasDrawingFromImage } from "@/lib/canvas/canvas-drawing-storage";
 import { isDrawingEngineAvailable, type CanvasDrawingEngine } from "@/lib/canvas/canvas-drawing-engine";
 import { normalizeRunningHubCapability, type AiConfig } from "@/stores/use-config-store";
@@ -234,20 +233,14 @@ export function useCanvasConnectionController({
         if (exists) {
             setConnections((currentConnections) => currentConnections.map((item) => item.id === exists.id ? { ...item, fromAnchorRatio, toAnchorRatio } : item));
         } else {
-            const group = nodesRef.current.find((node) => node.id === fromNodeId && node.type === CanvasNodeType.KeyframeGroup);
-            const target = nodesRef.current.find((node) => node.id === toNodeId && node.type === CanvasNodeType.Video);
-            const groupScript = group?.metadata?.storyboardNodeId ? nodesRef.current.find((node) => node.id === group.metadata?.storyboardNodeId && node.type === CanvasNodeType.Script) : undefined;
-            const groupRow = groupScript?.metadata?.storyboard?.rows.find((row) => row.id === group?.metadata?.rowId);
-            const childConnections = group && target && groupRow ? normalizeStoryboardKeyframes(groupRow).flatMap((item) => item.imageNodeId ? [{ id: `conn-${Date.now()}-${item.id}`, fromNodeId: item.imageNodeId, toNodeId, relation: "storyboard-asset-reference" as const }] : []) : [];
-            setConnections((currentConnections) => [...currentConnections, { id: `conn-${Date.now()}`, fromNodeId, toNodeId, fromHandleId, toHandleId, fromAnchorRatio, toAnchorRatio }, ...childConnections.filter((child) => !currentConnections.some((connection) => connection.fromNodeId === child.fromNodeId && connection.toNodeId === child.toNodeId))]);
+            setConnections((currentConnections) => [...currentConnections, { id: `conn-${Date.now()}`, fromNodeId, toNodeId, fromHandleId, toHandleId, fromAnchorRatio, toAnchorRatio }]);
             setNodes((currentNodes) => attachNodeToStoryboardRow(currentNodes, { fromNodeId, toNodeId, fromHandleId, toHandleId }));
         }
         setContextMenu(null);
     }, [config, connectionsRef, message, nodesRef, onBatchCellConnect, setConnections, setContextMenu, setNodes]);
 
     const createConnectedNode = useCallback(async (type: CanvasNodeType.Image | CanvasNodeType.Text | CanvasNodeType.Script | CanvasNodeType.BatchTable | CanvasNodeType.Video | CanvasNodeType.Audio | CanvasNodeType.Drawing | CanvasNodeType.Config | CanvasNodeType.MediaConversion, pending: PendingConnectionCreate, workflowProvider?: "runninghub") => {
-        const sourceStoryboardRow = pending.batchSourceNodeIds?.length ? undefined : storyboardRowFromHandle(nodesRef.current, pending.connection.nodeId, pending.connection.handleId);
-        const nodeType = type === CanvasNodeType.Image && sourceStoryboardRow?.keyframePromptDescriptions?.length ? CanvasNodeType.KeyframeGroup : type;
+        const nodeType = type;
         if (nodeType === CanvasNodeType.Drawing && !isDrawingEngineAvailable(defaultDrawingEngine, tldrawLicenseKey)) {
             message.error("当前生产构建未配置 tldraw License Key，不能创建 tldraw 绘图");
             closeConnectionCreateMenu();
@@ -258,7 +251,7 @@ export function useCanvasConnectionController({
         const batchSourceNodes = batchSourceNodeIds
             .map((nodeId) => nodesRef.current.find((node) => node.id === nodeId))
             .filter((node): node is CanvasNodeData => Boolean(node));
-        const storyboardRow = batchSourceNodeIds.length ? undefined : (nodeType === CanvasNodeType.Video || nodeType === CanvasNodeType.KeyframeGroup ? sourceStoryboardRow : undefined);
+        const storyboardRow = batchSourceNodeIds.length ? undefined : nodeType === CanvasNodeType.Video ? storyboardRowFromHandle(nodesRef.current, pending.connection.nodeId, pending.connection.handleId) : undefined;
         const videoPrompt = storyboardRow ? (storyboardRow.videoMotionPrompt || storyboardRow.plotDescription).trim() : "";
         const sourceNode = pending.connection.handleType === "source" ? nodesRef.current.find((node) => node.id === pending.connection.nodeId) : undefined;
         const batchScriptPrompt = batchSourceNodes
@@ -294,8 +287,6 @@ export function useCanvasConnectionController({
             ? { drawingEngine: defaultDrawingEngine }
             : nodeType === CanvasNodeType.Script && scriptPrompt
               ? { prompt: scriptPrompt, composerContent: scriptPrompt }
-            : nodeType === CanvasNodeType.KeyframeGroup && storyboardRow
-              ? { storyboardNodeId: pending.connection.nodeId, rowId: storyboardRow.id, keyframeIds: normalizeStoryboardKeyframes(storyboardRow).map((item) => item.id), workflowKind: "shot" as const, workflowTitle: `镜头 ${storyboardRow.shotNumber} 关键帧组`, status: NODE_STATUS_IDLE }
             : nodeType === CanvasNodeType.Video && storyboardRow
               ? { prompt: videoPrompt, composerContent: videoPrompt, ...storyboardPromptTemplateMetadata(storyboardRow, "video"), generationMode: "video" as const, videoEditOperation: "text_to_video" as const, workflowKind: "shot" as const, workflowTitle: `镜头 ${storyboardRow.shotNumber} 视频`, shotIndex: storyboardRow.shotNumber, seconds: String(storyboardRow.durationSeconds), status: NODE_STATUS_IDLE }
               : undefined;
@@ -313,36 +304,6 @@ export function useCanvasConnectionController({
               ? pending.position
               : connectedNodeCenterFromEdgeDrop(pending.position, spec, pending.connection.handleType);
         const newNode = createCanvasNode(nodeType, position, metadata);
-        if (nodeType === CanvasNodeType.KeyframeGroup && storyboardRow) {
-            const sourceScript = nodesRef.current.find((node) => node.id === pending.connection.nodeId && node.type === CanvasNodeType.Script);
-            const keyframes = normalizeStoryboardKeyframes(storyboardRow);
-            if (!sourceScript || !keyframes.length) {
-                message.warning("请先在分镜行添加关键帧图片提示词");
-                closeConnectionCreateMenu();
-                setConnecting(null);
-                return;
-            }
-            const groupSpec = getNodeSpec(CanvasNodeType.KeyframeGroup);
-            const imageSpec = getNodeSpec(CanvasNodeType.Image);
-            const imageNodes = keyframes.map((item, index) => {
-                const image = createCanvasNode(CanvasNodeType.Image, { x: newNode.position.x + groupSpec.width + imageSpec.width / 2 + 100, y: newNode.position.y + index * (imageSpec.height + 28) }, { prompt: item.prompt, composerContent: item.prompt, assetBindings: effectiveStoryboardKeyframeAssets(storyboardRow, item), workflowKind: "shot", workflowTitle: `镜头 ${storyboardRow.shotNumber} 关键帧 ${index + 1}`, storyboardNodeId: sourceScript.id, rowId: storyboardRow.id, keyframeGroupNodeId: newNode.id, keyframeId: item.id, shotIndex: storyboardRow.shotNumber, status: NODE_STATUS_IDLE });
-                image.title = `镜头 ${storyboardRow.shotNumber} · 关键帧 ${index + 1}`;
-                return image;
-            });
-            const nextRow = { ...storyboardRow, keyframeGroupNodeId: newNode.id, keyframePromptDescriptions: keyframes.map((item, index) => ({ ...item, order: index, imageNodeId: imageNodes[index]?.id })) };
-            const nextNodes = [...nodesRef.current, newNode, ...imageNodes].map((node) => node.id === sourceScript.id ? { ...node, metadata: { ...node.metadata, storyboard: { ...node.metadata?.storyboard!, rows: (node.metadata?.storyboard?.rows || []).map((row) => row.id === storyboardRow.id ? nextRow : row) } } } : node);
-            const nextConnections = [...connectionsRef.current, { id: nanoid(), fromNodeId: sourceScript.id, toNodeId: newNode.id, fromHandleId: `row:${storyboardRow.id}`, relation: "storyboard-output" as const, storyboardRowId: storyboardRow.id }];
-            nodesRef.current = nextNodes;
-            connectionsRef.current = nextConnections;
-            setNodes(nextNodes);
-            setConnections(nextConnections);
-            setSelectedNodeIds(new Set([newNode.id]));
-            setSelectedConnectionId(null);
-            closeConnectionCreateMenu();
-            setConnecting(null);
-            message.success("已创建关键帧组及其图片节点");
-            return;
-        }
         if (nodeType === CanvasNodeType.Audio) {
             const probe = normalizeConnection(pending.connection.nodeId, newNode.id, [...nodesRef.current, newNode], pending.connection.handleType);
             const input = probe ? connectionInputSummary(newNode.id, [...nodesRef.current, newNode], connectionsRef.current, probe) : undefined;
@@ -439,13 +400,7 @@ export function useCanvasConnectionController({
         const toAnchorRatio = connection.toNodeId === pending.connection.nodeId ? pending.connection.anchorRatio : 0.5;
         const connected = { ...connection, fromHandleId, toHandleId, fromAnchorRatio, toAnchorRatio };
         setNodes((currentNodes) => attachNodeToStoryboardRow([...currentNodes, newNode], connected));
-        const sourceGroup = nodesRef.current.find((node) => node.id === connected.fromNodeId && node.type === CanvasNodeType.KeyframeGroup);
-        const sourceGroupScript = sourceGroup?.metadata?.storyboardNodeId ? nodesRef.current.find((node) => node.id === sourceGroup?.metadata?.storyboardNodeId && node.type === CanvasNodeType.Script) : undefined;
-        const sourceGroupRow = sourceGroupScript?.metadata?.storyboard?.rows.find((row) => row.id === sourceGroup?.metadata?.rowId);
-        const childConnections = sourceGroup && newNode.type === CanvasNodeType.Video && sourceGroupRow
-            ? normalizeStoryboardKeyframes(sourceGroupRow).flatMap((item) => item.imageNodeId ? [{ id: nanoid(), fromNodeId: item.imageNodeId, toNodeId: newNode.id, relation: "storyboard-asset-reference" as const }] : [])
-            : [];
-        setConnections((currentConnections) => [...currentConnections, { id: nanoid(), ...connected }, ...childConnections.filter((child) => !currentConnections.some((connection) => connection.fromNodeId === child.fromNodeId && connection.toNodeId === child.toNodeId))]);
+        setConnections((currentConnections) => [...currentConnections, { id: nanoid(), ...connected }]);
         setSelectedNodeIds(new Set([newNode.id]));
         setSelectedConnectionId(null);
         if (nodeType === CanvasNodeType.Drawing) setDrawingNodeId(newNode.id);

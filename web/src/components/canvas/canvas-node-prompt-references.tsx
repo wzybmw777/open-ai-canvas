@@ -1,20 +1,12 @@
 // 节点提示词面板的参考素材区：已连接参考的缩略图货架、自动 @ 引用工具与拖拽排序。
 
-import { Dropdown, Image as AntImage, Popover } from "antd";
-import { AtSign, FileText, GripVertical, ImageIcon, Link2, Maximize2, Music2, Pencil, Plus, SlidersHorizontal, UserRound, Video, X } from "lucide-react";
+import { Image as AntImage, Popover } from "antd";
+import { AtSign, FileText, GripVertical, ImageIcon, Link2, Maximize2, Music2, Pencil, SlidersHorizontal, UserRound, Video, X } from "lucide-react";
 import { type CanvasResourceReference } from "@/lib/canvas/canvas-resource-references";
 import { useState } from "react";
 import { usePopoverAnchorAlign } from "@/hooks/use-popover-anchor-align";
 import { CanvasNodeType } from "@/types/canvas";
 import type { CanvasTheme } from "./canvas-node-prompt-panel";
-
-export type AddCanvasReferenceAction = "canvas" | "library" | "upload" | "text";
-const ADD_REFERENCE_ACTIONS: Array<{ key: AddCanvasReferenceAction; label: string }> = [
-    { key: "canvas", label: "选择画布节点" },
-    { key: "library", label: "从素材库添加" },
-    { key: "upload", label: "上传本地文件" },
-    { key: "text", label: "新建文本节点" },
-];
 
 export function ReferenceToolsPopover({
     canAutoMention,
@@ -98,7 +90,6 @@ export function ConnectedReferenceShelf({
     references,
     theme,
     onInsert,
-    onAdd,
     onRemove,
     onReorder,
     onReplaceReference,
@@ -108,7 +99,6 @@ export function ConnectedReferenceShelf({
     references: CanvasResourceReference[];
     theme: CanvasTheme;
     onInsert: (reference: CanvasResourceReference) => void;
-    onAdd?: (action: AddCanvasReferenceAction) => void;
     onRemove?: (reference: CanvasResourceReference) => void;
     onReorder?: (orderedNodeIds: string[]) => void;
     onReplaceReference?: (oldReference: CanvasResourceReference, sourceNodeId: string) => void;
@@ -118,7 +108,7 @@ export function ConnectedReferenceShelf({
     const [imagePreview, setImagePreview] = useState<CanvasResourceReference | null>(null);
     const [draggedReferenceId, setDraggedReferenceId] = useState<string | null>(null);
     const [dropTargetReferenceId, setDropTargetReferenceId] = useState<string | null>(null);
-    if (!activeReferences.length && !onAdd) return null;
+    if (!activeReferences.length) return null;
 
     const moveReference = (sourceId: string, targetId: string) => {
         if (!onReorder || sourceId === targetId) return;
@@ -262,7 +252,7 @@ export function ConnectedReferenceShelf({
                                         type="button"
                                         className="canvas-node-reference-remove"
                                         style={{ background: theme.toolbar.panel, borderColor: theme.node.stroke, color: theme.node.text }}
-                                        title="解除当前节点的关联，保留原素材"
+                                        title="移除参考并删除连接"
                                         aria-label={`移除参考 ${reference.label}`}
                                         onClick={(event) => {
                                             event.stopPropagation();
@@ -276,14 +266,6 @@ export function ConnectedReferenceShelf({
                             </span>
                         );
                     })}
-                    {onAdd ? (
-                        <Dropdown trigger={["click"]} menu={{ items: ADD_REFERENCE_ACTIONS, onClick: ({ key }) => onAdd(key as AddCanvasReferenceAction) }}>
-                            <button type="button" className="canvas-node-reference-add" aria-label="添加参考节点" title="添加节点，自动关联并引用" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
-                                <Plus className="size-4" />
-                                <span>添加参考</span>
-                            </button>
-                        </Dropdown>
-                    ) : null}
                 </div>
             </div>
             {imagePreview?.previewUrl ? (

@@ -218,13 +218,7 @@ func cloudAgentAllToolSchemas() []map[string]any {
 		"x":            map[string]any{"type": "number"},
 		"y":            map[string]any{"type": "number"},
 	}, "snapshotHash", "nodeId", "title", "rows")
-	add("canvas_bind_storyboard_assets", "按用户意图将画布中已确认的媒体资产写入分镜镜头 assetBindings，勿凭名称臆测内容。先读分镜 rowId，再读画布取得整画布 snapshotHash 与真实资产。最多20行，每行16项。merge 按 nodeId 更新角色和优先级并保留其它绑定；仅用户明确要求时用 replace，空数组清空该行。不以连线代替绑定；不改镜头文本、媒体节点ID或任务，不提交生成。", map[string]any{
-		"snapshotHash": str("最近一次画布读取返回的画布 snapshotHash；分镜节点版本不足以验证关联资产"),
-		"nodeId":       str("真实分镜脚本节点ID"),
-		"mode":         map[string]any{"type": "string", "enum": []string{"merge", "replace"}},
-		"rows":         cloudAgentStoryboardBindingsSchema(),
-	}, "snapshotHash", "nodeId", "mode", "rows")
-	add("canvas_edit_storyboard", "追加、修改或删除分镜脚本中的单个镜头行。必须先用 canvas_read_storyboard 读取最新 snapshotHash 和真实 rowId；append 不传 rowId，update/remove 必须传。patch 只允许镜头文本与时长，不能修改素材绑定、媒体节点ID、任务状态、资源URL或任意 metadata；关联资产使用 canvas_bind_storyboard_assets。", map[string]any{
+	add("canvas_edit_storyboard", "追加、修改或删除分镜脚本中的单个镜头行。必须先用 canvas_read_storyboard 读取最新 snapshotHash 和真实 rowId；append 不传 rowId，update/remove 必须传。patch 只允许镜头文本与时长，不能修改素材绑定、媒体节点ID、任务状态、资源URL或任意 metadata。", map[string]any{
 		"snapshotHash": str("最近一次 canvas_read_storyboard 返回的 snapshotHash（这个分镜节点的版本；其它节点的改动不影响它）"),
 		"nodeId":       str("真实分镜脚本节点ID"),
 		"action":       map[string]any{"type": "string", "enum": []string{"append", "update", "remove"}},

@@ -1,13 +1,35 @@
 import { nanoid } from "nanoid";
 
-import { isStoryboardBindableAsset, normalizeStoryboardAssetBindings, storyboardAssetRoleForNode } from "@/lib/canvas/canvas-storyboard-assets";
+import { normalizeStoryboardAssetBindings, storyboardAssetRoleForNode } from "@/lib/canvas/canvas-storyboard-assets";
 import { applyCanvasConnectionPromptSync, buildOrderedCanvasResourceReferences, canvasResourceMentionToken } from "@/lib/canvas/canvas-resource-references";
-import { CanvasNodeType, type CanvasConnection, type CanvasNodeData, type StoryboardAssetBinding, type StoryboardRow } from "@/types/canvas";
-
-export { storyboardRowReferenceNodeIds } from "@/lib/canvas/canvas-storyboard-reference-ids";
-import { storyboardRowReferenceNodeIds } from "@/lib/canvas/canvas-storyboard-reference-ids";
 import { nodeGenerationPrompt } from "@/lib/canvas/generation-contract";
 import { writeCanvasNodePrompt } from "@/lib/canvas/canvas-node-prompt";
+import { CanvasNodeType, type CanvasConnection, type CanvasNodeData, type StoryboardAssetBinding, type StoryboardRow } from "@/types/canvas";
+
+export function storyboardRowReferenceNodeIds(scriptNode: CanvasNodeData, row: StoryboardRow, nodes: CanvasNodeData[], connections: CanvasConnection[], includeFirstFrame: boolean, targetNodeId?: string) {
+    const characterAssetIds = new Set((row.characters || []).map((character) => character.characterAssetId).filter((assetId): assetId is string => Boolean(assetId)));
+    const boundNodeIds = new Set((row.assetBindings || []).map((binding) => binding.nodeId));
+    const explicitlyBoundCharacters = new Set(
+        nodes
+            .filter((node) => boundNodeIds.has(node.id))
+            .map((node) => node.metadata?.characterAssetId)
+            .filter(Boolean),
+    );
+    const characterNodeIds = nodes
+        .filter((node) => node.metadata?.workflowKind === "character" && Boolean(node.metadata.characterAssetId) && characterAssetIds.has(node.metadata.characterAssetId!) && !explicitlyBoundCharacters.has(node.metadata.characterAssetId))
+        .map((node) => node.id);
+    const referenceIds = new Set([
+        ...(scriptNode.metadata?.storyboard?.referenceNodeIds || []),
+        ...(row.assetBindings || []).map((binding) => binding.nodeId),
+        ...characterNodeIds,
+        ...connections.filter((connection) => connection.toNodeId === scriptNode.id && connection.toHandleId === `row:${row.id}`).map((connection) => connection.fromNodeId),
+        ...(targetNodeId ? connections.filter((connection) => !connection.relation && connection.toNodeId === targetNodeId).map((connection) => connection.fromNodeId) : []),
+        ...(includeFirstFrame && row.imageNodeId ? [row.imageNodeId] : []),
+    ]);
+    if (!includeFirstFrame && row.imageNodeId) referenceIds.delete(row.imageNodeId);
+    referenceIds.delete(scriptNode.id);
+    return Array.from(referenceIds).filter((nodeId) => nodes.some((node) => node.id === nodeId));
+}
 
 export function storyboardComposerContent(prompt: string, referenceNodeIds: string[], nodes: CanvasNodeData[]) {
     const referenceIds = Array.from(new Set(referenceNodeIds));
@@ -41,17 +63,6 @@ export function reconcileStoryboardTargetConnections(connections: CanvasConnecti
 export function bindingForConnectedNode(node: CanvasNodeData): StoryboardAssetBinding | null {
     const role = storyboardAssetRoleForNode(node);
     return role ? { nodeId: node.id, role, priority: defaultRolePriority(role) } : null;
-}
-
-export const MAX_STORYBOARD_ROW_ASSETS = 16;
-
-export function setStoryboardAssetBinding(bindings: StoryboardAssetBinding[], node: CanvasNodeData, selected: boolean) {
-    const existing = bindings.filter((binding) => binding.nodeId !== node.id);
-    if (!selected) return normalizeStoryboardAssetBindings(existing);
-    if (bindings.some((binding) => binding.nodeId === node.id)) return bindings;
-    if (bindings.length >= MAX_STORYBOARD_ROW_ASSETS || !isStoryboardBindableAsset(node)) return bindings;
-    const binding = bindingForConnectedNode(node);
-    return binding ? normalizeStoryboardAssetBindings([...bindings, binding]) : bindings;
 }
 
 export function replaceStoryboardRowAssets(nodes: CanvasNodeData[], connections: CanvasConnection[], scriptNodeId: string, rowId: string, bindings: StoryboardAssetBinding[]) {

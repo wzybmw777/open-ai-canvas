@@ -4,13 +4,11 @@ import type { ExcalidrawImperativeAPI, ExcalidrawInitialDataState } from "@excal
 import "@excalidraw/excalidraw/index.css";
 
 import type { CanvasDrawingEditorHandle, CanvasDrawingEditorProps } from "@/components/canvas/canvas-drawing-editor-types";
-import { useLocaleStore } from "@/lib/i18n";
 
 const DRAWING_RENDER_MAX_DIMENSION = 2048;
 const DRAWING_RENDER_PADDING = 24;
 
 export const CanvasDrawingExcalidrawEditor = forwardRef<CanvasDrawingEditorHandle, CanvasDrawingEditorProps>(function CanvasDrawingExcalidrawEditor({ snapshot, colorScheme, onReady }, ref) {
-    const locale = useLocaleStore((state) => state.locale);
     const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
 
     useImperativeHandle(ref, () => ({
@@ -52,7 +50,7 @@ export const CanvasDrawingExcalidrawEditor = forwardRef<CanvasDrawingEditorHandl
     return (
         <Excalidraw
                 initialData={initialData}
-                langCode={locale}
+                langCode="zh-CN"
                 theme={colorScheme}
                 autoFocus
                 excalidrawAPI={(api) => {

@@ -1,5 +1,4 @@
 import { resetGenerationTaskMetadata } from "@/lib/canvas/canvas-project-generation";
-import { remapStoryboardKeyframeReferences } from "@/lib/canvas/canvas-storyboard-keyframes";
 import { CanvasNodeType, type CanvasNodeData, type CanvasNodeMetadata, type StoryboardRow } from "@/types/canvas";
 
 const COPY_TITLE_SUFFIX = /^(.*)_copy(\d+)$/i;
@@ -30,17 +29,16 @@ function remapReferenceIds(nodeIds: string[] | undefined, idMap: ReadonlyMap<str
 }
 
 function copyStoryboardRow(row: StoryboardRow, idMap: ReadonlyMap<string, string>): StoryboardRow {
-    const remapped = remapStoryboardKeyframeReferences(row, idMap);
-    const imageNodeId = remapped.imageNodeId;
-    const videoNodeId = remapped.videoNodeId;
-    const hasCopiedOutput = Boolean(imageNodeId || videoNodeId || remapped.keyframeGroupNodeId);
+    const imageNodeId = remapOwnedNodeId(row.imageNodeId, idMap);
+    const videoNodeId = remapOwnedNodeId(row.videoNodeId, idMap);
+    const hasCopiedOutput = Boolean(imageNodeId || videoNodeId);
     return {
-        ...remapped,
+        ...row,
         characters: (row.characters || []).map((character) => ({
             ...character,
             characterImageNodeId: remapReferenceId(character.characterImageNodeId, idMap),
         })),
-        assetBindings: (remapped.assetBindings || []).map((binding) => ({ ...binding, nodeId: remapReferenceId(binding.nodeId, idMap)! })),
+        assetBindings: (row.assetBindings || []).map((binding) => ({ ...binding, nodeId: remapReferenceId(binding.nodeId, idMap)! })),
         imageNodeId,
         videoNodeId,
         status: hasCopiedOutput ? row.status : "idle",
@@ -108,15 +106,6 @@ export function isolateCopiedNodeMetadata(node: CanvasNodeData, idMap: ReadonlyM
     metadata.referenceAssetNodeIds = node.metadata?.referenceAssetNodeIds?.map((nodeId) => remapOwnedNodeId(nodeId, idMap)).filter((nodeId): nodeId is string => Boolean(nodeId));
     metadata.videoStartFrameNodeId = remapReferenceId(node.metadata?.videoStartFrameNodeId, idMap);
     metadata.videoEndFrameNodeId = remapReferenceId(node.metadata?.videoEndFrameNodeId, idMap);
-    metadata.keyframeGroupNodeId = remapOwnedNodeId(node.metadata?.keyframeGroupNodeId, idMap);
-    // The copied storyboard row is the source of truth for keyframe ids. A
-    // copied group/video must not retain the original array, otherwise it can
-    // point at the source row until the next video generation pass.
-    metadata.keyframeIds = node.metadata?.keyframeGroupNodeId ? undefined : node.metadata?.keyframeIds ? [...node.metadata.keyframeIds] : undefined;
-    metadata.needsRegeneration = node.metadata?.keyframeGroupNodeId ? true : node.metadata?.needsRegeneration;
-    metadata.storyboardNodeId = remapReferenceId(node.metadata?.storyboardNodeId, idMap);
-    metadata.rowId = node.metadata?.rowId;
-    metadata.keyframeId = node.metadata?.keyframeId && idMap.has(node.id) ? `keyframe-${idMap.get(node.id)}` : node.metadata?.keyframeId;
     metadata.previsPreviewNodeId = remapOwnedNodeId(node.metadata?.previsPreviewNodeId, idMap);
     metadata.previsDepthNodeId = remapOwnedNodeId(node.metadata?.previsDepthNodeId, idMap);
     metadata.previsDepthVideoNodeId = remapOwnedNodeId(node.metadata?.previsDepthVideoNodeId, idMap);

@@ -12,7 +12,6 @@ import { canvasNodeMentionToken, canvasResourceMentionToken, type CanvasResource
 import { getNodeDefinition } from "@/lib/canvas/node-registry";
 import { batchReferenceHandleY } from "@/lib/canvas/canvas-batch-table";
 import { reconcileImageBatchRoot } from "@/lib/canvas/canvas-image-batch-retry";
-import { normalizeStoryboardKeyframes, sortStoryboardKeyframes } from "@/lib/canvas/canvas-storyboard-keyframes";
 import { scopedLocalStorage } from "@/lib/user-scope";
 import type { GenerationTask } from "@/services/api/task-center";
 import { synchronizeGenerationSpec } from "@/lib/canvas/generation-contract";
@@ -39,7 +38,7 @@ export function createCanvasNode(type: CanvasNodeTypeId, position: Position, met
         width: spec.width,
         height: spec.height,
         metadata: type === CanvasNodeType.Script
-            ? { ...spec.metadata, ...metadata, storyboard: metadata?.storyboard || { rows: [1, 2, 3].map((shotNumber) => createStoryboardRow(shotNumber)), visibleColumns: ["shotNumber", "durationSeconds", "videoMotionPrompt", "dialogue", "assets", "keyframes"], referenceNodeIds: [] } }
+            ? { ...spec.metadata, ...metadata, storyboard: metadata?.storyboard || { rows: [1, 2, 3].map((shotNumber) => createStoryboardRow(shotNumber)), visibleColumns: ["shotNumber", "durationSeconds", "videoMotionPrompt", "dialogue", "assets"], referenceNodeIds: [] } }
             : { ...spec.metadata, ...metadata, ...(type === CanvasNodeType.Drawing ? { drawingId: metadata?.drawingId || `${id}-document` } : {}) },
     };
 }
@@ -69,7 +68,6 @@ export function createStoryboardRow(shotNumber: number, patch: Partial<Storyboar
         continuityOut: "",
         negativePrompt: "",
         assetBindings: [],
-        keyframePromptDescriptions: [],
         status: "idle",
         ...patch,
     };
@@ -90,7 +88,6 @@ export function cinematicStoryboardColumns(columns?: StoryboardColumn[]): Storyb
         "videoMotionPrompt",
         "dialogue",
         "assets",
-        "keyframes",
         ...(columns || []),
         "shotSize",
         "narrativeIntent",
@@ -339,23 +336,6 @@ export function attachNodeToStoryboardRow(nodes: CanvasNodeData[], connection: P
     const linkedNodeId = scriptNodeId === connection.fromNodeId ? connection.toNodeId : connection.fromNodeId;
     const linkedNode = nodes.find((node) => node.id === linkedNodeId);
     const scriptNode = nodes.find((node) => node.id === scriptNodeId && node.type === CanvasNodeType.Script);
-    const fromNode = nodes.find((node) => node.id === connection.fromNodeId);
-    const toNode = nodes.find((node) => node.id === connection.toNodeId);
-    if (fromNode?.type === CanvasNodeType.KeyframeGroup && toNode?.type === CanvasNodeType.Video && fromNode.metadata?.storyboardNodeId && fromNode.metadata.rowId) {
-        const groupScript = nodes.find((node) => node.id === fromNode.metadata?.storyboardNodeId && node.type === CanvasNodeType.Script);
-        const groupRow = groupScript?.metadata?.storyboard?.rows.find((item) => item.id === fromNode.metadata?.rowId);
-        if (groupScript && groupRow) {
-            const keyframes = sortStoryboardKeyframes(normalizeStoryboardKeyframes(groupRow));
-            const imageIds = keyframes.map((item) => item.imageNodeId).filter((id): id is string => Boolean(id));
-            const prompt = (groupRow.videoMotionPrompt || groupRow.plotDescription).trim();
-            const composerContent = storyboardComposerContent(prompt, imageIds, nodes);
-            return nodes.map((node) => {
-                if (node.id === toNode.id) return { ...node, title: `镜头 ${groupRow.shotNumber} · 视频`, metadata: { ...node.metadata, prompt, composerContent, ...storyboardPromptTemplateMetadata(groupRow, "video"), workflowKind: "shot" as const, workflowTitle: `镜头 ${groupRow.shotNumber} 视频`, shotIndex: groupRow.shotNumber, videoStartFrameNodeId: imageIds[0], videoEndFrameNodeId: imageIds.length > 1 ? imageIds.at(-1) : imageIds[0], keyframeGroupNodeId: fromNode.id, keyframeIds: keyframes.map((item) => item.id), videoEditOperation: "image_to_video" as const, generationMode: "video" as const, seconds: String(groupRow.durationSeconds), needsRegeneration: true } };
-                if (node.id === groupScript.id) return { ...node, metadata: { ...node.metadata, storyboard: { ...node.metadata?.storyboard!, rows: (node.metadata?.storyboard?.rows || []).map((item) => item.id === groupRow.id ? { ...item, videoNodeId: toNode.id } : item) } } };
-                return node;
-            });
-        }
-    }
     if (!scriptNodeId || !linkedNode || !scriptNode) return nodes;
     const row = rowId ? scriptNode.metadata?.storyboard?.rows.find((item) => item.id === rowId) : undefined;
     const videoPrompt = row ? (row.videoMotionPrompt || row.plotDescription).trim() : "";
@@ -378,7 +358,7 @@ export function attachNodeToStoryboardRow(nodes: CanvasNodeData[], connection: P
                         : binding && !(item.assetBindings || []).some((candidate) => candidate.nodeId === linkedNode.id)
                           ? { ...item, assetBindings: [...(item.assetBindings || []), binding] }
                           : item),
-                    visibleColumns: storyboard?.visibleColumns || ["shotNumber", "durationSeconds", "videoMotionPrompt", "dialogue", "assets", "keyframes"],
+                    visibleColumns: storyboard?.visibleColumns || ["shotNumber", "durationSeconds", "videoMotionPrompt", "dialogue", "assets"],
                     referenceNodeIds: handleId === "storyboard:context" ? Array.from(new Set([...(storyboard?.referenceNodeIds || []), linkedNode.id])) : storyboard?.referenceNodeIds || [],
                 },
             },
@@ -529,15 +509,6 @@ export function removeCanvasNodes(nodes: CanvasNodeData[], requestedIds: Set<str
     nodes.forEach((node) => {
         if (requestedIds.has(node.id)) node.metadata?.batchChildIds?.forEach((childId) => removedIds.add(childId));
         if (requestedIds.has(node.id)) node.metadata?.experimentalLayerPlan?.requests.forEach((request) => removedIds.add(request.nodeId));
-        if (requestedIds.has(node.id) && node.type === CanvasNodeType.KeyframeGroup) {
-            nodes.filter((candidate) => candidate.metadata?.keyframeGroupNodeId === node.id).forEach((candidate) => removedIds.add(candidate.id));
-        }
-        if (requestedIds.has(node.id) && node.type === CanvasNodeType.Script) {
-            node.metadata?.storyboard?.rows.forEach((row) => {
-                if (row.keyframeGroupNodeId) removedIds.add(row.keyframeGroupNodeId);
-                row.keyframePromptDescriptions?.forEach((item) => { if (item.imageNodeId) removedIds.add(item.imageNodeId); });
-            });
-        }
     });
     const remainingNodes = nodes.filter((node) => !removedIds.has(node.id));
     const cleanedNodes = remainingNodes.map((node) => {
@@ -567,10 +538,6 @@ export function removeCanvasNodes(nodes: CanvasNodeData[], requestedIds: Set<str
                               assetBindings: (row.assetBindings || []).filter((binding) => !removedIds.has(binding.nodeId)),
                               imageNodeId: row.imageNodeId && !removedIds.has(row.imageNodeId) ? row.imageNodeId : undefined,
                               videoNodeId: row.videoNodeId && !removedIds.has(row.videoNodeId) ? row.videoNodeId : undefined,
-                                  keyframeGroupNodeId: row.keyframeGroupNodeId && !removedIds.has(row.keyframeGroupNodeId) ? row.keyframeGroupNodeId : undefined,
-                                  keyframePromptDescriptions: row.keyframePromptDescriptions
-                                      ?.filter((item) => !item.imageNodeId || !removedIds.has(item.imageNodeId))
-                                      .map((item, order) => ({ ...item, order })),
                           })),
                       },
                   },

@@ -64,7 +64,7 @@ export function buildAgentStoryboardOperations(snapshot: CanvasSnapshot, input: 
     next = next.map((row, i) => ({ ...row, shotNumber: i + 1 }));
     return [{ type: "update_node", id: node.id, metadata: { storyboard: {
         rows: next,
-        visibleColumns: node.metadata?.storyboard?.visibleColumns || ["shotNumber", "durationSeconds", "videoMotionPrompt", "dialogue", "assets", "keyframes"],
+        visibleColumns: node.metadata?.storyboard?.visibleColumns || ["shotNumber", "durationSeconds", "videoMotionPrompt", "dialogue", "assets"],
         referenceNodeIds: node.metadata?.storyboard?.referenceNodeIds || [],
     } } }];
 }

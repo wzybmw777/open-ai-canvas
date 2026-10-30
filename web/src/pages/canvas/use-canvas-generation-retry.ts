@@ -243,11 +243,10 @@ export function useCanvasGenerationRetry({
                 message.warning("当前节点不能使用通用生成重试");
                 return;
             }
-            const referenceInputsEdited = Boolean(node.metadata?.referenceInputsEdited);
-            const sourceNode = referenceInputsEdited ? node : findRetrySourceNode(node.id, nodesRef.current, connectionsRef.current) || node;
+            const sourceNode = findRetrySourceNode(node.id, nodesRef.current, connectionsRef.current) || node;
             const batchRoot = node.metadata?.batchRootId ? nodesRef.current.find((item) => item.id === node.metadata?.batchRootId) : null;
             const savedImageMetadata = node.type === CanvasNodeType.Image ? { ...batchRoot?.metadata, ...node.metadata } : undefined;
-            const hasSavedImageMetadata = Boolean(savedImageMetadata?.generationType) && !referenceInputsEdited;
+            const hasSavedImageMetadata = Boolean(savedImageMetadata?.generationType);
             const generationSourceNode = node.type === CanvasNodeType.Config && isCanvasWorkflowProvider(node.metadata) || node.metadata?.workflowProvider === "model" ? node : sourceNode;
             const sourceGenerationConfig = buildGenerationConfig(effectiveConfig, generationSourceNode, retryMode);
             let generationConfig =
@@ -308,7 +307,7 @@ export function useCanvasGenerationRetry({
                     return;
                 }
             }
-            const prompt = (referenceInputsEdited || context?.characterReferences.length ? context?.prompt || "" : savedImageMetadata?.prompt || context?.prompt || "").trim();
+            const prompt = (context?.characterReferences.length ? context.prompt : savedImageMetadata?.prompt || context?.prompt || "").trim();
             if (!prompt) {
                 message.warning("找不到提示词，无法重试");
                 return;
@@ -339,7 +338,7 @@ export function useCanvasGenerationRetry({
                 }
                 generationConfig = { ...generationConfig, audioVoice: voice.voiceKey, audioInstructions: [voice.instructions, generationConfig.audioInstructions].filter(Boolean).join("；") };
             }
-            const generationType = referenceInputsEdited ? undefined : savedImageMetadata?.generationType;
+            const generationType = savedImageMetadata?.generationType;
             const isEmotionRetry = Boolean(node.metadata?.emotionEdit);
             if (isEmotionRetry && resolveModelRequestConfig(generationConfig, generationConfig.model).interfaceType !== "openai-image") {
                 message.error("表情编辑需要支持蒙版的 OpenAI Images 渠道，当前渠道已拒绝整图重绘");
@@ -368,7 +367,7 @@ export function useCanvasGenerationRetry({
                     return;
                 }
             }
-            const storedVideoImages = !referenceInputsEdited && node.type === CanvasNodeType.Video && !context?.referenceImages.length ? await resolveStoredReferenceImages(node.metadata?.references) : [];
+            const storedVideoImages = node.type === CanvasNodeType.Video && !context?.referenceImages.length ? await resolveStoredReferenceImages(node.metadata?.references) : [];
             if (storedVideoImages === null) {
                 markMissingReferences(node.id, setNodes);
                 message.error("参考图片已丢失，无法继续重试");
@@ -527,7 +526,7 @@ export function useCanvasGenerationRetry({
                     return;
                 }
 
-                const generationMetadata = hasSavedImageMetadata && savedImageMetadata
+                const generationMetadata = savedImageMetadata?.generationType
                     ? {
                           generationType: savedImageMetadata.generationType,
                           model: generationConfig.model,

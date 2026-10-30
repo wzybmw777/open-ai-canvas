@@ -19,7 +19,7 @@ func TestCloudAgentRejectsRetiredPermissionBeforeCreatingTasks(t *testing.T) {
 		if tools := cloudAgentTools(req); len(tools) != 0 {
 			t.Fatalf("unsupported permission %q exposed tools", mode)
 		}
-		for _, tool := range []string{"generate_media", "image_layer_split", "canvas_apply_ops", "canvas_bind_storyboard_assets", "plan_update"} {
+		for _, tool := range []string{"generate_media", "image_layer_split", "canvas_apply_ops", "plan_update"} {
 			if cloudAgentToolAllowed(req, tool) {
 				t.Fatalf("unsupported permission %q allowed %s", mode, tool)
 			}

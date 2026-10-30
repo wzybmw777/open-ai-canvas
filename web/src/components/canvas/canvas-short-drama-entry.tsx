@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { Popover } from "antd";
-import { AlignLeft, ArrowUp, ArrowUpRight, Check, ChevronUp, Clapperboard, FolderKanban, Images, LayoutGrid, Palette, Pencil, Plus, Sparkles, Type, Upload, Workflow, X } from "lucide-react";
 import { Link } from "react-router";
+import { AlignLeft, ArrowUp, Check, ChevronUp, Clapperboard, FolderKanban, Images, LayoutGrid, Palette, Pencil, Plus, Type, Upload, Workflow, X } from "lucide-react";
 
 import { canvasThemes } from "@/lib/canvas-theme";
 import { CanvasCreateMenu, type CanvasCreateCommand } from "@/components/canvas/canvas-create-menu";
@@ -182,7 +182,7 @@ function useCanvasEntryClickRipple(stageRef: RefObject<HTMLDivElement | null>) {
     }, [stageRef]);
 }
 
-export function CanvasFreeformEmptyState({ commands, onCreateShortDrama, onOpenAgent }: { commands: CanvasCreateCommand[]; onCreateShortDrama?: () => void; onOpenAgent?: () => void }) {
+export function CanvasFreeformEmptyState({ commands }: { commands: CanvasCreateCommand[] }) {
     const theme = canvasThemes[useActiveTheme()];
     const [createOpen, setCreateOpen] = useState(false);
     const createCommands = commands.map((command) => ({
@@ -196,13 +196,7 @@ export function CanvasFreeformEmptyState({ commands, onCreateShortDrama, onOpenA
         <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center px-4 pb-20 pt-24">
             <div className="pointer-events-auto flex min-h-[260px] w-full max-w-[520px] flex-col items-center justify-center rounded-2xl border border-dashed px-8 py-10 text-center backdrop-blur" data-canvas-no-zoom style={{ background: theme.node.fill, borderColor: theme.node.edge, boxShadow: theme.node.shadow, color: theme.node.text }}>
                 <h2 className="text-base font-semibold">自由空白画布</h2>
-                <p className="mt-1 text-xs" style={{ color: theme.node.muted }}>{onCreateShortDrama || onOpenAgent ? "不预设流程，也可以直接在这里完成一部短剧。" : "不预设流程，从任意一种素材开始创作。"}</p>
-                {onCreateShortDrama || onOpenAgent ? (
-                    <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-                        {onCreateShortDrama ? <button type="button" className="inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-xs font-medium outline-none transition hover:brightness-105 focus-visible:ring-2" style={{ background: theme.toolbar.panel, borderColor: theme.accent.primary, color: theme.node.text, "--tw-ring-color": theme.accent.primary } as CSSProperties} onClick={onCreateShortDrama}><Clapperboard className="size-3.5" />开始短剧流程<ArrowUpRight className="size-3.5 opacity-60" /></button> : null}
-                        {onOpenAgent ? <button type="button" className="inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-xs font-medium outline-none transition hover:bg-black/5 focus-visible:ring-2 dark:hover:bg-white/10" style={{ color: theme.node.muted, "--tw-ring-color": theme.accent.primary } as CSSProperties} onClick={onOpenAgent}><Sparkles className="size-3.5" />交给 Agent<ArrowUpRight className="size-3.5 opacity-60" /></button> : null}
-                    </div>
-                ) : null}
+                <p className="mt-1 text-xs" style={{ color: theme.node.muted }}>不预设流程，从任意一种素材开始创作。</p>
                 <Popover
                     arrow={false}
                     open={createOpen}

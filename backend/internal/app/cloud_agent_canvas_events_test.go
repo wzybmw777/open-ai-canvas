@@ -27,6 +27,22 @@ func agentCanvasPatchForOperation(t *testing.T, state cloudAgentRuntime, operati
 	return found
 }
 
+func TestCloudAgentCanvasEventKeepsCompletedParallelCallIdentity(t *testing.T) {
+	s, canvas := cloudAgentStoryboardFixture(t)
+	for _, stepID := range []string{"completed-call", ""} {
+		state := cloudAgentRuntime{CallIndex: 0, Calls: []cloudAgentCall{{ID: "current-call"}}}
+		input := cloudAgentMutationInput{UserID: "user", CanvasID: canvas.ID, BeforeJSON: canvas.PayloadJSON, Operation: "generate_media_complete", StepID: stepID}
+		if err := emitCloudAgentCanvasChange(s.repo, "run", &state, input); err != nil {
+			t.Fatal(err)
+		}
+		payload := agentCanvasPatchForOperation(t, state, input.Operation)
+		expected := firstNonEmpty(stepID, "current-call")
+		if payload["callId"] != expected {
+			t.Fatalf("completion must retain its own tool identity: got %v, want %s", payload["callId"], expected)
+		}
+	}
+}
+
 func TestCloudAgentCanvasPatchesPersistDraftSubmissionAndAllTerminalStates(t *testing.T) {
 	for _, status := range []model.TaskStatus{model.TaskStatusSucceeded, model.TaskStatusFailed, model.TaskStatusCancelled} {
 		t.Run(string(status), func(t *testing.T) {

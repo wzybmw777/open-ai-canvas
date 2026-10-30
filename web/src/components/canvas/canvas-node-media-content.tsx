@@ -796,25 +796,17 @@ export function useNodeResourceUrl(node: CanvasNodeData, eager: boolean, variant
             return;
         }
         let cancelled = false;
-        let refreshTimer: ReturnType<typeof setTimeout> | undefined;
-        let refreshAttempts = 0;
         setResolved({ identity, url: "", loading: true });
-        const resolve = (): Promise<void> => getResourceAccess(storageKey, "display", variant)
+        void getResourceAccess(storageKey, "display", variant)
             .then((access) => {
                 if (!cancelled) setResolved({ identity, url: resolveResourceAccessURL(access.url), loading: false, originalWidth: access.originalWidth, originalHeight: access.originalHeight });
-                if (!cancelled && variant === "thumbnail" && access.actualVariant !== "thumbnail" && refreshAttempts < 3) {
-                    refreshAttempts += 1;
-                    refreshTimer = setTimeout(() => { if (!cancelled) void resolve(); }, 2_000);
-                }
             })
             .catch(() => {
                 // 没有可用的回退地址时标记失败，节点显示「加载失败 + 重新加载」，而不是一块无提示的空白。
                 if (!cancelled) setResolved({ identity, url: fallback, loading: false, failed: !fallback });
             });
-        void resolve();
         return () => {
             cancelled = true;
-            if (refreshTimer) clearTimeout(refreshTimer);
         };
     }, [eager, fallback, identity, isLazyVisual, isRemoteResource, storageKey, variant]);
 

@@ -5,8 +5,7 @@ import { getCharacter } from "@/services/api/projects";
 
 import { AssetLibraryPickerModal, type AssetLibraryPickerItem } from "@/components/assets/asset-library-picker-modal";
 import { useExternalAssetSources } from "@/hooks/use-external-asset-sources";
-import { ASSET_CATEGORIES, assetCategoryLabel, normalizeAssetCategory } from "@/lib/asset-category";
-import { useLocaleText } from "@/lib/i18n";
+import { ASSET_CATEGORY_LABELS, normalizeAssetCategory } from "@/lib/asset-category";
 import type { ExternalAssetPickerReference } from "@/lib/plugins/plugin-types";
 import { useAssetStore, type Asset } from "@/stores/use-asset-store";
 
@@ -40,8 +39,9 @@ type Props = {
     onClose: () => void;
 };
 
+const categoryLabels: Record<string, string> = { all: "全部素材", ...ASSET_CATEGORY_LABELS, archived: "回收站" };
+
 export function AssetPickerModal({ open, multiple = true, onInsert, onClose }: Props) {
-    const { locale, text } = useLocaleText();
     const assets = useAssetStore((state) => state.assets);
     const externalAssetSources = useExternalAssetSources(open);
     const insertableAssets = useMemo(() => assets.filter((asset): asset is InsertableAsset => asset.kind === "text" || asset.kind === "image" || asset.kind === "video" || asset.kind === "audio"), [assets]);
@@ -52,14 +52,14 @@ export function AssetPickerModal({ open, multiple = true, onInsert, onClose }: P
                 title: asset.title,
                 category: normalizeAssetCategory(asset.category),
                 archived: asset.status === "archived",
-                kindLabel: asset.kind === "image" ? text("图片", "Image") : asset.kind === "video" ? text("视频", "Video") : asset.kind === "audio" ? text("音频", "Audio") : text("文本", "Text"),
+                kindLabel: asset.kind === "image" ? "图片" : asset.kind === "video" ? "视频" : asset.kind === "audio" ? "音频" : "文本",
                 mediaKind: asset.kind,
                 asset,
                 searchText: (asset.tags || []).join(" "),
             })),
             ...externalAssetSources.items,
         ],
-        [externalAssetSources.items, insertableAssets, locale],
+        [externalAssetSources.items, insertableAssets],
     );
 
     return (
@@ -70,12 +70,12 @@ export function AssetPickerModal({ open, multiple = true, onInsert, onClose }: P
             open={open}
             mediaKinds={["image", "video", "audio", "text"]}
             items={items}
-            categoryLabels={{ all: text("全部素材", "All assets"), ...Object.fromEntries(ASSET_CATEGORIES.map((category) => [category, assetCategoryLabel(category, locale)])), archived: text("回收站", "Trash"), ...externalAssetSources.categoryLabels }}
+            categoryLabels={{ ...categoryLabels, ...externalAssetSources.categoryLabels }}
             folders={externalAssetSources.folders}
             footerNote={externalAssetSources.error || undefined}
             multiple={multiple}
-            confirmLabel={(count) => (locale === "en-US" ? `Insert selected assets${count ? ` (${count})` : ""}` : `插入已选素材${count ? `（${count}）` : ""}`)}
-            emptyDescription={text("先在素材库中添加图片、视频、音频、文本或角色卡。", "Add images, video, audio, text, or character cards to the asset library first.")}
+            confirmLabel={(count) => `插入已选素材${count ? `（${count}）` : ""}`}
+            emptyDescription="先在素材库中添加图片、视频、音频、文本或角色卡。"
             onClose={onClose}
             onConfirm={async (ids, pickedItems) => {
                 await onInsert(await assetPickerSelectionToInsertPayloads(ids, pickedItems || items));

@@ -327,8 +327,6 @@ func applyCloudAgentStoryboardMutation(repo *repository.Repository, userID, canv
 	var err error
 	if call.Function.Name == "canvas_create_storyboard" {
 		plan, err = prepareCloudAgentStoryboardCreate(repo, userID, canvasID, call)
-	} else if call.Function.Name == "canvas_bind_storyboard_assets" {
-		plan, err = prepareCloudAgentStoryboardBindings(repo, userID, canvasID, call)
 	} else {
 		plan, err = prepareCloudAgentStoryboardEdit(repo, userID, canvasID, call)
 	}
@@ -348,7 +346,7 @@ func applyCloudAgentStoryboardMutation(repo *repository.Repository, userID, canv
 	if len(plan.Preview.Items) > 0 {
 		nodeID = plan.Preview.Items[0].NodeID
 	}
-	return cloudAgentAppliedMutationResult(canvasID, nodeID, cloudAgentNodeHash(plan.Document, nodeID), appliedPreview.Items), nil
+	return map[string]any{"canvasId": canvasID, "nodeId": nodeID, "snapshotHash": cloudAgentNodeHash(plan.Document, nodeID), "summary": appliedPreview.Description, "preview": appliedPreview}, nil
 }
 
 func mapsAsAny(values []map[string]any) []any {

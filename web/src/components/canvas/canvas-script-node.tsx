@@ -10,7 +10,6 @@ import { Check, ChevronDown, ChevronUp, Clapperboard, Copy, Expand, Film, Grid3X
 
 import { CanvasResourceMentionTextarea } from "@/components/canvas/canvas-resource-mention-textarea";
 import { StoryboardAssetsCell } from "@/components/canvas/storyboard-assets-cell";
-import { CanvasStoryboardKeyframeEditor } from "@/components/canvas/canvas-storyboard-keyframe-editor";
 import { ModelPicker } from "@/components/model-picker";
 import { buildGenerationConfig } from "@/lib/canvas/canvas-project-generation";
 import type { CanvasResourceReference } from "@/lib/canvas/canvas-resource-references";
@@ -28,7 +27,6 @@ import type {
     CanvasWorkspaceMode,
     StoryboardColumn,
     StoryboardRow,
-    StoryboardKeyframePromptDescription,
     StoryboardShotCount,
     StoryboardShotDuration,
     StoryboardVideoInputMode,
@@ -41,59 +39,14 @@ const STORYBOARD_PROMPT_MIN_HEIGHT = 40;
 const STORYBOARD_PROMPT_MAX_HEIGHT = 116;
 const SCRIPT_GRID_TEMPLATE = "64px 76px minmax(300px, 1.55fr) minmax(220px, 1fr) 180px";
 const EMPTY_STORYBOARD_ROWS: StoryboardRow[] = [];
-const DEFAULT_STORYBOARD_COLUMNS: StoryboardColumn[] = ["shotNumber", "durationSeconds", "videoMotionPrompt", "dialogue", "assets", "keyframes"];
+const DEFAULT_STORYBOARD_COLUMNS: StoryboardColumn[] = ["shotNumber", "durationSeconds", "videoMotionPrompt", "dialogue", "assets"];
 const LEGACY_STORYBOARD_COLUMNS: StoryboardColumn[] = ["shotNumber", "durationSeconds", "plotDescription", "dialogue"];
 const PREVIOUS_DEFAULT_STORYBOARD_COLUMNS: StoryboardColumn[] = ["shotNumber", "plotDescription", "videoMotionPrompt", "dialogue"];
-const LEGACY_CINEMATIC_STORYBOARD_COLUMNS: StoryboardColumn[] = [
-    "shotNumber",
-    "durationSeconds",
-    "videoMotionPrompt",
-    "dialogue",
-    "assets",
-    "shotSize",
-    "narrativeIntent",
-    "viewerPOV",
-    "performanceBlocking",
-    "camera",
-    "motion",
-    "timeBeats",
-    "lightingAndAtmosphere",
-    "continuityOut",
-    "negativePrompt",
-];
-const LEGACY_STORYBOARD_COLUMN_SET = new Set<StoryboardColumn>([
-    "shotNumber",
-    "durationSeconds",
-    "plotDescription",
-    "dialogue",
-    "narrativeIntent",
-    "viewerPOV",
-    "performanceBlocking",
-    "shotSize",
-    "emotion",
-    "lightingAndAtmosphere",
-    "audioEffects",
-    "camera",
-    "motion",
-    "timeBeats",
-    "imageGenerationPrompt",
-    "videoMotionPrompt",
-    "assets",
-    "continuityOut",
-    "negativePrompt",
-]);
-
-function sameStoryboardColumns(left: StoryboardColumn[] | undefined, right: StoryboardColumn[]) {
-    return Boolean(left) && left!.length === right.length && left!.every((column, index) => column === right[index]);
-}
 
 function resolveStoryboardVisibleColumns(columns?: StoryboardColumn[]) {
     const isLegacyDefault = columns?.length === LEGACY_STORYBOARD_COLUMNS.length && LEGACY_STORYBOARD_COLUMNS.every((column) => columns.includes(column));
     const isPreviousDefault = columns?.length === PREVIOUS_DEFAULT_STORYBOARD_COLUMNS.length && PREVIOUS_DEFAULT_STORYBOARD_COLUMNS.every((column) => columns.includes(column));
-    const isLegacyCinematicDefault =
-        sameStoryboardColumns(columns, LEGACY_CINEMATIC_STORYBOARD_COLUMNS) ||
-        Boolean(columns && columns.length >= 10 && !columns.includes("keyframes") && columns.every((column) => LEGACY_STORYBOARD_COLUMN_SET.has(column)));
-    if (!columns?.length || isLegacyDefault || isPreviousDefault || isLegacyCinematicDefault) {
+    if (!columns?.length || isLegacyDefault || isPreviousDefault) {
         return DEFAULT_STORYBOARD_COLUMNS;
     }
     return columns;
@@ -117,7 +70,6 @@ const columnOptions: Array<{ label: string; value: StoryboardColumn }> = [
     { label: "图片提示词", value: "imageGenerationPrompt" },
     { label: "视频提示词", value: "videoMotionPrompt" },
     { label: "关联资产", value: "assets" },
-    { label: "关键帧", value: "keyframes" },
     { label: "连续性出口", value: "continuityOut" },
     { label: "负面要求", value: "negativePrompt" },
 ];
@@ -143,7 +95,6 @@ export function CanvasScriptNodeContent({
     onAddRow,
     onRemoveRow,
     onUpdateRow,
-    onOpenProjectAssets,
     onEditAssets,
     onPromptChange,
     onGenerateScript,
@@ -175,7 +126,6 @@ export function CanvasScriptNodeContent({
     onAddRow: () => void;
     onRemoveRow: (rowId: string) => void;
     onUpdateRow: (rowId: string, patch: Partial<StoryboardRow>) => void;
-    onOpenProjectAssets: (rowId: string) => void;
     onEditAssets: (rowId: string) => void;
     onPromptChange: (prompt: string) => boolean | void;
     onGenerateScript: (prompt: string) => void;
@@ -398,7 +348,7 @@ export function CanvasScriptNodeContent({
                             <CompactInput value={row.videoMotionPrompt} placeholder="描述视频运动、镜头和动作" onChange={(value) => onUpdateRow(row.id, { videoMotionPrompt: value })} borderColor={theme.node.stroke} />
                             <CompactInput value={row.dialogue} placeholder="台词或旁白" onChange={(value) => onUpdateRow(row.id, { dialogue: value })} borderColor={theme.node.stroke} />
                             <div className="flex h-full min-w-0 items-center px-3">
-                                <StoryboardAssetsCell bindings={row.assetBindings || []} nodes={nodes} limit={2} disabled={node.metadata?.locked} onEdit={() => onEditAssets(row.id)} onChange={(assetBindings) => onUpdateRow(row.id, { assetBindings })} onOpenProjectAssets={() => onOpenProjectAssets(row.id)} />
+                                <StoryboardAssetsCell bindings={row.assetBindings || []} nodes={nodes} onEdit={() => onEditAssets(row.id)} disabled={node.metadata?.locked} />
                             </div>
                         </div>
                     ))
@@ -542,32 +492,22 @@ export function CanvasScriptEditor({
     open,
     onClose,
     onUpdateRows,
-    onOpenProjectAssets,
     onEditAssets,
     onVisibleColumnsChange,
     onGenerateImages,
     onGenerateVideos,
     onVideoInputModeChange,
-    onUpdateKeyframe,
-    onAddKeyframe,
-    onRemoveKeyframe,
-    onReorderKeyframes,
 }: {
     node: CanvasNodeData | null;
     nodes: CanvasNodeData[];
     open: boolean;
     onClose: () => void;
     onUpdateRows: (rows: StoryboardRow[]) => void;
-    onOpenProjectAssets: (rowId: string) => void;
     onEditAssets: (rowId: string) => void;
     onVisibleColumnsChange: (columns: StoryboardColumn[]) => void;
     onGenerateImages: (rowIds: string[]) => void;
     onGenerateVideos: (rowIds: string[]) => void;
     onVideoInputModeChange: (mode: StoryboardVideoInputMode) => void;
-    onUpdateKeyframe: (rowId: string, keyframeId: string, patch: Partial<StoryboardKeyframePromptDescription>) => void;
-    onAddKeyframe: (rowId: string, afterKeyframeId?: string) => void;
-    onRemoveKeyframe: (rowId: string, keyframeId: string) => void;
-    onReorderKeyframes: (rowId: string, orderedIds: string[]) => void;
 }) {
     const [query, setQuery] = useState("");
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -605,14 +545,7 @@ export function CanvasScriptEditor({
     const duplicateRow = (row: StoryboardRow) => {
         const index = rows.findIndex((item) => item.id === row.id);
         const next = [...rows];
-        const duplicatedKeyframes = (row.keyframePromptDescriptions || []).map((item, itemIndex) => ({
-            ...item,
-            id: `keyframe-${Date.now()}-${itemIndex}-${Math.random().toString(36).slice(2, 6)}`,
-            imageNodeId: undefined,
-            status: "idle" as const,
-            errorDetails: undefined,
-        }));
-        next.splice(index + 1, 0, { ...row, id: `shot-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, imageNodeId: undefined, videoNodeId: undefined, keyframeGroupNodeId: undefined, keyframePromptDescriptions: duplicatedKeyframes, status: "idle", errorDetails: undefined });
+        next.splice(index + 1, 0, { ...row, id: `shot-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, imageNodeId: undefined, videoNodeId: undefined, status: "idle" });
         onUpdateRows(next.map((item, rowIndex) => ({ ...item, shotNumber: rowIndex + 1 })));
     };
     const removeRow = (rowId: string) => onUpdateRows(rows.filter((row) => row.id !== rowId).map((row, index) => ({ ...row, shotNumber: index + 1 })));
@@ -623,7 +556,7 @@ export function CanvasScriptEditor({
             title: option.label,
             dataIndex: option.value,
             key: option.value,
-            width: option.value === "shotNumber" ? 72 : option.value === "durationSeconds" ? 100 : option.value === "assets" ? 220 : option.value === "keyframes" ? 460 : option.value === "plotDescription" || option.value === "dialogue" || option.value === "timeBeats" || option.value.endsWith("Prompt") ? 260 : 170,
+            width: option.value === "shotNumber" ? 72 : option.value === "durationSeconds" ? 100 : option.value === "assets" ? 220 : option.value === "plotDescription" || option.value === "dialogue" || option.value === "timeBeats" || option.value.endsWith("Prompt") ? 260 : 170,
             fixed: option.value === "shotNumber" ? ("left" as const) : undefined,
             render: (_: unknown, row: StoryboardRow) =>
                 option.value === "shotNumber" ? (
@@ -631,17 +564,7 @@ export function CanvasScriptEditor({
                 ) : option.value === "durationSeconds" ? (
                     <InputNumber min={1} max={60} value={row.durationSeconds} addonAfter="s" onChange={(value) => updateRow(row.id, { durationSeconds: Number(value) || 1 })} />
                 ) : option.value === "assets" ? (
-                    <StoryboardAssetsCell bindings={row.assetBindings || []} nodes={nodes} limit={3} disabled={node?.metadata?.locked} onEdit={() => onEditAssets(row.id)} onChange={(assetBindings) => updateRow(row.id, { assetBindings })} onOpenProjectAssets={() => onOpenProjectAssets(row.id)} />
-                ) : option.value === "keyframes" ? (
-                    <CanvasStoryboardKeyframeEditor
-                        row={row}
-                        nodes={nodes}
-                        disabled={Boolean(node?.metadata?.locked)}
-                        onUpdate={(keyframeId, patch) => onUpdateKeyframe(row.id, keyframeId, patch)}
-                        onAdd={(afterKeyframeId) => onAddKeyframe(row.id, afterKeyframeId)}
-                        onRemove={(keyframeId) => onRemoveKeyframe(row.id, keyframeId)}
-                        onReorder={(orderedIds) => onReorderKeyframes(row.id, orderedIds)}
-                    />
+                    <StoryboardAssetsCell bindings={row.assetBindings || []} nodes={nodes} onEdit={() => onEditAssets(row.id)} disabled={node?.metadata?.locked} />
                 ) : option.value === "shotSize" ? (
                     <Select
                         className="w-full"
@@ -687,7 +610,7 @@ export function CanvasScriptEditor({
         <Modal title={node?.title || "分镜脚本"} open={open} onCancel={onClose} footer={null} width="min(1480px, calc(100vw - 40px))" centered destroyOnHidden>
             <div className="mb-3 flex flex-wrap items-center gap-2">
                 <Input.Search className="w-72" allowClear placeholder="筛选画面、台词或提示词" value={query} onChange={(event) => setQuery(event.target.value)} />
-                    <CheckboxGroup className="flex min-w-0 flex-1 flex-wrap gap-2" options={columnOptions} value={visibleColumns} onChange={(values) => onVisibleColumnsChange(values)} />
+                    <CheckboxGroup className="script-column-picker" options={columnOptions} value={visibleColumns} onChange={(values) => onVisibleColumnsChange(values)} />
                 <span className="min-w-0 flex-1" />
                 <Button icon={<Plus className="size-4" />} onClick={() => onUpdateRows([...rows, editorRow(rows.length + 1)])}>
                     新增镜头

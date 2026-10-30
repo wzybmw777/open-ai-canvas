@@ -53,7 +53,7 @@ export function createShortDramaPipeline(center: Position) {
         workflowTitle: "分镜脚本",
         storyboard: {
             rows: [],
-            visibleColumns: ["shotNumber", "durationSeconds", "videoMotionPrompt", "dialogue", "assets", "keyframes"],
+            visibleColumns: ["shotNumber", "durationSeconds", "videoMotionPrompt", "dialogue", "assets"],
             referenceNodeIds: [],
         },
     });

@@ -115,10 +115,7 @@ func applyCloudAgentCanvas(repo *repository.Repository, userID, canvasID string,
 			return nil, err
 		}
 	}
-	result := cloudAgentAppliedMutationResult(canvasID, "", cloudAgentCanvasHash(plan.Document), plan.Preview.Items)
-	result["committed"] = true
-	result["preview"] = appliedPreview
-	return result, nil
+	return map[string]any{"canvasId": canvasID, "snapshotHash": cloudAgentCanvasHash(plan.Document), "committed": true, "summary": fmt.Sprintf("已完成 %d 项节点/连线操作", len(plan.Args.Ops)), "preview": appliedPreview}, nil
 }
 
 func validateCloudAgentConnection(nodes []map[string]any, fromID, toID string, existingConnections ...[]map[string]any) error {

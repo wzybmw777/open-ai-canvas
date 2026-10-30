@@ -7,39 +7,38 @@ import (
 
 func cloudAgentToolHandlers() map[string]cloudAgentToolHandler {
 	return map[string]cloudAgentToolHandler{
-		agenttool.AgentProfileRead:           {Read: cloudAgentHandleAgentProfileRead},
-		agenttool.PlanUpdate:                 {Read: cloudAgentHandlePlanUpdate},
-		agenttool.AskUser:                    {Read: cloudAgentHandleAskUser},
-		agenttool.PrevisSceneRead:            {Read: cloudAgentHandlePrevisSceneRead},
-		agenttool.PrevisPreview:              {Read: cloudAgentHandlePrevisPreview},
-		agenttool.PrevisSceneCreate:          {Write: applyCloudAgentPrevisMutation, Preview: cloudAgentPreviewPrevisCreate},
-		agenttool.PrevisApplyPatch:           {Write: applyCloudAgentPrevisMutation, Preview: cloudAgentPreviewPrevisPatch},
-		agenttool.CanvasListNodeTypes:        {Read: cloudAgentHandleCanvasListNodeTypes},
-		agenttool.CanvasGetState:             {Read: cloudAgentHandleCanvasGetState},
-		agenttool.CanvasReadText:             {Read: cloudAgentHandleCanvasReadText},
-		agenttool.CanvasReadBatchTable:       {Read: cloudAgentHandleCanvasReadBatchTable},
-		agenttool.CanvasReadStoryboard:       {Read: cloudAgentHandleCanvasReadStoryboard},
-		agenttool.ImageTextDetect:            {Read: cloudAgentHandleImageTextDetect},
-		agenttool.ImageAnnotationRender:      {Read: cloudAgentHandleImageAnnotationRender},
-		agenttool.SkillReadFile:              {Read: cloudAgentHandleSkillReadFile},
-		agenttool.SkillSearch:                {Read: cloudAgentHandleSkillSearch},
-		agenttool.TaskGet:                    {Read: cloudAgentHandleTaskGet},
-		agenttool.CanvasInspectImage:         {Pipeline: cloudAgentToolVision},
-		agenttool.ImageLayerSplit:            {Pipeline: cloudAgentToolMedia},
-		agenttool.ModelList:                  {Read: cloudAgentHandleModelList},
-		agenttool.CanvasCreateStoryboard:     {Write: applyCloudAgentStoryboardMutation, Preview: cloudAgentPreviewStoryboardCreate},
-		agenttool.CanvasEditStoryboard:       {Write: applyCloudAgentStoryboardMutation, Preview: cloudAgentPreviewStoryboardEdit},
-		agenttool.CanvasBindStoryboardAssets: {Write: applyCloudAgentStoryboardMutation, Preview: cloudAgentPreviewStoryboardBindings},
-		agenttool.CanvasCreateCharacter:      {Write: applyCloudAgentCharacterCreate, Preview: cloudAgentPreviewCharacterCreate},
-		agenttool.CanvasEditBatchTable:       {Write: applyCloudAgentBatchTableMutation, Preview: cloudAgentPreviewBatchTable},
-		agenttool.CanvasApplyOps:             {Write: applyCloudAgentCanvas, Preview: cloudAgentPreviewCanvas},
-		agenttool.CanvasArrangeNodes:         {Write: applyCloudAgentArrangeNodes, Preview: cloudAgentPreviewArrange},
-		agenttool.GenerateMedia:              {Pipeline: cloudAgentToolMedia},
-		agenttool.SkillMarketSearch:          {Read: cloudAgentHandleSkillMarketSearch},
-		agenttool.SkillRecommend:             {Read: cloudAgentHandleSkillRecommend},
-		agenttool.MemoryUpdate:               {Read: cloudAgentHandleMemoryUpdate},
-		agenttool.DramaGetContext:            {Read: cloudAgentHandleDramaGetContext},
-		agenttool.DramaAdoptCanvasMedia:      {Write: applyCloudAgentDramaAdopt, Preview: cloudAgentPreviewDramaAdopt},
+		agenttool.AgentProfileRead:       {Read: cloudAgentHandleAgentProfileRead},
+		agenttool.PlanUpdate:             {Read: cloudAgentHandlePlanUpdate},
+		agenttool.AskUser:                {Read: cloudAgentHandleAskUser},
+		agenttool.PrevisSceneRead:        {Read: cloudAgentHandlePrevisSceneRead},
+		agenttool.PrevisPreview:          {Read: cloudAgentHandlePrevisPreview},
+		agenttool.PrevisSceneCreate:      {Write: applyCloudAgentPrevisMutation, Preview: cloudAgentPreviewPrevisCreate},
+		agenttool.PrevisApplyPatch:       {Write: applyCloudAgentPrevisMutation, Preview: cloudAgentPreviewPrevisPatch},
+		agenttool.CanvasListNodeTypes:    {Read: cloudAgentHandleCanvasListNodeTypes},
+		agenttool.CanvasGetState:         {Read: cloudAgentHandleCanvasGetState},
+		agenttool.CanvasReadText:         {Read: cloudAgentHandleCanvasReadText},
+		agenttool.CanvasReadBatchTable:   {Read: cloudAgentHandleCanvasReadBatchTable},
+		agenttool.CanvasReadStoryboard:   {Read: cloudAgentHandleCanvasReadStoryboard},
+		agenttool.ImageTextDetect:        {Read: cloudAgentHandleImageTextDetect},
+		agenttool.ImageAnnotationRender:  {Read: cloudAgentHandleImageAnnotationRender},
+		agenttool.SkillReadFile:          {Read: cloudAgentHandleSkillReadFile},
+		agenttool.SkillSearch:            {Read: cloudAgentHandleSkillSearch},
+		agenttool.TaskGet:                {Read: cloudAgentHandleTaskGet},
+		agenttool.CanvasInspectImage:     {Pipeline: cloudAgentToolVision},
+		agenttool.ImageLayerSplit:        {Pipeline: cloudAgentToolMedia},
+		agenttool.ModelList:              {Read: cloudAgentHandleModelList},
+		agenttool.CanvasCreateStoryboard: {Write: applyCloudAgentStoryboardMutation, Preview: cloudAgentPreviewStoryboardCreate},
+		agenttool.CanvasEditStoryboard:   {Write: applyCloudAgentStoryboardMutation, Preview: cloudAgentPreviewStoryboardEdit},
+		agenttool.CanvasCreateCharacter:  {Write: applyCloudAgentCharacterCreate, Preview: cloudAgentPreviewCharacterCreate},
+		agenttool.CanvasEditBatchTable:   {Write: applyCloudAgentBatchTableMutation, Preview: cloudAgentPreviewBatchTable},
+		agenttool.CanvasApplyOps:         {Write: applyCloudAgentCanvas, Preview: cloudAgentPreviewCanvas},
+		agenttool.CanvasArrangeNodes:     {Write: applyCloudAgentArrangeNodes, Preview: cloudAgentPreviewArrange},
+		agenttool.GenerateMedia:          {Pipeline: cloudAgentToolMedia},
+		agenttool.SkillMarketSearch:      {Read: cloudAgentHandleSkillMarketSearch},
+		agenttool.SkillRecommend:         {Read: cloudAgentHandleSkillRecommend},
+		agenttool.MemoryUpdate:           {Read: cloudAgentHandleMemoryUpdate},
+		agenttool.DramaGetContext:        {Read: cloudAgentHandleDramaGetContext},
+		agenttool.DramaAdoptCanvasMedia:  {Write: applyCloudAgentDramaAdopt, Preview: cloudAgentPreviewDramaAdopt},
 	}
 }
 
@@ -69,14 +68,6 @@ func cloudAgentPreviewStoryboardCreate(repo *repository.Repository, userID, canv
 
 func cloudAgentPreviewStoryboardEdit(repo *repository.Repository, userID, canvasID string, call cloudAgentCall) (cloudAgentApprovalPreview, error) {
 	plan, err := prepareCloudAgentStoryboardEdit(repo, userID, canvasID, call)
-	if err != nil {
-		return cloudAgentApprovalPreview{}, err
-	}
-	return plan.Preview, nil
-}
-
-func cloudAgentPreviewStoryboardBindings(repo *repository.Repository, userID, canvasID string, call cloudAgentCall) (cloudAgentApprovalPreview, error) {
-	plan, err := prepareCloudAgentStoryboardBindings(repo, userID, canvasID, call)
 	if err != nil {
 		return cloudAgentApprovalPreview{}, err
 	}

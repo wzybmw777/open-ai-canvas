@@ -202,9 +202,7 @@ export function useCanvasRenderModel({
     // 这里的派生数据按候选集一次算好，挂载进度不再逐帧重渲染整页并重建引用映射。
     const overviewRef = useRef(false);
     const overview = canvasOverviewMode(viewport.k, overviewRef.current);
-    useEffect(() => {
-        overviewRef.current = overview;
-    }, [overview]);
+    useEffect(() => { overviewRef.current = overview; }, [overview]);
     const nodeRenderLODById = useMemo(() => {
         const result = new Map<string, CanvasNodeRenderLOD>();
         for (const node of candidateNodes) {
@@ -420,3 +418,4 @@ export function useCanvasRenderModel({
         renderViewBounds: renderBounds.view,
     };
 }
+

@@ -3,8 +3,6 @@ import { CanvasNodeResizeMotionProvider } from "@/components/canvas/canvas-node-
 import "@/lib/plugins/builtin/ai-art-critique";
 import "@/lib/plugins/builtin/media-conversion";
 import { useCanvasImageLayerGroups } from "./use-canvas-image-layer-groups";
-import { useCanvasPromptReferences } from "./use-canvas-prompt-references";
-import { disconnectCanvasNodeReference, reorderCanvasNodeReferences } from "@/lib/canvas/canvas-node-references";
 import { useCanvasImageLayerMaterials } from "./use-canvas-image-layer-materials";
 import { isCanvasNodeGenerating } from "@/lib/canvas/canvas-node-task-state";
 import { createCanvasStateWriter } from "@/lib/canvas/canvas-editor-state";
@@ -82,7 +80,6 @@ import { getProject, listCharacters, type ProjectAsset } from "@/services/api/pr
 import { CanvasZoomControls } from "@/components/canvas/canvas-zoom-controls";
 import { CanvasShareModal } from "@/components/canvas/canvas-share-modal";
 import { CanvasScriptEditor, CanvasScriptNodeContent } from "@/components/canvas/canvas-script-node";
-import { CanvasKeyframeGroupNodeContent } from "@/components/canvas/canvas-keyframe-group-node";
 import { StoryboardAssetPickerModal } from "@/components/canvas/storyboard-asset-picker-modal";
 import { bindingForConnectedNode, replaceStoryboardRowAssets, storyboardRowReferenceNodeIds } from "@/lib/canvas/canvas-storyboard-materializer";
 import { normalizeStoryboardAssetBindings } from "@/lib/canvas/canvas-storyboard-assets";
@@ -94,8 +91,6 @@ import { filterBatchCellConnections, reconcileBatchCellConnections, syncBatchCol
 import { useCanvasBatchReferences } from "./use-canvas-batch-references";
 import { useCanvasImageRotation } from "./use-canvas-image-rotation";
 import { storyboardMinNodeHeight } from "@/lib/canvas/canvas-storyboard-layout";
-import { isStoryboardBindableAsset } from "@/lib/canvas/canvas-storyboard-assets";
-import { MAX_STORYBOARD_ROW_ASSETS, setStoryboardAssetBinding } from "@/lib/canvas/canvas-storyboard-materializer";
 import { CanvasPrevisNodePanel } from "@/components/canvas/previs/canvas-previs-node-panel";
 import { useFocusMode } from "@/hooks/use-focus-mode";
 import { connectCanvasTextMention } from "@/lib/canvas/canvas-text-mention";
@@ -108,6 +103,7 @@ import {
     buildCanvasResourceReferences,
     getContextResourceNodes,
     normalizeCanvasNodeMentionTokens,
+    reorderCanvasResourceConnections,
     replaceCanvasReferenceMentions,
     type CanvasResourceReference,
 } from "@/lib/canvas/canvas-resource-references";
@@ -307,7 +303,6 @@ function CanvasViewportPage() {
     const [superResolveNodeId, setSuperResolveNodeId] = useState<string | null>(null);
     const [previewNodeId, setPreviewNodeId] = useState<string | null>(null);
     const [scriptEditorNodeId, setScriptEditorNodeId] = useState<string | null>(null);
-    const [storyboardAssetTarget, setStoryboardAssetTarget] = useState<{ nodeId: string; rowId: string } | null>(null);
     const [artCritiqueNodeId, setArtCritiqueNodeId] = useState<string | null>(null);
     const artCritiqueRunningRef = useRef(false);
     const [artCritiqueStartRequest, setArtCritiqueStartRequest] = useState<{ nodeId: string; id: string; restart: boolean } | null>(null);
@@ -318,6 +313,7 @@ function CanvasViewportPage() {
     const [titleEditing, setTitleEditing] = useState(false);
     const [titleDraft, setTitleDraft] = useState("");
     const [shortcutRequestNonce, setShortcutRequestNonce] = useState(0);
+    const [cinematicAgentEntry, setCinematicAgentEntry] = useState(false);
     const { assistantOpen, closeAgent, openAgent: openAssistant } = useCanvasAssistantVisibility();
     const agentMentionReferences = useMemo(() => buildCanvasAgentMentionReferences(nodes), [nodes]);
 
@@ -349,7 +345,7 @@ function CanvasViewportPage() {
     const selectedNodeIdsRef = useRef(selectedNodeIds);
     const viewportRef = useRef(viewport);
     const [workspaceOpen, setWorkspaceOpen] = useState(false);
-    const [storyboardProjectAssetTarget, setStoryboardProjectAssetTarget] = useState<{ nodeId: string; rowId: string } | null>(null);
+    const [storyboardAssetTarget, setStoryboardAssetTarget] = useState<{ nodeId: string; rowId: string } | null>(null);
     const generateNodeRef = useRef<((nodeId: string, mode: CanvasNodeGenerationMode, prompt: string, options?: CanvasNodeGenerationOptions) => Promise<void>) | null>(null);
 
     useEffect(() => {
@@ -441,13 +437,6 @@ function CanvasViewportPage() {
     const openAgent = useCallback(() => {
         openAssistant();
     }, [openAssistant]);
-    const openShortDramaAgent = useCallback(() => {
-        setAgentPrefillRequest((current) => ({
-            id: (current?.id ?? 0) + 1,
-            text: "我想在当前自由画布中创作一部短剧，请先帮我建立短剧创作流程，并确认题材、角色、冲突、画风和集数。",
-        }));
-        openAgent();
-    }, [openAgent]);
 
     const sendSelectionToAgent = useCallback(
         (nodeId?: string) => {
@@ -1348,13 +1337,17 @@ function CanvasViewportPage() {
         (targetNodeId: string, reference: CanvasResourceReference) => {
             const referenceNodeId = reference.nodeId;
             if (!referenceNodeId) return;
+            // 生成节点可能通过配置节点接收参考，只移除参考来源边，保留目标到配置节点的主链。
             const previousNodes = nodesRef.current;
             const previousConnections = connectionsRef.current;
-            const target = previousNodes.find((node) => node.id === targetNodeId);
-            if (!target || target.metadata?.locked) return;
-            const { nodes: nextNodes, connections: nextConnections } = disconnectCanvasNodeReference(previousNodes, previousConnections, targetNodeId, referenceNodeId);
-            const keptIds = new Set(nextConnections.map((connection) => connection.id));
-            const removedConnectionIds = new Set(previousConnections.filter((connection) => !keptIds.has(connection.id)).map((connection) => connection.id));
+            const configNodeId = previousConnections.find((connection) => {
+                if (connection.fromNodeId !== targetNodeId) return false;
+                return previousNodes.find((node) => node.id === connection.toNodeId)?.type === CanvasNodeType.Config;
+            })?.toNodeId;
+            const removedConnectionIds = new Set(previousConnections.filter((connection) => connection.fromNodeId === referenceNodeId && (connection.toNodeId === targetNodeId || connection.toNodeId === configNodeId)).map((connection) => connection.id));
+            if (!removedConnectionIds.size) return;
+            const nextConnections = previousConnections.filter((connection) => !removedConnectionIds.has(connection.id));
+            const nextNodes = applyCanvasConnectionPromptSync(previousNodes, previousConnections, previousNodes, nextConnections);
             if (nextNodes !== previousNodes) {
                 nodesRef.current = nextNodes;
                 setNodes(nextNodes);
@@ -1366,19 +1359,13 @@ function CanvasViewportPage() {
         [connectionsRef, nodesRef, setConnections, setNodes, setSelectedConnectionId],
     );
 
-    const { openReferenceAdder, referenceDialogs } = useCanvasPromptReferences({
-        canvasId: projectId, config: effectiveConfig, nodes, connections, nodesRef, connectionsRef, setNodes, setConnections, createAssetPayloadNode, createFileNode,
-    });
-
     const handleReorderNodeReferences = useCallback(
         (targetNodeId: string, orderedNodeIds: string[]) => {
             const previousNodes = nodesRef.current;
             const previousConnections = connectionsRef.current;
-            const target = previousNodes.find((node) => node.id === targetNodeId);
-            if (!target || target.metadata?.locked) return;
-            const activeIds = new Set((buildCanvasNodeMentionReferenceMap(previousNodes, previousConnections, [target]).get(targetNodeId) || []).map((reference) => reference.nodeId));
-            if (orderedNodeIds.some((id) => !activeIds.has(id))) return;
-            const { nodes: nextNodes, connections: nextConnections } = reorderCanvasNodeReferences(previousNodes, previousConnections, targetNodeId, orderedNodeIds);
+            const nextConnections = reorderCanvasResourceConnections(targetNodeId, orderedNodeIds, previousNodes, previousConnections);
+            if (nextConnections === previousConnections) return;
+            const nextNodes = applyCanvasConnectionPromptSync(previousNodes, previousConnections, previousNodes, nextConnections);
             if (nextNodes !== previousNodes) {
                 nodesRef.current = nextNodes;
                 setNodes(nextNodes);
@@ -2064,7 +2051,7 @@ function CanvasViewportPage() {
         });
     }, [projectLoaded, setNodes]);
 
-    const { addScriptRow, appendStoryboardKeyframe, createAndGenerateScriptVideos, createScriptActionBoards, createScriptImageNodes, createScriptVideoNodes, ensureStoryboardKeyframeGroup, generateScriptImages, generateScriptRows, generateScriptVideos, removeScriptRow, removeStoryboardKeyframe, reorderStoryboardKeyframes, replaceScriptRows, updateScriptRow, updateStoryboardKeyframe } =
+    const { addScriptRow, createAndGenerateScriptVideos, createScriptActionBoards, createScriptImageNodes, createScriptVideoNodes, generateScriptImages, generateScriptRows, generateScriptVideos, removeScriptRow, replaceScriptRows, updateScriptRow } =
         useCanvasStoryboard({
             projectId,
             addedSkills,
@@ -2256,7 +2243,6 @@ function CanvasViewportPage() {
                     projectId={projectId}
                     node={panelNode}
                     isRunning={isCanvasNodeGenerating(panelNode, runningNodeId)}
-                    onAddReferenceNodes={openReferenceAdder}
                     mentionReferences={[
                         ...(mentionReferencesByNodeId.get(panelNode.id) || EMPTY_RESOURCE_REFERENCES),
                         ...buildCanvasResourceReferences(nodesRef.current, connectionsRef.current).filter(
@@ -2320,7 +2306,6 @@ function CanvasViewportPage() {
             handleReplaceNodeReference,
             handleReplaceNodeReferenceFiles,
             mentionReferencesByNodeId,
-            openReferenceAdder,
             message,
             projectId,
             runningNodeId,
@@ -2401,7 +2386,6 @@ function CanvasViewportPage() {
                         onAddRow={() => addScriptRow(contentNode.id)}
                         onRemoveRow={(rowId) => removeScriptRow(contentNode.id, rowId)}
                         onUpdateRow={(rowId, patch) => updateScriptRow(contentNode.id, rowId, patch)}
-                        onOpenProjectAssets={(rowId) => { setStoryboardProjectAssetTarget({ nodeId: contentNode.id, rowId }); openProjectAssets(); }}
                         onEditAssets={(rowId) => setStoryboardAssetTarget({ nodeId: contentNode.id, rowId })}
                         onPromptChange={(composerContent) => handleConfigNodeChange(contentNode.id, { composerContent })}
                         onGenerateScript={(prompt) => void generateScriptRows(contentNode.id, prompt)}
@@ -2419,27 +2403,6 @@ function CanvasViewportPage() {
                         onScrollTopChange={(scrollTop) => setScriptScrollTopById((current) => (current[contentNode.id] === scrollTop ? current : { ...current, [contentNode.id]: scrollTop }))}
                     />
                 );
-            }
-            if (contentNode.type === CanvasNodeType.KeyframeGroup) {
-                const sourceScript = contentNode.metadata?.storyboardNodeId ? nodesRef.current.find((candidate) => candidate.id === contentNode.metadata?.storyboardNodeId && candidate.type === CanvasNodeType.Script) : undefined;
-                const row = sourceScript?.metadata?.storyboard?.rows.find((candidate) => candidate.id === contentNode.metadata?.rowId);
-                if (!row) return <div className="flex size-full items-center justify-center p-4 text-xs" style={{ color: theme.node.muted }}>分镜行已不存在</div>;
-                const imageNodes = (row.keyframePromptDescriptions || []).flatMap((keyframe) => keyframe.imageNodeId ? nodesRef.current.filter((candidate) => candidate.id === keyframe.imageNodeId) : []);
-                return <CanvasKeyframeGroupNodeContent
-                    node={contentNode}
-                    row={row}
-                    imageNodes={imageNodes}
-                    theme={theme}
-                    readOnly={Boolean(contentNode.metadata?.locked)}
-                    onUpdateKeyframe={(keyframeId, patch) => updateStoryboardKeyframe(contentNode.metadata!.storyboardNodeId!, contentNode.metadata!.rowId!, keyframeId, patch)}
-                    onAddKeyframe={(afterKeyframeId) => appendStoryboardKeyframe(contentNode.metadata!.storyboardNodeId!, contentNode.metadata!.rowId!, {}, afterKeyframeId)}
-                    onRemoveKeyframe={(keyframeId) => removeStoryboardKeyframe(contentNode.metadata!.storyboardNodeId!, contentNode.metadata!.rowId!, keyframeId)}
-                    onReorderKeyframes={(orderedIds) => reorderStoryboardKeyframes(contentNode.metadata!.storyboardNodeId!, contentNode.metadata!.rowId!, orderedIds)}
-                    onRegenerateKeyframe={(keyframeId) => {
-                        const imageId = row.keyframePromptDescriptions?.find((item) => item.id === keyframeId)?.imageNodeId;
-                        if (imageId) void handleRetryNode(nodesRef.current.find((candidate) => candidate.id === imageId) || contentNode);
-                    }}
-                />;
             }
             if (contentNode.metadata?.previsSceneId) {
                 return (
@@ -2474,7 +2437,6 @@ function CanvasViewportPage() {
             addBatchReferenceColumn,
             addBatchRow,
             addScriptRow,
-            appendStoryboardKeyframe,
             configInputsById,
             connections,
             createAndGenerateScriptVideos,
@@ -2482,7 +2444,6 @@ function CanvasViewportPage() {
             createStoryboardFromBatchTable,
             createScriptImageNodes,
             createScriptVideoNodes,
-            ensureStoryboardKeyframeGroup,
             currentProject?.previsScenes,
             batchReferences,
             focusCanvasImageNode,
@@ -2505,15 +2466,11 @@ function CanvasViewportPage() {
             reorderBatchReferenceColumns,
             replaceCanvasNodeMedia,
             removeScriptRow,
-            removeStoryboardKeyframe,
-            reorderStoryboardKeyframes,
             retryFailedBatchItems,
-            handleRetryNode,
             runningNodeId,
             stopRemainingBatchItems,
             theme,
             updateBatchRow,
-            updateStoryboardKeyframe,
             updateScriptRow,
             viewport.k,
             workspaceMode,
@@ -2645,11 +2602,7 @@ function CanvasViewportPage() {
     const dramaFirstEpisode = drama.summary?.episodes.find((episode) => episode.stats.segments > 0);
     const emptyCanvasState =
         emptyStateKind === "freeform" ? (
-            <CanvasFreeformEmptyState
-                commands={freeformCreateCommands}
-                onCreateShortDrama={shortDramaEnabled && !currentProject?.projectId ? createShortDramaPipeline : undefined}
-                onOpenAgent={shortDramaEnabled && !currentProject?.projectId ? openShortDramaAgent : undefined}
-            />
+            <CanvasFreeformEmptyState commands={freeformCreateCommands} />
         ) : emptyStateKind === "linked" && drama.summary ? (
             <CanvasDramaEmptyState
                 dramaName={drama.summary.project.name}
@@ -2673,6 +2626,7 @@ function CanvasViewportPage() {
             <CanvasShortDramaEmptyState
                 onCreatePipeline={createShortDramaPipeline}
                 onSubmitPrompt={(text) => {
+                    setCinematicAgentEntry(true);
                     // 有输入时直接作为首条消息提交；空输入只打开面板。
                     if (text) setAgentPrefillRequest((current) => ({ id: (current?.id ?? 0) + 1, text, autoSubmit: true }));
                     openAgent();
@@ -3613,7 +3567,6 @@ function CanvasViewportPage() {
                                 open={Boolean(activeScriptNode)}
                                 onClose={() => setScriptEditorNodeId(null)}
                                 onUpdateRows={(rows) => activeScriptNode && replaceScriptRows(activeScriptNode.id, rows)}
-                                onOpenProjectAssets={(rowId) => { if (activeScriptNode) { setStoryboardProjectAssetTarget({ nodeId: activeScriptNode.id, rowId }); openProjectAssets(); } }}
                                 onEditAssets={(rowId) => activeScriptNode && setStoryboardAssetTarget({ nodeId: activeScriptNode.id, rowId })}
                                 onVisibleColumnsChange={(visibleColumns: StoryboardColumn[]) => {
                                     if (!activeScriptNode || !visibleColumns.length) return;
@@ -3632,10 +3585,6 @@ function CanvasViewportPage() {
                                     else void createAndGenerateScriptVideos(activeScriptNode.id, rowIds);
                                 }}
                                 onVideoInputModeChange={(storyboardVideoInputMode) => activeScriptNode && handleConfigNodeChange(activeScriptNode.id, { storyboardVideoInputMode })}
-                                onUpdateKeyframe={(rowId, keyframeId, patch) => activeScriptNode && updateStoryboardKeyframe(activeScriptNode.id, rowId, keyframeId, patch)}
-                                onAddKeyframe={(rowId, afterKeyframeId) => activeScriptNode && appendStoryboardKeyframe(activeScriptNode.id, rowId, {}, afterKeyframeId)}
-                                onRemoveKeyframe={(rowId, keyframeId) => activeScriptNode && removeStoryboardKeyframe(activeScriptNode.id, rowId, keyframeId)}
-                                onReorderKeyframes={(rowId, orderedIds) => activeScriptNode && reorderStoryboardKeyframes(activeScriptNode.id, rowId, orderedIds)}
                             />
 
                             {previsNodeId && activePrevisScene ? (
@@ -3716,7 +3665,6 @@ function CanvasViewportPage() {
                             <BatchGenerationSettingsDialog open={batchGenDialogOpen} config={batchGenDialogConfig} rowCount={batchGenDialogRowCount} concurrency={batchGenDialogConcurrency} onClose={closeBatchGenDialog} onConfirm={confirmBatchGenDialog} />
 
                             <AssetPickerModal open={assetPickerOpen} multiple={assetInsertScope === "canvas"} onInsert={handleLibraryAssetsInsert} onClose={closeAssetPicker} />
-                            {referenceDialogs}
                             <CanvasCharacterLibraryModal
                                 open={characterLibraryOpen}
                                 imageResourceId={resourceIdFromStorageKey(selectedCharacterImage?.metadata?.storageKey) || undefined}
@@ -3733,23 +3681,9 @@ function CanvasViewportPage() {
                                 detail={linkedProjectQuery.data}
                                 initialCategory={projectAssetInitialCategory}
                                 initialFolderId={projectAssetInitialFolderId}
-                                mediaOnly={Boolean(storyboardProjectAssetTarget)}
-                                onClose={() => { setStoryboardProjectAssetTarget(null); closeProjectAssets(); }}
-                                onInsert={async (payloads) => {
-                                    if (!storyboardProjectAssetTarget) return handleTimelineProjectAssetsInsert(payloads);
-                                    if (payloads.some((payload) => payload.kind === "text")) throw new Error("分镜关联仅支持图片、视频、音频和角色资产");
-                                    const scriptNode = nodesRef.current.find((item) => item.id === storyboardProjectAssetTarget.nodeId);
-                                    const row = scriptNode?.metadata?.storyboard?.rows.find((item) => item.id === storyboardProjectAssetTarget.rowId);
-                                    if (!row) throw new Error("镜头已变化，请重新选择关联资产");
-                                    if ((row.assetBindings?.length || 0) + payloads.length > MAX_STORYBOARD_ROW_ASSETS) throw new Error(`每个镜头最多关联 ${MAX_STORYBOARD_ROW_ASSETS} 项资产`);
-                                    const created = await handleProjectAssetsInsert(payloads);
-                                    const currentRow = nodesRef.current.find((item) => item.id === storyboardProjectAssetTarget.nodeId)?.metadata?.storyboard?.rows.find((item) => item.id === storyboardProjectAssetTarget.rowId);
-                                    if (!currentRow) throw new Error("镜头已变化，资产已引入画布，请重新选择关联镜头");
-                                    if ((currentRow.assetBindings?.length || 0) + created.length > MAX_STORYBOARD_ROW_ASSETS || created.some((item) => !isStoryboardBindableAsset(item))) throw new Error("资产已引入画布，但无法自动关联当前镜头，请手动选择");
-                                    const assetBindings = created.reduce((bindings, item) => setStoryboardAssetBinding(bindings, item, true), currentRow.assetBindings || []);
-                                    updateScriptRow(storyboardProjectAssetTarget.nodeId, storyboardProjectAssetTarget.rowId, { assetBindings });
-                                }}
-                                onInsertFolder={projectAssetScope === "canvas" && !storyboardProjectAssetTarget ? handleProjectFolderInsert : undefined}
+                                onClose={closeProjectAssets}
+                                onInsert={handleTimelineProjectAssetsInsert}
+                                onInsertFolder={projectAssetScope === "canvas" ? handleProjectFolderInsert : undefined}
                             />
 
                             {canvasView === "assets" ? (
