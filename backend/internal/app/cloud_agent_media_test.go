@@ -534,6 +534,9 @@ func TestCloudAgentMediaFillsMissingSnapshotHash(t *testing.T) {
 
 func TestCloudAgentMediaFailedTaskUpdatesNode(t *testing.T) {
 	s, db, a := agentMediaFixture(t)
+	// This test advances completion directly; the approval waiter must not
+	// concurrently settle the same task and change the run revision.
+	s.closeApprovedCloudAgentMediaWaiters()
 	run, _ := agentMediaRun(t, s, a, "request_approval")
 	if err := s.advanceCloudAgentByID("user", run.ID); err != nil {
 		t.Fatal(err)

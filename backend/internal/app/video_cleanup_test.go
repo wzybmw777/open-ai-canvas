@@ -23,6 +23,7 @@ func TestVideoCleanupAdmissionOwnershipAndBilling(t *testing.T) {
 	if err := db.AutoMigrate(database.Models()...); err != nil {
 		t.Fatal(err)
 	}
+	ensureTestUsers(t, db, "user", "other")
 	s.dataDir = t.TempDir()
 	features := platform.DefaultFeatureAvailability()
 	features.VideoWorkbenchEnabled = true
@@ -93,9 +94,18 @@ func TestVideoCleanupAdmissionOwnershipAndBilling(t *testing.T) {
 		t.Fatalf("server input=%#v", input)
 	}
 	var account model.CreditAccount
-	db.First(&account, "user_id = ?", "user")
-	if account.ReservedMicrocredits <= 0 {
-		t.Fatal("platform model charge not reserved")
+	if err := db.First(&account, "user_id = ?", "user").Error; err != nil {
+		t.Fatal(err)
+	}
+	if account.AvailableMicrocredits != 970 || account.ReservedMicrocredits != 30 {
+		t.Fatalf("three seconds at the model's rate must reserve exactly 30 from the seeded 1000: %+v", account)
+	}
+	order, err := s.repo.BillingOrder(task.BillingOrderID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if order.UserID != "user" || order.TaskID != task.ID || order.ChannelID != channel.ID || order.ChannelModelID != sku.ID || order.PriceTierID != "edit-tier" || order.AmountMicrocredits != 30 || order.ActualAmountMicrocredits != 0 || order.Status != model.BillingStatusReserved {
+		t.Fatalf("cleanup did not use the selected model's reserved billing order: %+v", order)
 	}
 	profile.Video.Operations = []string{"text_to_video"}
 	profile.Video.DefaultOperation = "text_to_video"

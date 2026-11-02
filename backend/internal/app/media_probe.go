@@ -64,9 +64,11 @@ func probeMediaFile(ctx context.Context, path string) (mediaProbeInfo, error) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, mediaProbeTimeout)
 	defer cancel()
+	// Select the stream list rather than its entry name: ffprobe 4.4 calls the
+	// entries "side_data". The list preserves rotation without scanning frames.
 	output, err := exec.CommandContext(ctx, bin,
 		"-v", "error", "-select_streams", "v:0",
-		"-show_entries", "stream=width,height:stream_side_data=rotation:format=duration:format_tags",
+		"-show_entries", "stream=width,height:stream_side_data_list:format=duration:format_tags",
 		"-of", "json", path).Output()
 	if err != nil {
 		return mediaProbeInfo{}, fmt.Errorf("媒体探测失败：%w", err)

@@ -4,7 +4,7 @@ import type { AgentEvent, AgentRun } from "@/services/api/agent";
 import type { CloudAgentConversation, CloudAgentPendingSubmission } from "@/services/cloud-agent-conversations";
 
 const dom = new Window({ url: "http://localhost/" });
-for (const [key, value] of Object.entries({
+const browserGlobals = {
     window: dom,
     document: dom.document,
     navigator: dom.navigator,
@@ -20,8 +20,19 @@ for (const [key, value] of Object.entries({
     ResizeObserver: dom.ResizeObserver,
     getComputedStyle: dom.getComputedStyle.bind(dom),
     IS_REACT_ACT_ENVIRONMENT: true,
-}))
-    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+};
+const originalGlobals = new Map(Object.keys(browserGlobals).map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+afterAll(async () => {
+    try {
+        await dom.happyDOM.abort();
+    } finally {
+        for (const [key, descriptor] of originalGlobals) {
+            if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+            else Reflect.deleteProperty(globalThis, key);
+        }
+    }
+});
+for (const [key, value] of Object.entries(browserGlobals)) Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
 const React = await import("react");
 const { act } = React;
 const { createRoot } = await import("react-dom/client");
@@ -257,7 +268,6 @@ async function mount(initial: CloudAgentConversation, cloud: CloudAgentConversat
         },
     };
 }
-afterAll(() => dom.happyDOM.abort());
 function configureModels(ambiguous: boolean) {
     const entry = (id: string, model: string, price: number) =>
         createModelChannel({ id, scope: "system", models: [model], modelCosts: [{ model, channelModelId: `${id}-${model}`, capability: "text", billingMode: "fixed_request", unitPriceMicrocredits: price }] });

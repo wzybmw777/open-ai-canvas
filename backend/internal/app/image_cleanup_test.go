@@ -46,6 +46,7 @@ func enableCleanupFeature(t *testing.T, s *Service) {
 }
 func TestImageCleanupAdmissionAndOwnership(t *testing.T) {
 	s, db := newTimelineTaskTestService(t)
+	ensureTestUsers(t, db, "user", "other")
 	s.dataDir = t.TempDir()
 	enableCleanupFeature(t, s)
 	source := cleanupResource(t, s, "user", cleanupPNG(t, color.White))
@@ -78,6 +79,7 @@ func TestImageCleanupUsesExistingModelAndBilling(t *testing.T) {
 			if err := db.AutoMigrate(database.Models()...); err != nil {
 				t.Fatal(err)
 			}
+			ensureTestUsers(t, db, "user")
 			s.dataDir = t.TempDir()
 			enableCleanupFeature(t, s)
 			if err := db.Create(&model.CreditAccount{UserID: "user", AvailableMicrocredits: 1000}).Error; err != nil {
@@ -103,7 +105,9 @@ func TestImageCleanupUsesExistingModelAndBilling(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			json.Unmarshal([]byte(stored.InputJSON), &input)
+			if err := json.Unmarshal([]byte(stored.InputJSON), &input); err != nil {
+				t.Fatal(err)
+			}
 			if input["resourceId"] != source || input["maskResourceId"] != nil && !masked {
 				t.Fatal("resource references changed")
 			}
@@ -111,9 +115,18 @@ func TestImageCleanupUsesExistingModelAndBilling(t *testing.T) {
 				t.Fatal("mask lost")
 			}
 			var account model.CreditAccount
-			db.First(&account, "user_id = ?", "user")
-			if account.ReservedMicrocredits <= 0 {
-				t.Fatal("model charge not reserved")
+			if err := db.First(&account, "user_id = ?", "user").Error; err != nil {
+				t.Fatal(err)
+			}
+			if account.AvailableMicrocredits != 990 || account.ReservedMicrocredits != 10 {
+				t.Fatalf("model price must reserve exactly 10 from the seeded 1000: %+v", account)
+			}
+			order, err := s.repo.BillingOrder(task.BillingOrderID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if order.UserID != "user" || order.TaskID != task.ID || order.ChannelID != channel.ID || order.ChannelModelID != sku.ID || order.PriceTierID != "tier" || order.AmountMicrocredits != 10 || order.ActualAmountMicrocredits != 0 || order.Status != model.BillingStatusReserved {
+				t.Fatalf("cleanup did not use the selected model's reserved billing order: %+v", order)
 			}
 		})
 	}

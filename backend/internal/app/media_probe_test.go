@@ -90,6 +90,24 @@ func TestStoreTaskMediaFileRecordsVideoDimensions(t *testing.T) {
 	}
 }
 
+func TestProbeMediaFileReadsRotatedVideoDimensions(t *testing.T) {
+	requireFFmpegTools(t)
+	directory := t.TempDir()
+	source := filepath.Join(directory, "source.mp4")
+	rotated := filepath.Join(directory, "rotated.mp4")
+	writeTestVideo(t, source, 320, 240, nil)
+	if output, err := exec.Command("ffmpeg", "-v", "error", "-y", "-i", source, "-c", "copy", "-metadata:s:v:0", "rotate=90", rotated).CombinedOutput(); err != nil {
+		t.Fatalf("rotate test video: %v %s", err, output)
+	}
+	info, err := probeMediaFile(context.Background(), rotated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Width != 240 || info.Height != 320 || info.DurationMs < 900 {
+		t.Fatalf("display = %dx%d %dms, want 240x320 ~1000ms", info.Width, info.Height, info.DurationMs)
+	}
+}
+
 // seedLocalVideoResource 在服务数据目录写入一段真实视频，并登记为尺寸未知（旧版本入库）的本地资源。
 func seedLocalVideoResource(t *testing.T, s *Service, userID string, width int, height int, tags map[string]string) *model.Resource {
 	t.Helper()
