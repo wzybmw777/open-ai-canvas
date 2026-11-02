@@ -31,7 +31,8 @@ export function assetSummary(asset: LibraryAsset, locale: AppLocale = "zh-CN") {
 }
 
 export function assetSizeLabel(width: number, height: number, locale: AppLocale = "zh-CN") {
-    return width > 0 && height > 0 ? `${width}x${height}` : locale === "en-US" ? "Unknown" : "未知";
+    // 旧版本后端把未知尺寸写成 1×1 占位；1 像素的边长不是真实媒体尺寸，同样按未知显示。
+    return width > 1 && height > 1 ? `${width}x${height}` : locale === "en-US" ? "Unknown" : "未知";
 }
 
 export function assetSearchText(asset: LibraryAsset, locale: AppLocale = "zh-CN") {

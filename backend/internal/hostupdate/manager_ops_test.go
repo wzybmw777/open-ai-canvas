@@ -124,7 +124,7 @@ func TestCreateBackupReadsBackendDataAsRoot(t *testing.T) {
 	}
 	for _, call := range runner.calls {
 		joined := strings.Join(call, " ")
-		if strings.Contains(joined, "exec -T --user root backend tar -C /data -cf - .") {
+		if strings.Contains(joined, "run --rm --no-deps --pull never -T --user root --entrypoint tar backend -C /data -cf - .") {
 			return
 		}
 	}
@@ -201,7 +201,7 @@ func TestDrainServicesKeepsWebAvailableForMaintenancePage(t *testing.T) {
 	if len(runner.calls) != 1 {
 		t.Fatalf("runner calls = %d, want 1: %#v", len(runner.calls), runner.calls)
 	}
-	want := []string{"compose", "--project-name", filepath.Base(manager.config.InstallDir), "--env-file", filepath.Join(manager.config.InstallDir, ".env"), "-f", filepath.Join(manager.config.InstallDir, "docker-compose.deploy.yml"), "stop", "backend"}
+	want := []string{"compose", "--project-name", filepath.Base(manager.config.InstallDir), "--env-file", filepath.Join(manager.config.InstallDir, ".env"), "-f", filepath.Join(manager.config.InstallDir, "docker-compose.deploy.yml"), "stop", "backend", "yingce-agent"}
 	if got := runner.calls[0]; !reflect.DeepEqual(got, want) {
 		t.Fatalf("drain command = %#v, want %#v", got, want)
 	}

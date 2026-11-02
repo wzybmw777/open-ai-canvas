@@ -466,11 +466,8 @@ func (m *Manager) createBackup(version string) (Backup, error) {
 	if err != nil {
 		return Backup{}, err
 	}
-	dataArgs := []string{"exec", "-T", "--user", "root", "backend", "tar", "-C", "/data", "-cf", "-", "."}
-	if m.config.Mode == "source" {
-		dataArgs = []string{"run", "--rm", "--no-deps", "-T", "--user", "root", "--entrypoint", "tar", "backend", "-C", "/data", "-cf", "-", "."}
-	}
-	if err := m.compose(m.composePath(), version, m.config.StepTimeout, dataEntry, dataArgs...); err != nil {
+	// Backend 已停止；复用旧镜像与原数据卷，只执行 tar，不启动业务或依赖服务。
+	if err := m.compose(m.composePath(), version, m.config.StepTimeout, dataEntry, "run", "--rm", "--no-deps", "--pull", "never", "-T", "--user", "root", "--entrypoint", "tar", "backend", "-C", "/data", "-cf", "-", "."); err != nil {
 		return Backup{}, fmt.Errorf("备份数据目录：%w", err)
 	}
 	if err := archive.Close(); err != nil {

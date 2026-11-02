@@ -206,7 +206,7 @@ func TestSourceBackupUsesAllComposeFilesAndStoppedBackend(t *testing.T) {
 			t.Fatalf("incorrect project: %s", command)
 		}
 	}
-	if last := strings.Join(runner.calls[len(runner.calls)-1], " "); !strings.Contains(last, "run --rm --no-deps -T --user root --entrypoint tar backend") {
+	if last := strings.Join(runner.calls[len(runner.calls)-1], " "); !strings.Contains(last, "run --rm --no-deps --pull never -T --user root --entrypoint tar backend") {
 		t.Fatalf("backup requires a running backend: %s", last)
 	}
 }

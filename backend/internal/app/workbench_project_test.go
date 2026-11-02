@@ -9,7 +9,7 @@ import (
 
 func TestWorkbenchProjectAdmission(t *testing.T) {
 	s, db := newFeatureAvailabilityTestService(t)
-	if err := db.AutoMigrate(&model.Project{}, &model.CanvasProject{}, &model.Task{}); err != nil {
+	if err := db.AutoMigrate(&model.Project{}, &model.CanvasProject{}, &model.Task{}, &model.DramaProduction{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Create(&model.SystemSetting{Key: featureAvailabilitySettingKey, ValueJSON: `{"imageWorkbenchEnabled":true,"videoWorkbenchEnabled":true}`}).Error; err != nil {
