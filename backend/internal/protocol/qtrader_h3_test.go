@@ -73,9 +73,15 @@ func TestQtraderH3FramesRejectsInvalidInputs(t *testing.T) {
 	adapter := qtraderH3Adapter(t)
 	for _, mutate := range []func(*GenerationRequest){
 		func(r *GenerationRequest) { r.Images = nil },
-		func(r *GenerationRequest) { r.Images = []MediaReference{{URL: "https://cdn.example/a.png", Role: "reference_image"}} },
-		func(r *GenerationRequest) { r.Images = []MediaReference{{URL: "https://cdn.example/a.png", Role: "first_frame"}, {URL: "https://cdn.example/b.png", Role: "first_frame"}} },
-		func(r *GenerationRequest) { r.Images = []MediaReference{{URL: "https://cdn.example/a.png", Role: "first_frame"}, {URL: "https://cdn.example/b.png", Role: "reference_image"}} },
+		func(r *GenerationRequest) {
+			r.Images = []MediaReference{{URL: "https://cdn.example/a.png", Role: "reference_image"}}
+		},
+		func(r *GenerationRequest) {
+			r.Images = []MediaReference{{URL: "https://cdn.example/a.png", Role: "first_frame"}, {URL: "https://cdn.example/b.png", Role: "first_frame"}}
+		},
+		func(r *GenerationRequest) {
+			r.Images = []MediaReference{{URL: "https://cdn.example/a.png", Role: "first_frame"}, {URL: "https://cdn.example/b.png", Role: "reference_image"}}
+		},
 		func(r *GenerationRequest) { r.Duration = 16 },
 		func(r *GenerationRequest) { r.Audios = []MediaReference{{URL: "https://cdn.example/a.wav"}} },
 	} {

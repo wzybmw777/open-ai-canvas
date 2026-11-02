@@ -3,7 +3,18 @@ import { Window } from "happy-dom";
 
 const dom = new Window({ url: "http://localhost/" });
 const originals = new Map<string, PropertyDescriptor | undefined>();
-for (const [key, value] of Object.entries({ window: dom, document: dom.document, navigator: dom.navigator, HTMLElement: dom.HTMLElement, Element: dom.Element, Node: dom.Node, SVGElement: dom.SVGElement, ShadowRoot: dom.ShadowRoot, getComputedStyle: dom.getComputedStyle.bind(dom), IS_REACT_ACT_ENVIRONMENT: true })) {
+for (const [key, value] of Object.entries({
+    window: dom,
+    document: dom.document,
+    navigator: dom.navigator,
+    HTMLElement: dom.HTMLElement,
+    Element: dom.Element,
+    Node: dom.Node,
+    SVGElement: dom.SVGElement,
+    ShadowRoot: dom.ShadowRoot,
+    getComputedStyle: dom.getComputedStyle.bind(dom),
+    IS_REACT_ACT_ENVIRONMENT: true,
+})) {
     originals.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
     Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
 }
@@ -21,7 +32,10 @@ const initialCanvas = useCanvasStore.getState();
 const spies: Array<{ mockRestore: () => void }> = [];
 
 afterEach(() => {
-    spies.splice(0).reverse().forEach((spy) => spy.mockRestore());
+    spies
+        .splice(0)
+        .reverse()
+        .forEach((spy) => spy.mockRestore());
     useUserStore.setState(initialUser);
     withCanvasStorePersistenceSuppressed(() => useCanvasStore.setState(initialCanvas));
 });
@@ -37,7 +51,14 @@ test("returning after deleting the default waits for fresh canvas data before se
     useUserStore.setState({ user: { id: "context-owner" } as NonNullable<typeof initialUser.user> });
     withCanvasStorePersistenceSuppressed(() => useCanvasStore.setState({ hydrated: true }));
     let finish!: (id: string) => void;
-    spies.push(spyOn(creation, "ensureDefaultCreationProject").mockImplementation(() => new Promise((resolve) => { finish = resolve; })));
+    spies.push(
+        spyOn(creation, "ensureDefaultCreationProject").mockImplementation(
+            () =>
+                new Promise((resolve) => {
+                    finish = resolve;
+                }),
+        ),
+    );
     spies.push(spyOn(api, "listRemoteCanvasProjects").mockResolvedValue({ projects: [{ id: "replacement", title: "默认项目", createdAt: "", updatedAt: "" }] }));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
     client.setQueryData(["canvas-library", "context-owner", "creation-context"], { defaultId: "deleted", projects: [{ id: "deleted", title: "默认项目" }] });
@@ -46,9 +67,17 @@ test("returning after deleting the default waits for fresh canvas data before se
     document.body.append(host);
     const root = createRoot(host);
     try {
-        await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><ProjectContextBar onChange={(id) => selected.push(id)} description="" /></MemoryRouter></QueryClientProvider>));
+        await act(async () =>
+            root.render(
+                <QueryClientProvider client={client}>
+                    <MemoryRouter>
+                        <ProjectContextBar onChange={(id) => selected.push(id)} description="" />
+                    </MemoryRouter>
+                </QueryClientProvider>,
+            ),
+        );
         expect(selected).toEqual([]);
-        expect(host.querySelector("a")?.getAttribute("href")).toBe("/projects");
+        expect(host.querySelector("a")?.getAttribute("href")).toBe("/canvas");
         await act(async () => {
             finish("replacement");
             await new Promise((resolve) => setTimeout(resolve, 20));

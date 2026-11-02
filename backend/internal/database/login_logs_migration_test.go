@@ -18,10 +18,8 @@ func TestLoginLogMigrationUpgradesExistingSchema(t *testing.T) {
 	if err := MigrateSchema(db); err != nil {
 		t.Fatal(err)
 	}
+	restoreLegacyTheatreLedger(t, db, 56)
 	if err := db.Migrator().DropTable(&model.LoginLog{}); err != nil {
-		t.Fatal(err)
-	}
-	if err := db.Exec("DELETE FROM schema_migrations WHERE version = 57").Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := MigrateSchema(db); err != nil {

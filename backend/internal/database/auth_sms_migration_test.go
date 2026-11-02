@@ -24,14 +24,17 @@ func TestAuthSMSUpgradeFromV34PreservesAccounts(t *testing.T) {
 		`INSERT INTO users VALUES ('existing', 'existing-user', 'preserved-hash')`,
 		`CREATE TABLE email_verification_codes (id TEXT PRIMARY KEY, code_hash TEXT)`,
 		`INSERT INTO email_verification_codes VALUES ('existing-code', 'preserved-code-hash')`,
-		`CREATE TABLE model_channels (id TEXT PRIMARY KEY)`,
-		`CREATE TABLE channel_models (id TEXT PRIMARY KEY)`,
 		`CREATE TABLE cloud_agent_executions (id TEXT PRIMARY KEY, user_id TEXT, status TEXT, cleanup_pending BOOLEAN DEFAULT false)`,
 		`CREATE TABLE banner_announcements (id TEXT PRIMARY KEY)`,
 	} {
 		if err := db.Exec(statement).Error; err != nil {
 			t.Fatal(err)
 		}
+	}
+	// Unrelated baseline tables must be complete enough for later model-data and
+	// billing migrations. Keep authentication tables above in their real v34 shape.
+	if err := db.AutoMigrate(&model.ModelChannel{}, &model.ChannelModel{}, &model.BillingOrder{}); err != nil {
+		t.Fatal(err)
 	}
 	if err := db.AutoMigrate(&schemaMigration{}); err != nil {
 		t.Fatal(err)

@@ -56,16 +56,23 @@ test("关联画布项目的创作页任务仍按生成模式记录，不自动�
     expect(metadata?.generationSurface).toBeUndefined();
 });
 
-test("画布生成入口显式标记 canvas 奖励类别", async () => {
+test("画布生成入口传递归属、节点、逻辑模型与重试身份给真实计费任务", async () => {
     const config = videoConfig({ supported: true, default: false });
     let captured: any;
     const task = { id: "task-1", type: "canvas_video", status: "queued", prompt: "小猫在奔跑", attempts: 0, createdAt: "now", updatedAt: "now", resultJson: JSON.stringify({ mode: "video", video: { dataUrl: "blob:video" } }) } as any;
-    await runBackendCanvasGenerationTask({ projectId: "canvas-project", nodeId: "node-1", mode: "video", prompt: "小猫在奔跑", config }, {
-        createTask: async (input) => { captured = input; return task; },
-        waitTask: async () => task,
-        createId: () => "client-id",
-    });
-    expect(captured.input.metadata.generationSurface).toBe("canvas");
+    await runBackendCanvasGenerationTask(
+        { projectId: "canvas-project", nodeId: "node-1", mode: "video", prompt: "小猫在奔跑", config, retryOf: "failed-task", clientOperationId: "retry-operation" },
+        {
+            createTask: async (input) => {
+                captured = input;
+                return task;
+            },
+            waitTask: async () => task,
+            createId: () => "client-id",
+        },
+    );
+    expect(captured).toMatchObject({ projectId: "canvas-project", prompt: "小猫在奔跑", type: "canvas_video", operation: "text_to_video", model: "gravity::minimax-h3-a" });
+    expect(captured.input).toMatchObject({ metadata: { nodeId: "node-1", retryOf: "failed-task", clientOperationId: "retry-operation" } });
 });
 
 test.each([false, true])("创作台支持同步音频时遵循模型默认值 %s", (audioDefault) => {

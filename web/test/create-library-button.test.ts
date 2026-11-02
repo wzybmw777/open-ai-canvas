@@ -54,7 +54,7 @@ describe("creation library button", () => {
         expect(source).toContain("个素材已上传到素材库并自动选中");
     });
 
-    test("视频创作按模型各类参考上限收集内容，并在发送前校验兼容性", () => {
+    test("视频创作按模型各类参考上限收集内容，并在发送前归一化参考内容", () => {
         const source = readCreateSource();
         const workspace = readCreateWorkspaceSource();
 
@@ -62,9 +62,9 @@ describe("creation library button", () => {
         expect(source).toContain('modelGroupReferenceLimits(config, preferredModel || selectedModel, "video")');
         expect(source).toContain("reconcileCreationAttachmentLimits(candidates, [], videoReferenceLimits)");
         expect(source).toContain("reconcileCreationAttachmentLimits(attachments, mentionReferences, videoReferenceLimits)");
-        expect(source).toContain('mode === "video" && modelCompatibilityError(config, selectedModel, modelRequirements)');
-        expect(workspace).toContain("props.maxReferences === null || props.attachments.length < props.maxReferences");
-        expect(workspace).toContain('props.videoReferenceIssue ? <p className="creation-reference-compatibility"');
+        expect(source).toContain("resolveCompatibleModel(config, preferredModel, modelRequirements)");
+        expect(source).toContain("if (reconciledAttachments.attachments !== attachments)");
+        expect(workspace).toContain("referencesSupported && props.attachments.length < props.maxReferences");
     });
 
     test("previews prompt reference images without removing them", () => {
@@ -95,20 +95,20 @@ describe("creation library button", () => {
         expect(source).toContain('layout="position"');
         expect(source).toContain("isExpanded");
         expect(source).toContain("setReferencePanelExpanded");
-        expect(source).toContain("aria-label={text(`查看全部 ${props.attachments.length} 个参考内容`, `Show all ${props.attachments.length} references`)}");
-        expect(source).toContain('aria-label={text("收起素材面板", "Collapse references")}');
+        expect(source).toContain("aria-label={`查看全部 ${props.attachments.length} 个参考内容`}");
+        expect(source).toContain('aria-label="收起素材面板"');
         expect(source).toContain("清空全部素材");
         expect(source).toContain('role="group"');
         expect(source).toContain("aria-pressed={referenceFilter === filter.id}");
-        expect(source).toContain('{ id: "file", label: text("文件", "Files"), count: referenceCounts.file }');
+        expect(source).toContain('{ id: "file", label: "文件", count: referenceCounts.file }');
         expect(source).toContain("canDragReferences");
         expect(source).toContain("creation-reference-track-wrapper");
         expect(source).toContain("creation-reference-stack-card");
         expect(source).toContain("creation-reference-add-button");
         expect(source).toContain("addReferenceLabel");
         expect(source).toContain("aria-busy={interactionBusy}");
-        expect(source).toContain("const inputDisabled = interactionBusy || props.projectRequired;");
-        expect(source).toContain("disabled={inputDisabled || !canAddMoreReferences}");
+        expect(source).toContain("disabled={interactionBusy}");
+        expect(source).toContain("disabled={interactionBusy || !canAddMoreReferences}");
         expect(source).toContain("creation-reference-track-button");
         expect(source).toContain("imageReferenceAtPoint");
         expect(source).toContain("setDropTargetReferenceId");

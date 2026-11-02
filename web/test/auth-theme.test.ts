@@ -1,27 +1,28 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
-import { DEFAULT_CLASSIC_SKIN, duplicateSkinDefinition, skinCSSVariables } from "../src/lib/skin-themes";
+import { DEFAULT_CLASSIC_SKIN, applySkinTheme, duplicateSkinDefinition, skinCSSVariables } from "../src/lib/skin-themes";
 
 const source = (path: string) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
 
 describe("authentication follows the application theme", () => {
     test("classic login surfaces have distinct light and dark palettes", () => {
-        // globals.css 在不同平台上可能是 LF 或 CRLF；先归一化再分段，
-        // 否则按字面换行查找 .dark 段会返回 -1，把断言变成永远失败。
         const css = source("styles/globals.css").replace(/\r\n/g, "\n");
-        const dark = css.slice(css.indexOf(".dark {\n    --background:"));
+        const darkStart = css.indexOf(".dark {\n    --background:");
+        expect(darkStart).toBeGreaterThan(0);
         for (const [mode, background, panel, card] of [
-            ["light", "#f4f7fb", "#e9eff7", "#ffffff"],
-            ["dark", "#0b0e11", "#181a20", "#1e2329"],
+            ["light", "#ffffff", "#f7f7f7", "#ffffff"],
+            ["dark", "#08090c", "#0b0c10", "#121318"],
         ] as const) {
-            const variables = skinCSSVariables(DEFAULT_CLASSIC_SKIN, mode);
-            const modeCSS = mode === "dark" ? dark : css.slice(0, css.indexOf(".auth-scene {"));
-            expect(variables["--auth-page-bg"]).toBe(background);
-            expect(variables["--auth-panel-bg"]).toBe(panel);
-            expect(variables["--auth-card-bg"]).toBe(card);
+            const modeCSS = mode === "dark" ? css.slice(darkStart) : css.slice(0, darkStart);
+            expect(modeCSS).toContain(`--auth-page-bg: ${background};`);
+            expect(modeCSS).toContain(`--auth-panel-bg: ${panel};`);
+            expect(modeCSS).toContain(`--auth-card-bg: ${card};`);
+            const properties = new Map<string, string>([["--auth-page-bg", "#123456"]]);
+            const document = { documentElement: { dataset: {}, style: { removeProperty: (key: string) => properties.delete(key), setProperty: (key: string, value: string) => properties.set(key, value) } } };
+            applySkinTheme(DEFAULT_CLASSIC_SKIN, mode, document as unknown as Document);
             for (const key of ["--auth-page-bg", "--auth-panel-bg", "--auth-card-bg", "--auth-accent", "--auth-muted"]) {
-                expect(modeCSS).toContain(`${key}: ${variables[key]};`);
+                expect(properties.has(key)).toBe(false);
             }
         }
     });

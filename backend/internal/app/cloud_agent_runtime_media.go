@@ -839,6 +839,19 @@ func (s *Service) CancelCloudAgent(ctx context.Context, userID, id string) error
 				mediaContinues = s.cloudAgentMediaContinuesAfterStop(&model.CloudAgentExecution{Status: "cancelled"}, mediaTask)
 			}
 		}
+		if !mediaContinues {
+			children, err := s.repo.CloudAgentChildTasks(userID, id)
+			if err != nil {
+				return err
+			}
+			for index := range children {
+				child := &children[index]
+				if child.GenerationID != "" && s.cloudAgentMediaContinuesAfterStop(&model.CloudAgentExecution{Status: "cancelled"}, child) {
+					mediaContinues = true
+					break
+				}
+			}
+		}
 		err = s.repo.MutateCloudAgent(userID, id, run.Revision, func(current *model.CloudAgentExecution, _ *repository.Repository) error {
 			firstCancellation := current.Status != "cancelled"
 			current.Status = "cancelled"

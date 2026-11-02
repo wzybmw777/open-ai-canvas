@@ -34,9 +34,30 @@ func (s *Service) finishCloudAgentCleanup(ctx context.Context, run *model.CloudA
 		}
 		run = refreshed
 	}
+	children, err := s.repo.CloudAgentChildTasks(run.UserID, run.ID)
+	if err != nil {
+		return err
+	}
+	ids := []string{run.ID, activeID, mediaID}
+	mediaTargets := map[string]bool{}
+	if mediaID != "" {
+		mediaTargets[mediaID] = true
+	}
+	for _, task := range children {
+		ids = append(ids, task.ID)
+		diagnostic := taskExecutionDiagnostic(&task)
+		if task.GenerationID != "" && (!cloudAgentTaskTerminal(task.Status) || diagnostic == nil || diagnostic.WritebackOutcome == "") {
+			mediaTargets[task.ID] = true
+		}
+	}
+	if decodeErr == nil {
+		for _, pending := range state.PendingMedia {
+			mediaTargets[pending.TaskID] = true
+		}
+	}
 	seen := map[string]bool{}
 	awaitingMedia := false
-	for _, id := range []string{run.ID, activeID, mediaID} {
+	for _, id := range ids {
 		if id == "" || seen[id] {
 			continue
 		}
@@ -51,7 +72,7 @@ func (s *Service) finishCloudAgentCleanup(ctx context.Context, run *model.CloudA
 		if err != nil {
 			return err
 		}
-		if id == mediaID && s.cloudAgentMediaContinuesAfterStop(run, task) {
+		if mediaTargets[id] && s.cloudAgentMediaContinuesAfterStop(run, task) {
 			// 用户停止本轮只停止 Agent 后续步骤。已提交上游的媒体任务可能已经计费，
 			// 取消也拿不回费用，所以保留它并等结果回写画布；调度器会重入这里完成收尾。
 			awaitingMedia = true
@@ -75,6 +96,30 @@ func (s *Service) finishCloudAgentCleanup(ctx context.Context, run *model.CloudA
 	if awaitingMedia {
 		return nil
 	}
+	if decodeErr == nil {
+		for len(state.PendingMedia) > 0 {
+			pending := state.PendingMedia[0]
+			if err := s.completeCloudAgentMediaTask(run, &state, cloudAgentMediaCall(state.Calls[pending.CallIndex]), pending.TaskID); err != nil {
+				if errors.Is(err, errCloudAgentCheckpoint) {
+					// The failed transaction may have changed state in memory. Finish
+					// from durable task targets without attempting another transcript save.
+					decodeErr = err
+					break
+				}
+				return err
+			}
+			delete(mediaTargets, pending.TaskID)
+			var err error
+			run, err = s.repo.CloudAgent(run.UserID, run.ID)
+			if err != nil {
+				return err
+			}
+			state, err = cloudAgentDecode(run)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	if mediaID != "" && decodeErr == nil && state.CallIndex < len(state.Calls) {
 		err := s.advanceCloudAgentMedia(run, &state, state.Calls[state.CallIndex])
 		if err != nil && !errors.Is(err, errCloudAgentCheckpoint) {
@@ -86,21 +131,24 @@ func (s *Service) finishCloudAgentCleanup(ctx context.Context, run *model.CloudA
 			if readErr != nil {
 				return readErr
 			}
+			delete(mediaTargets, mediaID)
 			mediaID = ""
 		}
 	}
 	// A damaged/oversized transcript cannot record another tool event. The
 	// control-plane CAS and canvas terminal write must still be able to commit.
-	var mediaTask *model.Task
+	var mediaTasks []*model.Task
 	var policy RuntimePolicySetting
-	if mediaID != "" && canvasID != "" {
-		var err error
-		mediaTask, err = s.repo.TaskForUser(run.UserID, mediaID)
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
-		}
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			mediaTask = nil
+	if len(mediaTargets) > 0 && canvasID != "" {
+		for id := range mediaTargets {
+			task, err := s.repo.TaskForUser(run.UserID, id)
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				continue
+			}
+			if err != nil {
+				return err
+			}
+			mediaTasks = append(mediaTasks, task)
 		}
 		policy, err = s.RuntimePolicy()
 		if err != nil {
@@ -110,17 +158,24 @@ func (s *Service) finishCloudAgentCleanup(ctx context.Context, run *model.CloudA
 	s.storageMu.Lock()
 	defer s.storageMu.Unlock()
 	return s.repo.MutateCloudAgent(run.UserID, run.ID, run.Revision, func(current *model.CloudAgentExecution, repo *repository.Repository) error {
-		if mediaTask != nil {
+		for _, mediaTask := range mediaTasks {
 			targetNodeID := ""
 			if taskContext := taskClientContext(mediaTask.InputJSON); taskContext != nil {
 				targetNodeID = taskContext.NodeID
 			}
-			if _, err := completeCloudAgentMediaNode(repo, run.UserID, canvasID, targetNodeID, mediaTask, policy); err != nil {
+			_, writeErr := completeCloudAgentMediaNode(repo, run.UserID, canvasID, targetNodeID, mediaTask, policy)
+			if writeErr != nil {
 				var appErr *AppError
-				if !errors.Is(err, gorm.ErrRecordNotFound) && !(errors.As(err, &appErr) && (appErr.Status == 400 || appErr.Status == 409)) {
-					return err
+				if !errors.Is(writeErr, gorm.ErrRecordNotFound) && !(errors.As(writeErr, &appErr) && (appErr.Status == 400 || appErr.Status == 409)) {
+					return writeErr
 				}
-				current.FailureMessage = cloudAgentSafeToolError(err) + "；任务记录保留在任务中心"
+				current.FailureMessage = cloudAgentSafeToolError(writeErr) + "；任务记录保留在任务中心"
+				recordTaskWritebackDiagnostic(mediaTask, targetNodeID, "failed", "canvas_writeback_failed", writeErr)
+			} else {
+				recordTaskWritebackDiagnostic(mediaTask, targetNodeID, "succeeded", "", nil)
+			}
+			if err := repo.UpdateTaskExecutionDiagnostic(run.UserID, mediaTask.ID, mediaTask.ExecutionDiagnosticJSON); err != nil {
+				return err
 			}
 		}
 		current.CleanupPending = false

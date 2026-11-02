@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const CurrentSchemaVersion int64 = 80
+const CurrentSchemaVersion int64 = 81
 
 const baselineSchemaChecksum = "sha256:open-ai-canvas-schema-v1-20260830"
 const schemaMigrationAppliedAtIndexChecksum = "sha256:schema-migrations-applied-at-index-v2-20260830"
@@ -276,6 +276,9 @@ var schemaMigrations = []migration{
 	{version: 78, name: "user_groups_pricing_currency", checksum: "sha256:user-groups-pricing-currency-v78-20261029", apply: migrateUserGroupsPricingCurrency},
 	{version: 79, name: "agent_memory_document_skill_discovery", checksum: "sha256:agent-memory-document-skill-discovery-v79-20261029", apply: migrateAgentMemoryDocumentSkillDiscovery},
 	{version: 80, name: "agent_memory_document_columns", checksum: "sha256:agent-memory-document-columns-v80-20261029", apply: migrateAgentMemoryDocumentColumns},
+	{version: 81, name: "theatre_channel_sync_tables", checksum: "sha256:theatre-channel-sync-tables-v81-20261102", apply: func(tx *gorm.DB) error {
+		return tx.AutoMigrate(&model.TheatreWork{}, &model.TheatreEpisode{}, &model.ChannelSyncJob{}, &model.ChannelSyncRun{})
+	}},
 }
 
 // migrateAgentMemoryDocumentColumns 补齐记忆文件的条目序号与修订的工具调用 ID。
@@ -793,6 +796,10 @@ func migrationsForDatabase(db *gorm.DB) ([]migration, error) {
 		return nil, fmt.Errorf("读取数据库迁移 48：%w", err)
 	}
 	if err == nil && v48Applied.Name == "theatre_works" {
+		var lastApplied int64
+		if err := db.Model(&schemaMigration{}).Select("COALESCE(MAX(version), 0)").Scan(&lastApplied).Error; err != nil {
+			return nil, fmt.Errorf("读取本地剧场迁移进度：%w", err)
+		}
 		legacyPlan := []migration{
 			{version: 48, name: "theatre_works", checksum: "sha256:theatre-works-v48-20261008", apply: func(tx *gorm.DB) error { return tx.AutoMigrate(&model.TheatreWork{}) }},
 			{version: 49, name: "theatre_covers", checksum: "sha256:theatre-covers-v49-20261008", apply: func(tx *gorm.DB) error { return tx.AutoMigrate(&model.TheatreWork{}) }},
@@ -846,11 +853,14 @@ func migrationsForDatabase(db *gorm.DB) ([]migration, error) {
 		}
 		for _, expected := range legacyPlan {
 			var applied schemaMigration
-			if err := db.First(&applied, "version = ?", expected.version).Error; err != nil {
+			if err := db.First(&applied, "version = ?", expected.version).Error; err == nil {
+				if err := validateMigrationRecord(applied, expected); err != nil {
+					return nil, err
+				}
+			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil, fmt.Errorf("读取数据库迁移 %d：%w", expected.version, err)
-			}
-			if err := validateMigrationRecord(applied, expected); err != nil {
-				return nil, err
+			} else if expected.version <= lastApplied {
+				return nil, fmt.Errorf("数据库缺少迁移记录 %d（%s），但已存在版本 %d；拒绝重放历史迁移", expected.version, expected.name, lastApplied)
 			}
 			for index, item := range plan {
 				if item.version == expected.version {

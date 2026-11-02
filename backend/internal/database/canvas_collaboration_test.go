@@ -58,20 +58,10 @@ func TestCanvasCollaborationUpgradeFrom60(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&schemaMigration{}); err != nil {
+	if err := MigrateSchema(db); err != nil {
 		t.Fatal(err)
 	}
-	for _, item := range schemaMigrations {
-		if item.version > 60 {
-			break
-		}
-		if err := item.apply(db); err != nil {
-			t.Fatal(err)
-		}
-		if err := db.Create(&schemaMigration{Version: item.version, Name: item.name, Checksum: item.checksum, AppliedAt: time.Now()}).Error; err != nil {
-			t.Fatal(err)
-		}
-	}
+	restoreLegacyTheatreLedger(t, db, 60)
 	// Initial schema creation uses current models; restore the real v60 boundary.
 	if err := db.Migrator().DropTable(&model.CanvasEditLease{}); err != nil {
 		t.Fatal(err)

@@ -19,9 +19,7 @@ func TestProfileAndLoginLogsUpgradePreservesLocalV54History(t *testing.T) {
 	if err := MigrateSchema(db); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Where("version > ?", 54).Delete(&schemaMigration{}).Error; err != nil {
-		t.Fatal(err)
-	}
+	restoreLegacyTheatreLedger(t, db, 54)
 	if err := db.Migrator().DropTable(&model.UserAvatar{}, &model.LoginLog{}); err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +77,7 @@ func TestProfileMigrationUpgradesLegacyIdentityRows(t *testing.T) {
 	}
 	var migration *migration
 	for i := range schemaMigrations {
-		if schemaMigrations[i].version == 55 {
+		if schemaMigrations[i].name == "personal_profile_security" {
 			migration = &schemaMigrations[i]
 		}
 	}
@@ -137,10 +135,8 @@ func TestAvatarPresetMigrationUpgradesV55WithoutChangingUsersOrBlobs(t *testing.
 	}
 	// Reconstruct the already applied v55 shape and migration ledger. The new
 	// migration must add one column without replaying or changing v55 metadata.
+	restoreLegacyTheatreLedger(t, db, 55)
 	if err := db.Migrator().DropColumn(&model.User{}, "AvatarPreset"); err != nil {
-		t.Fatal(err)
-	}
-	if err := db.Delete(&schemaMigration{}, "version = ?", 56).Error; err != nil {
 		t.Fatal(err)
 	}
 	var v55Before schemaMigration

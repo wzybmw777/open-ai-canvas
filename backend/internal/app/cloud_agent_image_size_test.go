@@ -99,7 +99,7 @@ func TestCloudAgentPixelImageReferenceReachesApproval(t *testing.T) {
 				}
 				a.SnapshotHash = cloudAgentMediaContentHash(doc)
 			}
-			run, state := agentMediaRun(t, s, a, "auto")
+			run, state := agentMediaRun(t, s, a, "request_approval")
 			req, plan, err := s.prepareCloudAgentMedia(run, &state, agentMediaCall(a))
 			if err != nil {
 				t.Fatal(err)

@@ -21,6 +21,8 @@ for (const [key, value] of Object.entries({
     Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
 }
 
+afterAll(() => dom.happyDOM.abort());
+
 const { act } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { ApprovalCard } = await import("../../src/components/canvas/canvas-cloud-agent-panel-parts");
@@ -63,7 +65,6 @@ const channel = createModelChannel({
 });
 const config = normalizeConfigSnapshot({ config: { ...defaultConfig, channels: [channel] } }).config;
 useConfigStore.setState({ config });
-afterAll(() => dom.happyDOM.abort());
 
 test("真实图片审批卡片可切换比例、分辨率、质量，提交值与界面一致", async () => {
     const host = document.createElement("div");

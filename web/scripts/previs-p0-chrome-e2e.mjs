@@ -74,13 +74,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** 启动 Vite DEV，等待 ready 行或 TCP 可连接；超时即抛。 */
 async function launchVite(port) {
-    // package.json 仍可由 Bun 直接执行；没有 Bun 时用 Node 调本地 Vite 入口。
-    // 不能把 `vite` 同时当作 bunx 子命令和 Vite 根目录传入，否则会启动到
-    // <web>/vite，SPA 根路径与 /dev/previs-repro 都会返回 404。
+    // 直接运行入口以持有真正的服务进程；bunx 会另起 Vite 子进程，
+    // 启动超时后只终止 bunx 会遗留服务。保留 Vite CLI 原有的 Node 运行时。
     const viteEntry = join(process.cwd(), "node_modules", "vite", "bin", "vite.js");
-    const command = process.versions.bun ? "bunx" : process.execPath;
-    const args = process.versions.bun ? ["vite"] : [viteEntry];
-    const child = spawn(command, [...args, "--host", "127.0.0.1", "--port", String(port), "--strictPort"], {
+    const command = process.versions.bun ? "node" : process.execPath;
+    const child = spawn(command, [viteEntry, "--host", "127.0.0.1", "--port", String(port), "--strictPort"], {
         cwd: process.cwd(),
         stdio: ["ignore", "pipe", "pipe"],
     });
@@ -103,6 +101,7 @@ async function launchVite(port) {
         }
         await sleep(500);
     }
+    await stopExact(child, "vite startup");
     throw new Error(`Vite did not become ready within 120s:\n${log}`);
 }
 
@@ -142,6 +141,7 @@ async function launchChrome(chromePath, cdpPort, profileDir) {
         }
         await sleep(400);
     }
+    await stopExact(child, "chrome startup");
     throw new Error(`Chrome CDP did not become ready within 60s:\n${log}`);
 }
 

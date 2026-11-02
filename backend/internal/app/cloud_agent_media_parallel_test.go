@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"gorm.io/gorm"
@@ -222,6 +223,124 @@ func TestCloudAgentParallelMediaCancellationIncludesAllChildren(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestCloudAgentParallelStopKeepsOnlySubmittedChildren(t *testing.T) {
+	for _, corrupt := range []bool{false, true} {
+		t.Run(fmt.Sprint(corrupt), func(t *testing.T) {
+			s, db, id := agentParallelFixture(t, 4, "auto", "video")
+			advanceAgentParallel(t, s, id, 14)
+			tasks := agentParallelTasks(t, s, id)
+			if len(tasks) != 4 {
+				t.Fatal("missing concurrent tasks")
+			}
+			// The first task is parked behind the cursor, but its upstream request
+			// must survive a user stop just like a single submitted generation.
+			if err := db.Model(&model.Task{}).Where("id = ?", tasks[0].ID).Updates(map[string]any{"status": model.TaskStatusRunning, "provider_request_id": "upstream-parallel"}).Error; err != nil {
+				t.Fatal(err)
+			}
+			if corrupt {
+				if err := db.Model(&model.CloudAgentExecution{}).Where("id = ?", id).Update("state_json", "{").Error; err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := s.CancelCloudAgent(context.Background(), "user", id); err != nil {
+				t.Fatal(err)
+			}
+			for i, task := range agentParallelTasks(t, s, id) {
+				want := model.TaskStatusCancelled
+				if i == 0 {
+					want = model.TaskStatusRunning
+				}
+				if task.Status != want {
+					t.Fatalf("wrong child stop outcome: task=%s status=%s want=%s", task.ID, task.Status, want)
+				}
+			}
+			run, err := s.repo.CloudAgent("user", id)
+			if err != nil || run.Status != "cancelled" || !run.CleanupPending {
+				t.Fatalf("submitted child lost cleanup handoff: %+v %v", run, err)
+			}
+			if !corrupt {
+				state, err := cloudAgentDecode(run)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, event := range state.Events {
+					if event.Type == "run_cancelled" && event.Payload["mediaContinues"] != true {
+						t.Fatal("stop notice hid the submitted sibling continuing")
+					}
+				}
+			}
+			completeParallelTask(t, db, tasks[0], "video")
+			advanceAgentParallel(t, s, id, 1)
+			run, err = s.repo.CloudAgent("user", id)
+			if err != nil || run.CleanupPending {
+				t.Fatalf("finished children did not finish cleanup: %+v %v", run, err)
+			}
+			canvas, err := s.repo.CanvasProjectForUser("user", "agent-canvas")
+			if err != nil {
+				t.Fatal(err)
+			}
+			doc, _ := creationDocument(canvas.PayloadJSON)
+			nodes, _ := creationObjects(doc["nodes"])
+			for i := 0; i < 4; i++ {
+				want := "error"
+				if i == 0 {
+					want = "success"
+				}
+				if nodes[fmt.Sprintf("parallel-%d", i)]["metadata"].(map[string]any)["status"] != want {
+					t.Fatalf("child %d did not receive its final result", i)
+				}
+			}
+		})
+	}
+}
+
+func TestCloudAgentParallelMediaOversizedCheckpointStillCleansUp(t *testing.T) {
+	s, db, id := agentParallelFixture(t, 3, "auto", "video")
+	advanceAgentParallel(t, s, id, 9)
+	run, state := agentInterjectionState(t, s, id)
+	if len(state.PendingMedia) == 0 {
+		t.Fatal("missing parked children")
+	}
+	state.ActiveTextDraft = strings.Repeat("x", cloudAgentStateJSONLimit)
+	raw, err := cloudAgentCheckpointJSON(&state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(run).Update("state_json", string(raw)).Error; err != nil {
+		t.Fatal(err)
+	}
+	run, err = s.repo.CloudAgent("user", id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cloudAgentDecode(run); err != nil {
+		t.Fatalf("oversized fixture must remain decode-valid: %v", err)
+	}
+	if err := s.CancelCloudAgent(context.Background(), "user", id); err != nil {
+		t.Fatal(err)
+	}
+	run, err = s.repo.CloudAgent("user", id)
+	if err != nil || run.Status != "cancelled" || run.CleanupPending {
+		t.Fatalf("oversized transcript blocked durable cleanup: %+v %v", run, err)
+	}
+	for _, task := range agentParallelTasks(t, s, id) {
+		if task.Status != model.TaskStatusCancelled {
+			t.Fatal("oversized transcript left an uncancelled child")
+		}
+	}
+	canvas, err := s.repo.CanvasProjectForUser("user", "agent-canvas")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, _ := creationDocument(canvas.PayloadJSON)
+	nodes, _ := creationObjects(doc["nodes"])
+	for i := 0; i < 3; i++ {
+		if nodes[fmt.Sprintf("parallel-%d", i)]["metadata"].(map[string]any)["status"] != "error" {
+			t.Fatal("oversized transcript blocked terminal node writeback")
+		}
 	}
 }
 

@@ -44,11 +44,6 @@ dom.setTimeout = ((handler: () => void, delay?: number, ...args: unknown[]) => {
     return originalSetTimeout(handler, delay, ...args);
 }) as typeof dom.setTimeout;
 
-const { act } = await import("react");
-const { createRoot } = await import("react-dom/client");
-const { CanvasNode } = await import("../../src/components/canvas/canvas-node");
-const { CanvasNodeType } = await import("../../src/types/canvas");
-
 afterAll(() => {
     dom.happyDOM.abort();
     for (const [key, value] of originals) {
@@ -56,6 +51,11 @@ afterAll(() => {
         else Reflect.deleteProperty(globalThis, key);
     }
 });
+
+const { act } = await import("react");
+const { createRoot } = await import("react-dom/client");
+const { CanvasNode } = await import("../../src/components/canvas/canvas-node");
+const { CanvasNodeType } = await import("../../src/types/canvas");
 
 const noop = () => {};
 

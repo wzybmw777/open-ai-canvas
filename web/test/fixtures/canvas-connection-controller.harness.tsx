@@ -18,6 +18,14 @@ for (const [key, value] of Object.entries({
     originals.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
     Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
 }
+afterAll(() => {
+    dom.happyDOM.abort();
+    for (const [key, value] of originals) {
+        if (value) Object.defineProperty(globalThis, key, value);
+        else Reflect.deleteProperty(globalThis, key);
+    }
+});
+
 const { act, useRef, useState } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { App } = await import("antd");
@@ -27,14 +35,6 @@ const { defaultConfig } = await import("../../src/stores/use-config-store");
 const { canvasThemes } = await import("../../src/lib/canvas-theme");
 const { CanvasNodeType } = await import("../../src/types/canvas");
 const { CANVAS_GRAPHICS_VIEWPORT_PREVIEW_EVENT } = await import("../../src/lib/canvas/canvas-live-viewport");
-
-afterAll(() => {
-    dom.happyDOM.abort();
-    for (const [key, value] of originals) {
-        if (value) Object.defineProperty(globalThis, key, value);
-        else Reflect.deleteProperty(globalThis, key);
-    }
-});
 
 const noop = () => {};
 const nodes: CanvasNodeData[] = [

@@ -6,12 +6,12 @@ import { getIsolatedAdminAntTheme } from "../src/pages/admin/theme/admin-ant-the
 
 describe("shared action colors and focus feedback", () => {
     for (const dark of [false, true]) {
-        test(`classic action colors agree across product and admin in ${dark ? "dark" : "light"} mode`, () => {
+        test(`classic product and isolated admin keep readable action palettes in ${dark ? "dark" : "light"} mode`, () => {
             const product = getAntThemeConfig(dark, DEFAULT_CLASSIC_SKIN);
             const admin = getIsolatedAdminAntTheme(dark, DEFAULT_CLASSIC_SKIN);
-            expect(product.components?.Button?.colorPrimary).toBe(dark ? "#f0b90b" : "#2f5ea8");
-            expect(admin.components?.Button?.colorPrimary).toBe(product.components?.Button?.colorPrimary);
-            expect(admin.components?.Button?.primaryColor).toBe(product.components?.Button?.primaryColor);
+            expect(product.components?.Button?.colorPrimary).toBe(dark ? "#f5f5f5" : "#171717");
+            expect(admin.components?.Button?.colorPrimary).toBe(dark ? "#f0b90b" : "#2f5ea8");
+            expect(admin.components?.Button?.primaryColor).toBe(dark ? "#181a20" : "#ffffff");
         });
 
         test(`custom primary action states reach product and admin in ${dark ? "dark" : "light"} mode`, () => {
@@ -40,19 +40,19 @@ describe("shared action colors and focus feedback", () => {
 
     test("nighttime actions, ordinary selection and switches keep separate roles", () => {
         const theme = getAntThemeConfig(true, DEFAULT_CLASSIC_SKIN);
-        expect(theme.components?.Button?.primaryColor).toBe("#181a20");
-        expect(theme.token?.colorBgElevated).toBe("#1e2329");
-        expect(theme.token?.colorText).toBe("#eaecef");
+        expect(theme.components?.Button?.primaryColor).toBe("#171717");
+        expect(theme.token?.colorBgElevated).toBe("rgba(31, 31, 32, 1)");
+        expect(theme.token?.colorText).toBeUndefined();
         expect(theme.components?.Checkbox?.colorPrimary).toBe("#f5f5f5");
         expect(theme.components?.Switch?.colorPrimary).toBe("#22c55e");
     });
 
-    test("daytime graphite-blue actions use readable link colors and cool selection", () => {
+    test("daytime monochrome actions use readable link colors and subtle selection", () => {
         const theme = getAntThemeConfig(false, DEFAULT_CLASSIC_SKIN);
         expect(theme.components?.Button?.primaryColor).toBe("#ffffff");
-        expect(theme.token?.colorLink).toBe("#2f5ea8");
-        expect(theme.token?.colorText).toBe("#172033");
-        expect(theme.token?.colorPrimaryBg).toBe("#e6eef9");
+        expect(theme.token?.colorLink).toBe("#171717");
+        expect(theme.token?.colorPrimaryBg).toBe("rgba(17, 17, 17, 0.09)");
+        expect(theme.token?.colorText).toBeUndefined();
         expect(theme.components?.Checkbox?.colorPrimary).toBe("#171717");
     });
 
