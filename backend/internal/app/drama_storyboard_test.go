@@ -152,7 +152,7 @@ func TestDramaEpisodePreviewKeepsReferenceArrayWhenVideoModelDisabled(t *testing
 		t.Fatal(err)
 	}
 	settings := parseDramaSettings(production.SettingsJSON)
-	if _, _, err := svc.prepareDramaSegment(settings, dramaSegmentDraft{}, rows[0], nil, nil); err == nil {
+	if _, _, _, err := svc.prepareDramaSegment(settings, dramaSegmentDraft{}, rows[0], nil, nil); err == nil {
 		t.Fatal("unavailable model must still reject provider submission")
 	}
 }

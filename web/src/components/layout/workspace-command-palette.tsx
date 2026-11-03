@@ -1,4 +1,5 @@
-import { Command, Home, Search, X } from "lucide-react";
+import { Bot, Command, Home, Search, X } from "lucide-react";
+import { useGlobalAgentStore } from "@/stores/use-global-agent-store";
 import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { useNavigate } from "react-router";
 
@@ -30,7 +31,7 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
         const toolEntry = (slug: string, to?: string): PaletteEntry => {
             const tool = navigationTools.find((item) => item.slug === slug);
             const english = ({ canvas: "Canvas", theatre: "Excellence Theatre", tasks: "Tasks", assets: "Assets", skills: "Skills", wallet: "Credits", settings: "Settings" } as Record<string, string>)[slug];
-            return { id: slug, title: locale === "en-US" ? english || slug : tool?.label ?? slug, icon: tool?.icon ?? Home, to };
+            return { id: slug, title: locale === "en-US" ? english || slug : (tool?.label ?? slug), icon: tool?.icon ?? Home, to };
         };
         return [
             { id: "home", title: text("首页", "Home"), icon: Home, to: "/" },
@@ -42,6 +43,8 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
             toolEntry("skills", "/skills"),
             ...(features.creditsEnabled ? [{ ...toolEntry("wallet"), run: () => openWorkspaceWallet() }] : []),
             toolEntry("settings", "/settings"),
+            // 与 ⌘/Ctrl+J 相同：打开平台 Agent 面板。
+            { id: "agent", title: "打开 Agent（⌘/Ctrl+J）", icon: Bot, run: () => useGlobalAgentStore.getState().openAgent() },
         ];
     }, [features, locale, text]);
 
@@ -117,12 +120,7 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
                         <Kbd onClick={onClose} className="hidden shrink-0 cursor-pointer transition-colors hover:bg-surface-hover hover:text-foreground sm:inline-flex">
                             ⌘K
                         </Kbd>
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="ml-0.5 shrink-0 rounded-md p-1 text-foreground/50 transition-colors hover:bg-surface-hover hover:text-foreground"
-                            aria-label={text("关闭搜索", "Close search")}
-                        >
+                        <button type="button" onClick={onClose} className="ml-0.5 shrink-0 rounded-md p-1 text-foreground/50 transition-colors hover:bg-surface-hover hover:text-foreground" aria-label={text("关闭搜索", "Close search")}>
                             <X className="size-4" strokeWidth={1.6} />
                         </button>
                     </div>
@@ -139,10 +137,7 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
                                             type="button"
                                             onMouseEnter={() => setHighlight(index)}
                                             onClick={() => activateEntry(entry)}
-                                            className={cn(
-                                                "flex w-full items-center gap-2 rounded-[var(--r-sm)] px-3 py-2 text-left text-[var(--fs-body)] transition-colors",
-                                                index === highlight ? "bg-surface-hover text-foreground" : "text-foreground/65",
-                                            )}
+                                            className={cn("flex w-full items-center gap-2 rounded-[var(--r-sm)] px-3 py-2 text-left text-[var(--fs-body)] transition-colors", index === highlight ? "bg-surface-hover text-foreground" : "text-foreground/65")}
                                         >
                                             <Icon className={cn("size-4 shrink-0", index === highlight ? "text-foreground" : "text-foreground/55")} strokeWidth={1.6} />
                                             <span className="truncate">{entry.title}</span>
