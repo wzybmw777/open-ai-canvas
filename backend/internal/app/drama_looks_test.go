@@ -1,11 +1,147 @@
 package app
 
 import (
+	"reflect"
 	"testing"
 
 	"yingce/backend/internal/model"
 	"yingce/backend/internal/production"
 )
+
+func TestDramaExplicitLookOverridesChapterDefault(t *testing.T) {
+	looks := []model.DramaCast{{ID: "chapter-look", LookName: "常服", LookFromChapter: 1, LookToChapter: 10}, {ID: "known-look", LookName: "战甲"}}
+	for _, tc := range []struct{ choice, want string }{{"", "chapter-look"}, {"基础造型", ""}, {" 战甲 ", "known-look"}, {"夜行衣", ""}} {
+		if got := dramaResolveShotLook(model.DramaCast{ID: "hero"}, looks, tc.choice, []int{1}); got != tc.want {
+			t.Errorf("choice %q resolved to %q, want %q", tc.choice, got, tc.want)
+		}
+	}
+}
+
+func TestDramaScriptCreatesExplicitLookDespiteChapterDefault(t *testing.T) {
+	svc, _ := newDramaTestService(t)
+	summary := createTestDramaWithMedia(t, svc, DramaReviewEvery, DramaMediaManual)
+	runDramaTicks(t, svc, summary.Project.ID, 20)
+	summary, err := svc.DramaSummary("usr-drama", summary.Project.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	casts, err := svc.repo.DramaCasts(summary.Project.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var hero model.DramaCast
+	for _, cast := range casts {
+		if cast.Kind == "character" && cast.ParentID == "" {
+			hero = cast
+			break
+		}
+	}
+	if hero.ID == "" {
+		t.Fatal("missing character fixture")
+	}
+	added, err := svc.AddDramaCastLook("usr-drama", summary.Project.ID, hero.ID, DramaCastLookRequest{LookName: "常服", Appearance: "青色长衫", FromChapter: intPtr(1), ToChapter: intPtr(99)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defaultLook := added["look"].(model.DramaCast)
+	project, row, err := svc.dramaForUser("usr-drama", summary.Project.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	detail, err := svc.DramaEpisodeDetail("usr-drama", project.ID, summary.Episodes[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run := dramaRun{s: svc, project: project, production: row, settings: parseDramaSettings(row.SettingsJSON)}
+	shots := []production.ScriptShot{}
+	for _, choice := range []string{"", "基础造型", "常服", "夜行衣"} {
+		shots = append(shots, production.ScriptShot{Characters: []string{hero.Name}, Looks: map[string]string{hero.Name: choice}, DurationSeconds: 5})
+	}
+	if err := run.applyScriptShots(&detail.Episode, shots, []production.ScriptCast{{Kind: "look", Name: hero.Name, Look: "夜行衣", Appearance: "黑色夜行衣"}}, production.ScriptEpisode{}, false); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := svc.repo.DramaShots(detail.Episode.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stored) != 4 {
+		t.Fatalf("got %d shots", len(stored))
+	}
+	if !reflect.DeepEqual(decodeStringList(stored[0].LookCastIDsJSON), []string{defaultLook.ID}) || len(decodeStringList(stored[1].LookCastIDsJSON)) != 0 || !reflect.DeepEqual(decodeStringList(stored[2].LookCastIDsJSON), []string{defaultLook.ID}) {
+		t.Fatalf("explicit/default choices not preserved: %+v", stored)
+	}
+	created := decodeStringList(stored[3].LookCastIDsJSON)
+	if len(created) != 1 || created[0] == defaultLook.ID {
+		t.Fatalf("new look not selected: %v", created)
+	}
+	look, err := svc.repo.DramaCast(project.ID, created[0])
+	if err != nil || look.ParentID != hero.ID || look.LookName != "夜行衣" || look.Appearance != "黑色夜行衣" {
+		t.Fatalf("new look not persisted: %+v, %v", look, err)
+	}
+}
+
+func TestDramaLookMutationInvalidatesReferencedSegments(t *testing.T) {
+	for _, action := range []string{"edit", "delete"} {
+		for _, status := range []string{model.DramaMediaReady, model.DramaMediaRunning} {
+			t.Run(action+"/"+status, func(t *testing.T) {
+				svc, fake := newDramaTestService(t)
+				summary := createTestDramaWithMedia(t, svc, DramaReviewEvery, DramaMediaManual)
+				runDramaTicks(t, svc, summary.Project.ID, 20)
+				summary, err := svc.DramaSummary("usr-drama", summary.Project.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				episode := summary.Episodes[0].ID
+				shots, err := svc.repo.DramaShots(episode)
+				if err != nil || len(shots) == 0 {
+					t.Fatalf("shots: %v", err)
+				}
+				characters := decodeStringList(shots[0].CastIDsJSON)
+				if len(characters) == 0 {
+					t.Fatal("missing character fixture")
+				}
+				added, err := svc.AddDramaCastLook("usr-drama", summary.Project.ID, characters[0], DramaCastLookRequest{LookName: "夜行衣", Appearance: "黑色夜行衣"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				look := added["look"].(model.DramaCast)
+				if err := fake.db.Model(&model.DramaShot{}).Where("id = ?", shots[0].ID).Update("look_cast_ids_json", encodeStringList([]string{look.ID})).Error; err != nil {
+					t.Fatal(err)
+				}
+				if err := fake.db.Model(&model.DramaSegment{}).Where("episode_id = ? AND segment_index = ?", episode, shots[0].SegmentIndex).Updates(map[string]any{"prompt_status": model.DramaMediaReady, "video_status": status}).Error; err != nil {
+					t.Fatal(err)
+				}
+				before, err := svc.repo.DramaSegments(episode)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if action == "edit" {
+					_, err = svc.UpdateDramaCastLook("usr-drama", summary.Project.ID, look.ID, DramaCastLookRequest{Appearance: "灰色夜行衣", RestyleSegments: true})
+				} else {
+					_, err = svc.DeleteDramaCastLook("usr-drama", summary.Project.ID, look.ID, true)
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				after, err := svc.repo.DramaSegments(episode)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for i, segment := range after {
+					if segment.SegmentIndex != shots[0].SegmentIndex {
+						continue
+					}
+					if segment.VideoStatus != model.DramaMediaStale || segment.Revision <= before[i].Revision {
+						t.Errorf("dependent %s video remained valid: %+v", status, segment)
+					}
+					if action == "edit" && segment.PromptStatus != model.DramaMediaStale {
+						t.Errorf("appearance edit retained old prompt: %+v", segment)
+					}
+				}
+			})
+		}
+	}
+}
 
 // DefaultLook 按本集第一章在造型的默认章节范围里选：命中多套时取起始最晚、范围更窄的；没有命中回退角色本体。
 func TestDefaultLookByChapter(t *testing.T) {

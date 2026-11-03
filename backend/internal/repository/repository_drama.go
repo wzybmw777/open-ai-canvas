@@ -629,7 +629,8 @@ func (r *Repository) UpdateDramaCastFields(id string, fields map[string]any) err
 			return err
 		}
 		var shots []model.DramaShot
-		if err := tx.Where("project_id = ? AND (scene_cast_id = ? OR cast_ids_json LIKE ?)", cast.ProjectID, id, fmt.Sprintf("%%%q%%", id)).Find(&shots).Error; err != nil {
+		pattern := fmt.Sprintf("%%%q%%", id)
+		if err := tx.Where("project_id = ? AND (scene_cast_id = ? OR cast_ids_json LIKE ? OR look_cast_ids_json LIKE ?)", cast.ProjectID, id, pattern, pattern).Find(&shots).Error; err != nil {
 			return err
 		}
 		seen := map[string]bool{}
@@ -806,7 +807,7 @@ func (r *Repository) DeleteDramaCastLook(projectID, lookID string) error {
 func (r *Repository) DramaShotsReferencingCast(projectID string, castID string) ([]model.DramaShot, error) {
 	var shots []model.DramaShot
 	pattern := "%\"" + castID + "\"%"
-	err := r.db.Where("project_id = ? AND (scene_cast_id = ? OR cast_ids_json LIKE ? OR prop_ids_json LIKE ?)", projectID, castID, pattern, pattern).Find(&shots).Error
+	err := r.db.Where("project_id = ? AND (scene_cast_id = ? OR cast_ids_json LIKE ? OR prop_ids_json LIKE ? OR look_cast_ids_json LIKE ?)", projectID, castID, pattern, pattern, pattern).Find(&shots).Error
 	return shots, err
 }
 
