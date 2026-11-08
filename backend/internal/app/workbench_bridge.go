@@ -108,20 +108,19 @@ func (s *Service) SetWorkbenchPresetEnabled(actor *model.User, id string, enable
 }
 
 func (s *Service) CreateWorkbenchTask(userID string, req WorkbenchTaskInput, traceID, requestID string) (*model.Task, error) {
-	if req.Kind == WorkbenchKindImage {
-		if err := s.RequireFeature(FeatureImageWorkbench); err != nil {
-			return nil, err
-		}
-	} else if req.Kind == WorkbenchKindVideo {
-		if err := s.RequireFeature(FeatureVideoWorkbench); err != nil {
-			return nil, err
-		}
-	} else {
+	projectID := strings.TrimSpace(req.EcommerceProjectID)
+	if err := s.requireTaskGenerationFeatures(userID, "", "canvas_"+req.Kind, "", req.Kind, map[string]any{"metadata": map[string]any{"ecommerceProjectId": projectID}}); err != nil {
+		return nil, err
+	}
+	if req.Kind != WorkbenchKindImage && req.Kind != WorkbenchKindVideo {
 		return nil, BadAuthRequest("工作台类型无效")
 	}
-	project, err := s.requireWorkbenchProject(userID, req.ProjectID)
-	if err != nil {
-		return nil, err
+	if projectID == "" {
+		project, err := s.requireWorkbenchProject(userID, req.ProjectID)
+		if err != nil {
+			return nil, err
+		}
+		projectID = project.ID
 	}
 	resolved, err := s.workbenchDomain().ResolveTask(userID, req)
 	if err != nil {
@@ -132,24 +131,19 @@ func (s *Service) CreateWorkbenchTask(userID string, req WorkbenchTaskInput, tra
 		return nil, err
 	}
 	resolved.Input["config"] = providerConfig
+	if req.EcommerceProjectID != "" {
+		resolved.Input["metadata"].(map[string]any)["ecommerceProjectId"] = strings.TrimSpace(req.EcommerceProjectID)
+	}
 	modelName, ok := providerConfig["model"].(string)
 	if !ok || strings.TrimSpace(modelName) == "" {
 		return nil, BadAuthRequest("所选系统模型不可用")
 	}
 	resolved.Model = modelName
-	return s.CreateTask(userID, CreateTaskRequest{ProjectID: project.ID, Type: resolved.TaskType, Operation: resolved.Operation, Prompt: resolved.Prompt, Model: resolved.Model, LogicalModelID: resolved.LogicalModelID, Input: resolved.Input, TraceID: traceID, RequestID: requestID, workbenchKind: req.Kind})
+	return s.CreateTask(userID, CreateTaskRequest{ProjectID: projectID, Type: resolved.TaskType, Operation: resolved.Operation, Prompt: resolved.Prompt, Model: resolved.Model, LogicalModelID: resolved.LogicalModelID, Input: resolved.Input, TraceID: traceID, RequestID: requestID, workbenchKind: req.Kind})
 }
 
 func (s *Service) WorkbenchTasks(userID, kind, projectID string, activeOnly bool, limit int) ([]TaskSummary, error) {
-	if kind == WorkbenchKindImage {
-		if err := s.RequireFeature(FeatureImageWorkbench); err != nil {
-			return nil, err
-		}
-	} else if kind == WorkbenchKindVideo {
-		if err := s.RequireFeature(FeatureVideoWorkbench); err != nil {
-			return nil, err
-		}
-	} else {
+	if kind != WorkbenchKindImage && kind != WorkbenchKindVideo {
 		return nil, BadAuthRequest("工作台类型无效")
 	}
 	projectID = strings.TrimSpace(projectID)
@@ -167,6 +161,10 @@ func (s *Service) WorkbenchTasks(userID, kind, projectID string, activeOnly bool
 func workbenchTaskRequiresProject(input map[string]any, projectID, trustedKind, operation string) bool {
 	metadata, _ := input["metadata"].(map[string]any)
 	if metadata["source"] != "workbench" {
+		return false
+	}
+	// 电商项目归属由 requireTaskGenerationFeatures 校验，无需再作为画布查询。
+	if ecommerceID := strings.TrimSpace(stringValue(metadata["ecommerceProjectId"])); ecommerceID != "" && ecommerceID == strings.TrimSpace(projectID) {
 		return false
 	}
 	if strings.TrimSpace(projectID) != "" {

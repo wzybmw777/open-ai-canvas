@@ -98,7 +98,7 @@ func TestDramaCastLooksUpgradeFrom81PreservesLedgerAndContent(t *testing.T) {
 				t.Fatal("missing cast parent index")
 			}
 			status, err := ReadSchemaStatus(db)
-			if err != nil || !status.Ready || status.Current != 82 {
+			if err != nil || !status.Ready || status.Current != CurrentSchemaVersion {
 				t.Fatalf("unexpected upgraded schema: %+v, %v", status, err)
 			}
 		})

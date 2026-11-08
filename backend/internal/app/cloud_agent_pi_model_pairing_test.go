@@ -37,7 +37,7 @@ func TestCloudAgentPiModelPersistsParallelToolCallsBeforeResults(t *testing.T) {
 		calls[index].Function.Name = "canvas_get_state"
 		calls[index].Function.Arguments = "{}"
 	}
-	if err := s.finishCloudAgentPiModelStep("user", run.ID, run.ID, "", "", calls); err != nil {
+	if err := s.finishCloudAgentPiModelStep("user", run.ID, run.ID, "", cloudAgentStepReasoning{}, calls); err != nil {
 		t.Fatal(err)
 	}
 	stored, err = s.repo.CloudAgent("user", run.ID)

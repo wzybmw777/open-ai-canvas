@@ -336,6 +336,12 @@ func (s *Service) deleteSingleStoredResourceObject(userID string, resource *mode
 			return fmt.Errorf("无法读取七牛云 Kodo 配置：%w", err)
 		}
 		return deleteQiniuObject(setting, resource.ObjectKey)
+	case volcengineTOSProvider:
+		setting, err := s.ossSettingForResource(userID, resource)
+		if err != nil {
+			return fmt.Errorf("无法读取火山引擎 TOS 配置：%w", err)
+		}
+		return deleteS3Object(setting, resource.ObjectKey)
 	case s3Provider:
 		setting, err := s.ossSettingForResource(userID, resource)
 		if err != nil {

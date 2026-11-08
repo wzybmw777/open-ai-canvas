@@ -61,9 +61,10 @@ type CloudAgentEvent struct {
 }
 
 type cloudAgentCall struct {
-	ID       string `json:"id"`
-	ItemID   string `json:"item_id,omitempty"`
-	Function struct {
+	ID               string `json:"id"`
+	ItemID           string `json:"item_id,omitempty"`
+	ThoughtSignature string `json:"thoughtSignature,omitempty"`
+	Function         struct {
 		Name      string `json:"name"`
 		Arguments string `json:"arguments"`
 	} `json:"function"`
@@ -139,14 +140,16 @@ type cloudAgentRuntime struct {
 	ActiveTextDraft    string                                `json:"activeTextDraft,omitempty"`
 	MediaTaskID        string                                `json:"mediaTaskId,omitempty"`
 	PendingMedia       []cloudAgentPendingMedia              `json:"pendingMedia,omitempty"`
-	TaskIDs            []string                              `json:"taskIds"`
-	Step               int                                   `json:"step"`
-	Generations        int                                   `json:"generations"`
-	VideoSeconds       int                                   `json:"videoSeconds"`
-	Calls              []cloudAgentCall                      `json:"calls"`
-	CallIndex          int                                   `json:"callIndex"`
-	ToolRepairs        map[string]cloudAgentToolRepair       `json:"toolRepairs,omitempty"`
-	Approval           *cloudAgentApproval                   `json:"approval,omitempty"`
+	// MediaBatch 保存批量工具的审批与执行状态，独立于单条媒体的回执队列。
+	MediaBatch   *cloudAgentMediaBatch           `json:"mediaBatch,omitempty"`
+	TaskIDs      []string                        `json:"taskIds"`
+	Step         int                             `json:"step"`
+	Generations  int                             `json:"generations"`
+	VideoSeconds int                             `json:"videoSeconds"`
+	Calls        []cloudAgentCall                `json:"calls"`
+	CallIndex    int                             `json:"callIndex"`
+	ToolRepairs  map[string]cloudAgentToolRepair `json:"toolRepairs,omitempty"`
+	Approval     *cloudAgentApproval             `json:"approval,omitempty"`
 	// AutoPreparedMedia is the durable admission checkpoint for permissionMode=auto.
 	// It prevents a worker restart between dry admission and billed submission from
 	// re-running admission or creating the draft node a second time.

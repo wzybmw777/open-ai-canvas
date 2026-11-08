@@ -37,13 +37,22 @@ docs/content/docs/backend/*
 !docs/content/docs/backend/creative-agent-runtime.mdx
 !docs/content/docs/backend/image-watermark-removal.mdx
 !docs/content/docs/backend/video-watermark-removal.mdx
+!docs/content/docs/backend/credit-rewards.mdx
+# Keep the pose library operator guide versioned without unignoring generated docs.
+!docs/content/docs/canvas/
+docs/content/docs/canvas/*
+!docs/content/docs/canvas/pose-library.mdx
 # Keep the creative Agent design versioned without unignoring generated docs.
 !docs/content/docs/overview/
 docs/content/docs/overview/*
 !docs/content/docs/overview/creative-agent-design.mdx
+!docs/content/docs/overview/ecommerce-platform-rules.mdx
 .env*
 !.env.example
 data/
+# Versioned commerce classification dictionary, not runtime application data.
+!/backend/internal/ecommercecatalog/data/
+!/backend/internal/ecommercecatalog/data/*
 .local/
 /backups/
 /.local/docker-compose.postgres.yml

@@ -2,18 +2,19 @@ import { Dropdown } from "antd";
 import { Check, Globe2 } from "lucide-react";
 
 import { useLocaleStore, type AppLocale } from "@/lib/i18n";
+import { SUPPORTED_LOCALES } from "@/i18n/locales";
+import { switchLocale } from "@/i18n";
 
 export function LanguageSwitcher({ className = "" }: { className?: string }) {
     const locale = useLocaleStore((state) => state.locale);
-    const setLocale = useLocaleStore((state) => state.setLocale);
-    const labels: Record<AppLocale, string> = { "zh-CN": "简体中文", "en-US": "English" };
+    const labels = Object.fromEntries(SUPPORTED_LOCALES.map((item) => [item.code, item.label])) as Record<AppLocale, string>;
 
     return (
         <Dropdown
             trigger={["click"]}
             menu={{
                 selectedKeys: [locale],
-                items: (["zh-CN", "en-US"] as const).map((key) => ({
+                items: SUPPORTED_LOCALES.map(({ code: key }) => ({
                     key,
                     label: (
                         <span className="flex min-w-32 items-center justify-between gap-3">
@@ -22,7 +23,7 @@ export function LanguageSwitcher({ className = "" }: { className?: string }) {
                         </span>
                     ),
                 })),
-                onClick: ({ key }) => setLocale(key as AppLocale),
+                onClick: ({ key }) => switchLocale(key as AppLocale),
             }}
         >
             <button type="button" className={className} aria-label={locale === "en-US" ? "Language" : "语言"} title={locale === "en-US" ? "Language" : "语言"}>

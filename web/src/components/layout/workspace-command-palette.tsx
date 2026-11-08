@@ -8,7 +8,7 @@ import { Kbd } from "@/components/ui/base/kbd";
 import { cn } from "@/lib/utils";
 import { openWorkspaceWallet } from "@/lib/workspace-wallet";
 import { useUserStore } from "@/stores/use-user-store";
-import { useLocaleText } from "@/lib/i18n";
+import { useTranslation } from "react-i18next";
 
 type PaletteEntry = {
     id: string;
@@ -20,23 +20,21 @@ type PaletteEntry = {
 
 /** 顶栏搜索 / ⌘K 命令面板：按功能开关过滤当前可用页面入口。 */
 export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
-    const { locale, text } = useLocaleText();
     const navigate = useNavigate();
     const features = useUserStore((state) => state.features);
     const [query, setQuery] = useState("");
     const [highlight, setHighlight] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
-
+    const { t, i18n } = useTranslation();
     const entries = useMemo<PaletteEntry[]>(() => {
         const toolEntry = (slug: string, to?: string): PaletteEntry => {
             const tool = navigationTools.find((item) => item.slug === slug);
-            const english = ({ canvas: "Canvas", theatre: "Excellence Theatre", tasks: "Tasks", assets: "Assets", skills: "Skills", wallet: "Credits", settings: "Settings" } as Record<string, string>)[slug];
-            return { id: slug, title: locale === "en-US" ? english || slug : (tool?.label ?? slug), icon: tool?.icon ?? Home, to };
+            return { id: slug, title: tool ? t(tool.labelKey) : slug, icon: tool?.icon ?? Home, to };
         };
         return [
-            { id: "home", title: text("首页", "Home"), icon: Home, to: "/" },
-            ...(features.shortDramaEnabled ? [{ ...toolEntry("projects", "/projects"), title: text("短剧创作", "Short drama creation") }] : []),
-            { ...toolEntry("canvas", "/canvas"), title: text("我的画布", "My canvas") },
+            { id: "home", title: t("shell.palette.home"), icon: Home, to: "/" },
+            ...(features.shortDramaEnabled ? [toolEntry("projects", "/projects")] : []),
+            toolEntry("canvas", "/canvas"),
             toolEntry("theatre", "/theatre"),
             ...(features.taskCenterEnabled ? [toolEntry("tasks", "/tasks")] : []),
             toolEntry("assets", "/assets"),
@@ -44,9 +42,9 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
             ...(features.creditsEnabled ? [{ ...toolEntry("wallet"), run: () => openWorkspaceWallet() }] : []),
             toolEntry("settings", "/settings"),
             // 与 ⌘/Ctrl+J 相同：打开平台 Agent 面板。
-            { id: "agent", title: "打开 Agent（⌘/Ctrl+J）", icon: Bot, run: () => useGlobalAgentStore.getState().openAgent() },
+            { id: "agent", title: t("shell.palette.agent"), icon: Bot, run: () => useGlobalAgentStore.getState().openAgent() },
         ];
-    }, [features, locale, text]);
+    }, [features, t, i18n.language]);
 
     const filtered = useMemo(() => {
         const keyword = query.trim().toLowerCase();
@@ -115,12 +113,12 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
                             value={query}
                             onChange={(event) => setQuery(event.target.value)}
                             className="min-w-0 flex-1 bg-transparent text-[var(--fs-body)] outline-none placeholder:text-foreground/45"
-                            placeholder={text("搜索页面或操作…", "Search pages or actions...")}
+                            placeholder={t("shell.palette.placeholder")}
                         />
                         <Kbd onClick={onClose} className="hidden shrink-0 cursor-pointer transition-colors hover:bg-surface-hover hover:text-foreground sm:inline-flex">
                             ⌘K
                         </Kbd>
-                        <button type="button" onClick={onClose} className="ml-0.5 shrink-0 rounded-md p-1 text-foreground/50 transition-colors hover:bg-surface-hover hover:text-foreground" aria-label={text("关闭搜索", "Close search")}>
+                        <button type="button" onClick={onClose} className="ml-0.5 shrink-0 rounded-md p-1 text-foreground/50 transition-colors hover:bg-surface-hover hover:text-foreground" aria-label={t("shell.palette.close")}>
                             <X className="size-4" strokeWidth={1.6} />
                         </button>
                     </div>
@@ -149,7 +147,7 @@ export function WorkspaceCommandPalette({ open, onClose }: { open: boolean; onCl
                     ) : (
                         <div className="flex flex-col items-center justify-center py-8">
                             <Command className="mb-2 size-6 text-foreground/30" strokeWidth={1.5} />
-                            <p className="text-[var(--fs-caption)] font-medium text-foreground/55">{locale === "en-US" ? `No pages matching "${query}"` : `未找到「${query}」相关页面`}</p>
+                            <p className="text-[var(--fs-caption)] font-medium text-foreground/55">{t("shell.palette.empty", { query })}</p>
                         </div>
                     )}
                 </div>

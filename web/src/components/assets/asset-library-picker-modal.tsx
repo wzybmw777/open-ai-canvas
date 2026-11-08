@@ -1,7 +1,8 @@
 import { App, Button, Dropdown, Popconfirm } from "antd";
+import { useTranslation } from "react-i18next";
 import type { MenuProps } from "antd";
 import { AppModal } from "@/components/ui/product/app-modal";
-import { Check, ChevronDown, FileText, FolderOpen, HardDrive, Image as ImageIcon, LoaderCircle, Music2, Puzzle, RotateCcw, Search, Trash2, Upload, UserRound, Video } from "lucide-react";
+import { Check, ChevronDown, FileText, FolderOpen, HardDrive, Image as ImageIcon, LoaderCircle, Music2, Puzzle, RotateCcw, Search, Trash2, Upload, UserRound, Video, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUserStore } from "@/stores/use-user-store";
@@ -12,17 +13,32 @@ import { AssetLibraryCard } from "@/components/assets/asset-library-card";
 import { CachedResourceImage } from "@/components/cached-resource-image";
 import { PaginationBar } from "@/components/layout/workspace-page";
 import { cn } from "@/lib/utils";
-import { localizedErrorMessage, useLocaleText } from "@/lib/i18n";
-import { ASSET_CATEGORIES, assetCategoryLabel } from "@/lib/asset-category";
+import { translate } from "@/i18n";
 import type { ExternalAssetPickerReference } from "@/lib/plugins/plugin-types";
 import { flushAssetStorePersistence, useAssetStore, type Asset } from "@/stores/use-asset-store";
 import { deleteAssetsWithRemoteSync, loadAssetLibraryPage, localSavedRemotePendingMessage, saveRemoteUserDataNow } from "@/services/user-data-sync";
 
+import "./asset-library-picker-modal.css";
+
 export type AssetPickerMediaKind = "image" | "video" | "audio" | "text";
 
-export const ASSET_PICKER_MEDIA_KIND_LABELS: Record<AssetPickerMediaKind, string> = { image: "图片", video: "视频", audio: "音频", text: "文本" };
+export const ASSET_PICKER_MEDIA_KIND_LABELS: Record<AssetPickerMediaKind, string> = {
+    get image() {
+        return translate("library.picker.kind.image");
+    },
+    get video() {
+        return translate("library.picker.kind.video");
+    },
+    get audio() {
+        return translate("library.picker.kind.audio");
+    },
+    get text() {
+        return translate("library.picker.kind.text");
+    },
+};
 
 const DEFAULT_MEDIA_KINDS: AssetPickerMediaKind[] = ["image", "video", "audio"];
+const PICKER_SKELETON_CARDS = 8;
 
 export type AssetLibraryPickerItem = {
     id: string;
@@ -109,29 +125,23 @@ export function AssetLibraryPickerModal({
     folders = [],
     initialSelectedIds,
     multiple = true,
-    title,
-    eyebrow,
-    confirmLabel,
-    emptyTitle,
-    emptyDescription,
+    title = translate("library.picker.title"),
+    eyebrow = translate("library.picker.eyebrow"),
+    confirmLabel = (count) => (count ? translate("library.picker.confirmWithCount", { count }) : translate("library.picker.confirm")),
+    emptyTitle = translate("library.picker.emptyTitle"),
+    emptyDescription = translate("library.picker.emptyDescription"),
     footerNote,
     loading = false,
     pagination,
-    folderActionLabel,
+    folderActionLabel = translate("library.picker.folderAction"),
     folderActionSource = "all",
     upload,
     onClose,
     onConfirm,
     onFolderAction,
 }: Props) {
-    const { locale, text } = useLocaleText();
-    const displayTitle = title ?? text("素材库", "Asset library");
-    const displayEyebrow = eyebrow ?? text("参考内容", "Reference content");
-    const displayEmptyTitle = emptyTitle ?? text("这个分类还没有素材", "No assets in this category");
-    const displayEmptyDescription = emptyDescription ?? text("换个分类后再试。", "Try another category.");
-    const displayFolderActionLabel = folderActionLabel ?? text("将文件夹放到画布", "Add folder to canvas");
-    const displayConfirmLabel = confirmLabel ?? ((count: number) => locale === "en-US" ? `Use selected assets${count ? ` (${count})` : ""}` : `使用已选素材${count ? `（${count}）` : ""}`);
     const { message } = App.useApp();
+    const { t } = useTranslation();
     const queryClient = useQueryClient();
     const [category, setCategory] = useState(initialCategory);
     const [mediaKind, setMediaKind] = useState<AssetPickerMediaKind | "all">("all");
@@ -190,6 +200,7 @@ export function AssetLibraryPickerModal({
         [acceptRemoteItems, allowCharacters, remoteItemDisabledReason, remoteQuery.data, items],
     );
     const uploadInputRef = useRef<HTMLInputElement>(null);
+    const gridWrapRef = useRef<HTMLDivElement>(null);
     const pickedRemoteRef = useRef(new Map<string, AssetLibraryPickerItem>());
     const initialSelectedIdsRef = useRef(initialSelectedIds);
     const itemsRef = useRef(items);
@@ -327,7 +338,7 @@ export function AssetLibraryPickerModal({
             const known = new Set(allItems.map((item) => item.id));
             await onConfirm(selectedIds, [...allItems, ...[...pickedRemoteRef.current.values()].filter((item) => !known.has(item.id))]);
         } catch (reason) {
-            setError(localizedErrorMessage(reason, "素材操作失败，请重试", "Asset action failed. Try again.", locale));
+            setError(reason instanceof Error ? reason.message : t("library.picker.actionFailed"));
         } finally {
             setWorking(false);
         }
@@ -342,18 +353,17 @@ export function AssetLibraryPickerModal({
             }
             await flushAssetStorePersistence();
         } catch (error) {
-            message.error(localizedErrorMessage(error, "素材还原失败", "Could not restore assets", locale));
+            message.error(error instanceof Error ? error.message : t("library.picker.actionFailed"));
             setWorking(false);
             return;
         }
         try {
             await saveRemoteUserDataNow([]);
             setSelected(new Set());
-            message.success(locale === "en-US" ? `Restored ${archivedSelectedIds.length} assets to the library` : `已还原 ${archivedSelectedIds.length} 个素材至素材库`);
+            message.success(t("library.picker.restored", { count: archivedSelectedIds.length }));
             setCategory("all");
         } catch (error) {
-            const warning = localSavedRemotePendingMessage("已在本地还原", error);
-            message.warning(locale === "en-US" ? "Assets restored locally. Cloud sync is pending; check sync status." : warning);
+            message.warning(localSavedRemotePendingMessage(t("library.picker.restoredLocal"), error));
         } finally {
             setWorking(false);
             if (remoteEnabled) void remoteQuery.refetch();
@@ -366,9 +376,9 @@ export function AssetLibraryPickerModal({
         try {
             await deleteAssetsWithRemoteSync(archivedSelectedIds);
             setSelected(new Set());
-            message.success(locale === "en-US" ? `Permanently deleted ${archivedSelectedIds.length} assets` : `已彻底删除 ${archivedSelectedIds.length} 个素材`);
+            message.success(t("library.picker.deleted", { count: archivedSelectedIds.length }));
         } catch (err) {
-            message.error(localizedErrorMessage(err, "删除失败", "Could not delete assets", locale));
+            message.error(err instanceof Error ? err.message : t("library.picker.deleteFailed"));
         } finally {
             setWorking(false);
         }
@@ -381,10 +391,10 @@ export function AssetLibraryPickerModal({
         try {
             await deleteAssetsWithRemoteSync(toDelete.map((item) => item.id));
             setSelected(new Set());
-            message.success(locale === "en-US" ? `Deleted ${toDelete.length} assets from ${remoteEnabled ? "this page" : "the trash"}` : `已删除${remoteEnabled ? "当前页" : "回收站"} ${toDelete.length} 个素材`);
+            message.success(remoteEnabled ? t("library.picker.deletedPage", { count: toDelete.length }) : t("library.picker.deletedRecycleBin", { count: toDelete.length }));
             setCategory("all");
         } catch (err) {
-            message.error(localizedErrorMessage(err, "清空回收站失败", "Could not empty trash", locale));
+            message.error(err instanceof Error ? err.message : t("library.picker.emptyRecycleBinFailed"));
         } finally {
             setWorking(false);
         }
@@ -408,10 +418,10 @@ export function AssetLibraryPickerModal({
                     await flushAssetStorePersistence();
                     if (remoteEnabled) {
                         try {
-                            // 文件上传完成不代表素材元数据已同步；先保存，再刷新分页与分类计数。
+                            // 上传文件后先同步素材记录，再更新分页与分类统计。
                             await saveRemoteUserDataNow([]);
                         } catch (reason) {
-                            message.warning(locale === "en-US" ? "Assets saved locally. Cloud sync is pending; check sync status." : localSavedRemotePendingMessage("素材已在本地保存", reason));
+                            message.warning(localSavedRemotePendingMessage(t("library.picker.remoteUnavailable"), reason));
                             return;
                         }
                         setRemotePage(1);
@@ -420,7 +430,7 @@ export function AssetLibraryPickerModal({
                 }
             }
         } catch (reason) {
-            setError(localizedErrorMessage(reason, "素材上传失败，请重试", "Asset upload failed. Try again.", locale));
+            setError(reason instanceof Error ? reason.message : t("library.picker.uploadFailed"));
         } finally {
             if (uploadInputRef.current) uploadInputRef.current.value = "";
             setWorking(false);
@@ -435,7 +445,7 @@ export function AssetLibraryPickerModal({
         try {
             await onFolderAction(folderId);
         } catch (reason) {
-            setError(localizedErrorMessage(reason, "文件夹操作失败，请重试", "Folder action failed. Try again.", locale));
+            setError(reason instanceof Error ? reason.message : t("library.picker.folderActionFailed"));
         } finally {
             setWorking(false);
         }
@@ -447,14 +457,14 @@ export function AssetLibraryPickerModal({
         if (remoteCategoryCounts) return value === "all" ? Object.values(remoteCategoryCounts).reduce((sum, count) => sum + count, 0) : remoteCategoryCounts[value] || 0;
         return value === "all" ? activeSourceItems.length : activeSourceItems.filter((item) => item.category === value).length;
     };
-    const sourceLabel = source === "plugin" ? text("插件来源", "Plugin source") : text("本地素材", "Local assets");
+    const sourceLabel = source === "plugin" ? t("library.picker.sourcePlugin") : t("library.picker.sourceLocal");
     const sourceMenuItems: MenuProps["items"] = [
         {
             key: "local",
             icon: <HardDrive aria-hidden="true" />,
             label: (
                 <span className="asset-picker-source-menu-label">
-                    <span>{text("本地素材", "Local assets")}</span>
+                    <span>{t("library.picker.sourceLocal")}</span>
                     <em>{localItems.filter((item) => !item.archived).length}</em>
                 </span>
             ),
@@ -466,7 +476,7 @@ export function AssetLibraryPickerModal({
                       icon: <Puzzle aria-hidden="true" />,
                       label: (
                           <span className="asset-picker-source-menu-label">
-                              <span>{text("插件来源", "Plugin source")}</span>
+                              <span>{t("library.picker.sourcePlugin")}</span>
                               <em>{pluginItems.length}</em>
                           </span>
                       ),
@@ -476,6 +486,19 @@ export function AssetLibraryPickerModal({
     ];
     const activeUpload = isRecycleBin ? undefined : source === "plugin" ? upload?.external : upload;
     const uploading = uploadingCount > 0;
+    const refreshing = useRemoteItems && remoteQuery.isFetching;
+    // 已选条目可能来自之前的分页或刚上传的素材，托盘按 ID 在所有已知来源里找回缩略图。
+    const itemById = new Map<string, AssetLibraryPickerItem>();
+    for (const item of [...pickedRemoteRef.current.values(), ...remoteItems, ...allItems]) itemById.set(item.id, item);
+    const trayItems = selectedIds.map((id) => itemById.get(id)).filter((item): item is AssetLibraryPickerItem => Boolean(item));
+    const totalCount = effectivePagination ? effectivePagination.total : visibleItems.length;
+    const footerHint = remoteEnabled && remoteQuery.isError ? t("library.picker.remoteUnavailable") : footerNote;
+    // 已按分类筛选时卡片上的分类都一样，只在混合列表里显示。
+    const showCardCategory = category === "all" || isRecycleBin;
+    const currentPage = effectivePagination?.current;
+    useEffect(() => {
+        gridWrapRef.current?.scrollTo({ top: 0 });
+    }, [currentPage]);
 
     return (
         <AppModal
@@ -493,11 +516,14 @@ export function AssetLibraryPickerModal({
             className="workspace-modal workspace-modal-wide asset-library-picker-modal"
             flush
         >
-            <div className="asset-picker-shell">
+            <div className="asset-picker-shell" data-canvas-no-zoom>
                 <header className="asset-picker-toolbar">
+                    <span className="asset-picker-heading-icon" aria-hidden="true">
+                        {isRecycleBin ? <Trash2 /> : <FolderOpen />}
+                    </span>
                     <div className="asset-picker-heading">
                         <div className="asset-picker-heading-copy">
-                            <span>{displayEyebrow}</span>
+                            <span>{eyebrow}</span>
                             <Dropdown
                                 trigger={["click"]}
                                 placement="bottomLeft"
@@ -511,8 +537,8 @@ export function AssetLibraryPickerModal({
                                     },
                                 }}
                             >
-                                <button type="button" className="asset-picker-title-trigger" aria-haspopup="menu" aria-expanded={sourceMenuOpen} aria-label={`${text("素材库来源", "Asset source")}: ${sourceLabel}`}>
-                                    <strong>{isRecycleBin ? text("回收站", "Trash") : displayTitle}</strong>
+                                <button type="button" className="asset-picker-title-trigger" aria-haspopup="menu" aria-expanded={sourceMenuOpen} aria-label={t("library.picker.sourceLabel", { source: sourceLabel })}>
+                                    <strong>{isRecycleBin ? t("library.picker.recycleBin") : title}</strong>
                                     <ChevronDown aria-hidden="true" />
                                 </button>
                             </Dropdown>
@@ -520,29 +546,26 @@ export function AssetLibraryPickerModal({
                     </div>
                     <label className="asset-picker-search">
                         <Search aria-hidden />
-                        <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder={text("搜索素材名称或标签", "Search asset names or tags")} aria-label={text("搜索素材", "Search assets")} />
+                        <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder={t("library.picker.searchPlaceholder")} aria-label={t("library.picker.search")} />
                     </label>
-                    <span className="asset-picker-count">
-                        {locale === "en-US" ? `${selectedIds.length} selected · ${effectivePagination ? effectivePagination.total : visibleItems.length} assets` : `已选 ${selectedIds.length} · ${effectivePagination ? effectivePagination.total : visibleItems.length} 个素材`}
-                    </span>
                 </header>
                 <div className="asset-picker-body">
-                    <nav className="asset-picker-categories" aria-label={text("素材分类", "Asset categories")}>
+                    <nav className="asset-picker-categories" aria-label={t("library.picker.categories")}>
                         {mediaKindOptions.length > 1 && !isRecycleBin ? (
                             <>
-                                <span className="asset-picker-nav-label">{text("媒体类型", "Media type")}</span>
+                                <span className="asset-picker-nav-label">{t("library.picker.mediaKind")}</span>
                                 {(["all", ...mediaKindOptions] as const).map((value) => (
                                     <button key={value} type="button" className={cn("assets-filter-item", mediaKind === value && "is-active")} aria-pressed={mediaKind === value} onClick={() => setMediaKind(value)}>
-                                        <span className="assets-filter-item-label">{value === "all" ? text("全部类型", "All types") : locale === "en-US" ? { image: "Images", video: "Video", audio: "Audio", text: "Text" }[value] : ASSET_PICKER_MEDIA_KIND_LABELS[value]}</span>
+                                        <span className="assets-filter-item-label">{value === "all" ? t("library.picker.allKinds") : ASSET_PICKER_MEDIA_KIND_LABELS[value]}</span>
                                     </button>
                                 ))}
                             </>
                         ) : null}
                         {sourceFolders.length ? (
                             <>
-                                <span className="asset-picker-nav-label">{text("文件夹", "Folders")}</span>
+                                <span className="asset-picker-nav-label">{t("library.picker.folders")}</span>
                                 <button type="button" className={cn("assets-filter-item", folderId === "all" && "is-active")} aria-pressed={folderId === "all"} onClick={() => setFolderId("all")}>
-                                    <span className="assets-filter-item-label">{text("全部文件夹", "All folders")}</span>
+                                    <span className="assets-filter-item-label">{t("library.picker.allFolders")}</span>
                                     <span className="assets-filter-count">{sourceItems.length}</span>
                                 </button>
                                 {renderPickerFolders(sourceFolders, activeSourceItems, folderId, setFolderId)}
@@ -550,24 +573,19 @@ export function AssetLibraryPickerModal({
                         ) : null}
                         {showCategories ? (
                             <>
-                                <span className="asset-picker-nav-label">{text("分类", "Categories")}</span>
+                                <span className="asset-picker-nav-label">{t("library.picker.category")}</span>
                                 {normalCategories.map((value) => (
                                     <button key={value} type="button" className={cn("assets-filter-item", category === value && "is-active")} aria-pressed={category === value} onClick={() => setCategory(value)}>
-                                        <span className="assets-filter-item-label">{value === "all" ? text("全部素材", "All assets") : (ASSET_CATEGORIES as readonly string[]).includes(value) ? assetCategoryLabel(value, locale) : categoryLabels[value] || text("其他", "Other")}</span>
+                                        <span className="assets-filter-item-label">{categoryLabels[value] || (value === "all" ? t("library.picker.allAssets") : t("library.picker.other"))}</span>
                                         <span className="assets-filter-count">{countFor(value)}</span>
                                     </button>
                                 ))}
                                 {archivedCount > 0 || remoteEnabled ? (
-                                    <div className="mt-3 border-t border-border/40 pt-2">
-                                        <button
-                                            type="button"
-                                            className={cn("assets-filter-item text-amber-500 hover:text-amber-400 dark:text-amber-400", category === "archived" && "is-active !bg-amber-500/10")}
-                                            aria-pressed={category === "archived"}
-                                            onClick={() => setCategory("archived")}
-                                        >
+                                    <div className="asset-picker-recycle">
+                                        <button type="button" className={cn("assets-filter-item", category === "archived" && "is-active")} aria-pressed={category === "archived"} onClick={() => setCategory("archived")}>
                                             <span className="assets-filter-item-label flex items-center gap-2">
                                                 <Trash2 className="size-3.5" />
-                                                <span>{text("回收站", "Trash")}</span>
+                                                <span>{t("library.picker.recycleBin")}</span>
                                             </span>
                                             <span className="assets-filter-count">{archivedCount}</span>
                                         </button>
@@ -576,53 +594,94 @@ export function AssetLibraryPickerModal({
                             </>
                         ) : null}
                     </nav>
-                    <div className="asset-picker-grid-wrap">
-                        <div className="asset-picker-grid">
+                    <div className="asset-picker-main">
+                        <div ref={gridWrapRef} className="asset-picker-grid-wrap" data-canvas-wheel-scroll>
                             {remoteEnabled && remoteQuery.isError && !localItems.length ? (
                                 <div className="asset-picker-empty" role="alert">
                                     <FolderOpen />
-                                    <strong>{text("素材读取失败", "Could not load assets")}</strong>
-                                    <span>{text("服务端暂时不可用，重试不会影响本地已保存素材。", "The server is unavailable. Retrying will not change locally saved assets.")}</span>
-                                    <Button onClick={() => void remoteQuery.refetch()}>{text("重试", "Retry")}</Button>
+                                    <strong>{t("library.picker.loadFailedTitle")}</strong>
+                                    <span>{t("library.picker.loadFailedDescription")}</span>
+                                    <Button onClick={() => void remoteQuery.refetch()}>{t("common.retry")}</Button>
                                 </div>
-                            ) : loading || (useRemoteItems && remoteQuery.isFetching) ? (
-                                <div className="asset-picker-empty">
-                                    <LoaderCircle className="animate-spin" />
-                                    <strong>{text("正在读取素材", "Loading assets")}</strong>
-                                    <span>{text("素材会按页加载，不会一次下载整个项目库。", "Assets load one page at a time.")}</span>
+                            ) : loading || (refreshing && !visibleItems.length) ? (
+                                // 首次读取或切换后还没有可显示的条目：骨架卡片占位，不再整块换成转圈。
+                                <div className="asset-picker-grid" aria-busy="true" aria-label={t("library.picker.loadingTitle")}>
+                                    {Array.from({ length: PICKER_SKELETON_CARDS }, (_, index) => (
+                                        <PickerCardSkeleton key={index} />
+                                    ))}
                                 </div>
                             ) : visibleItems.length ? (
-                                visibleItems.map((item) => <PickerCard key={item.id} item={item} selected={selected.has(item.id)} onToggle={() => toggle(item)} />)
+                                // 翻页、切分类时保留上一屏并调暗，新数据到达后替换，不闪空白。
+                                <div className="asset-picker-grid" data-refreshing={refreshing || undefined} aria-busy={refreshing || undefined}>
+                                    {visibleItems.map((item) => (
+                                        <PickerCard key={item.id} item={item} categoryLabel={showCardCategory ? categoryLabels[item.category] : undefined} selected={selected.has(item.id)} onToggle={() => toggle(item)} />
+                                    ))}
+                                </div>
                             ) : (
                                 <div className="asset-picker-empty">
                                     <FolderOpen />
-                                    <strong>{isRecycleBin ? text("回收站是空的", "Trash is empty") : displayEmptyTitle}</strong>
-                                    <span>{isRecycleBin ? text("删除画布或手动归档的素材会暂存到这里，可在需要时还原。", "Archived assets stay here until restored or permanently deleted.") : activeUpload ? text("换个分类，或从底部上传一份新素材。", "Try another category or upload an asset below.") : displayEmptyDescription}</span>
+                                    <strong>{isRecycleBin ? t("library.picker.recycleBinEmpty") : emptyTitle}</strong>
+                                    <span>{isRecycleBin ? t("library.picker.recycleBinDescription") : activeUpload ? t("library.picker.emptyUploadDescription") : emptyDescription}</span>
                                 </div>
                             )}
                         </div>
                         {effectivePagination ? (
-                            <PaginationBar alwaysShow current={effectivePagination.current} pageSize={effectivePagination.pageSize} total={effectivePagination.total} itemLabel={text("项", "assets")} pageSizeOptions={[20, 40, 80]} onChange={effectivePagination.onChange} />
+                            // 分页条固定在网格下方，长列表不用滚到底才能翻页。
+                            <PaginationBar
+                                alwaysShow
+                                className="asset-picker-pagination"
+                                current={effectivePagination.current}
+                                pageSize={effectivePagination.pageSize}
+                                total={effectivePagination.total}
+                                itemLabel={t("library.picker.itemUnit")}
+                                pageSizeOptions={[20, 40, 80]}
+                                onChange={effectivePagination.onChange}
+                            />
                         ) : null}
                     </div>
                 </div>
-                <footer className={cn("asset-picker-footer", !activeUpload && "is-compact")}>
+                <footer className="asset-picker-footer">
                     {activeUpload ? (
                         <>
                             <input ref={uploadInputRef} type="file" hidden accept={activeUpload.accept} multiple={multiple} onChange={(event) => void handleUpload(event.target.files)} />
-                            <button type="button" className="asset-picker-upload" onClick={() => uploadInputRef.current?.click()} disabled={working} aria-busy={uploading}>
+                            <button type="button" className="asset-picker-upload" onClick={() => uploadInputRef.current?.click()} disabled={working} aria-busy={uploading} title={uploading ? undefined : activeUpload.description}>
                                 {uploading ? <LoaderCircle className="animate-spin" /> : <Upload />}
                                 <span>
-                                    <strong>{uploading ? locale === "en-US" ? `Uploading ${uploadingCount} assets` : `正在上传 ${uploadingCount} 个素材` : text("上传新素材", "Upload assets")}</strong>
-                                    <small>{uploading ? text("保存完成后会自动选中", "Uploaded assets will be selected") : activeUpload.description}</small>
+                                    <strong>{uploading ? t("library.picker.uploading", { count: uploadingCount }) : t("library.picker.upload")}</strong>
+                                    <small>{uploading ? t("library.picker.uploadingHint") : activeUpload.description}</small>
                                 </span>
                             </button>
                         </>
-                    ) : footerNote || (remoteEnabled && remoteQuery.isError) ? (
-                        <span className="asset-picker-footer-note">{remoteEnabled && remoteQuery.isError ? text("云端素材暂时不可用，当前显示本地缓存", "Cloud assets are unavailable; showing local cache") : footerNote}</span>
-                    ) : (
-                        <span />
-                    )}
+                    ) : null}
+                    <div className="asset-picker-tray" role="group" aria-label={t("library.picker.count", { selected: selectedIds.length, total: totalCount })}>
+                        {trayItems.length ? (
+                            trayItems.map((item) => (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    className="asset-picker-tray-item"
+                                    title={item.title}
+                                    aria-label={item.title}
+                                    disabled={working}
+                                    onClick={() =>
+                                        setSelected((current) => {
+                                            const next = new Set(current);
+                                            next.delete(item.id);
+                                            return next;
+                                        })
+                                    }
+                                >
+                                    <PickerThumb item={item} />
+                                    <span className="asset-picker-tray-remove" aria-hidden="true">
+                                        <X />
+                                    </span>
+                                </button>
+                            ))
+                        ) : footerHint ? (
+                            <span className="asset-picker-footer-note">{footerHint}</span>
+                        ) : null}
+                    </div>
+                    <span className="asset-picker-count">{t("library.picker.count", { selected: selectedIds.length, total: totalCount })}</span>
                     {error ? (
                         <span className="asset-picker-footer-error" role="alert">
                             {error}
@@ -632,41 +691,41 @@ export function AssetLibraryPickerModal({
                         {isRecycleBin ? (
                             <>
                                 <Popconfirm
-                                    title={remoteEnabled ? text("确认删除当前页回收站素材？", "Delete trashed assets on this page?") : text("确认清空回收站？", "Empty the trash?")}
-                                    description={text("仅删除当前列表中的素材；关联文件会直接释放，原画布或任务中的旧引用可能失效。删除不可恢复。", "Files linked to these assets will be released. Existing canvas or task references may stop working. This cannot be undone.")}
+                                    title={remoteEnabled ? t("library.picker.confirmDeletePage") : t("library.picker.confirmEmptyRecycleBin")}
+                                    description={t("library.picker.deleteDescription")}
                                     onConfirm={handleEmptyRecycleBin}
-                                    okText={text("删除", "Delete")}
+                                    okText={t("common.delete")}
                                     okButtonProps={{ danger: true }}
-                                    cancelText={text("取消", "Cancel")}
+                                    cancelText={t("common.cancel")}
                                 >
                                     <Button type="text" danger disabled={working || !archivedCount}>
-                                        {remoteEnabled ? text("删除当前页", "Delete this page") : text("清空回收站", "Empty trash")}
+                                        {remoteEnabled ? t("library.picker.deletePage") : t("library.picker.emptyRecycleBin")}
                                     </Button>
                                 </Popconfirm>
-                                <Popconfirm title={text("确认彻底删除已选素材？", "Permanently delete selected assets?")} onConfirm={handleDeleteSelected} okText={text("删除", "Delete")} okButtonProps={{ danger: true }} cancelText={text("取消", "Cancel")}>
+                                <Popconfirm title={t("library.picker.confirmDeleteSelected")} onConfirm={handleDeleteSelected} okText={t("common.delete")} okButtonProps={{ danger: true }} cancelText={t("common.cancel")}>
                                     <Button type="text" danger disabled={working || !archivedSelectedIds.length}>
-                                        {text("彻底删除", "Delete permanently")}
+                                        {t("library.picker.deletePermanently")}
                                     </Button>
                                 </Popconfirm>
                                 <Button type="text" onClick={onClose} disabled={working}>
-                                    {text("关闭", "Close")}
+                                    {t("common.close")}
                                 </Button>
                                 <Button type="primary" icon={<RotateCcw className="size-3.5" />} disabled={working || !archivedSelectedIds.length} loading={working} onClick={handleRestoreSelected}>
-                                    {text("还原已选素材", "Restore selected")}{archivedSelectedIds.length ? locale === "en-US" ? ` (${archivedSelectedIds.length})` : `（${archivedSelectedIds.length}）` : ""}
+                                    {archivedSelectedIds.length ? t("library.picker.restoreSelectedWithCount", { count: archivedSelectedIds.length }) : t("library.picker.restoreSelected")}
                                 </Button>
                             </>
                         ) : (
                             <>
                                 {onFolderAction && folderId !== "all" && (folderActionSource !== "local" || source === "local") ? (
                                     <Button type="text" icon={<FolderOpen />} disabled={working} onClick={() => void runFolderAction()}>
-                                        {displayFolderActionLabel}
+                                        {folderActionLabel}
                                     </Button>
                                 ) : null}
                                 <Button type="text" onClick={onClose} disabled={working}>
-                                    {text("取消", "Cancel")}
+                                    {t("common.cancel")}
                                 </Button>
                                 <Button type="primary" icon={<Check />} disabled={working || !selectedIds.length} loading={working && !uploading} onClick={() => void confirm()}>
-                                    {displayConfirmLabel(selectedIds.length)}
+                                    {confirmLabel(selectedIds.length)}
                                 </Button>
                             </>
                         )}
@@ -683,10 +742,20 @@ export function remoteAssetToPickerItem(asset: Asset, known: AssetLibraryPickerI
         title: asset.title,
         category: asset.category || "other",
         archived: asset.status === "archived",
-        kindLabel: asset.kind === "image" ? "图片" : asset.kind === "video" ? "视频" : asset.kind === "audio" ? "音频" : asset.kind === "entity" ? "角色" : "文本",
+        kindLabel: translate(
+            asset.kind === "image"
+                ? "library.picker.kind.image"
+                : asset.kind === "video"
+                  ? "library.picker.kind.video"
+                  : asset.kind === "audio"
+                    ? "library.picker.kind.audio"
+                    : asset.kind === "entity"
+                      ? "library.picker.kind.character"
+                      : "library.picker.kind.text",
+        ),
         searchText: (asset.tags ?? []).join(" "),
         ...known,
-        disabledReason: known?.disabledReason || (!known && !acceptRemoteItems ? "此素材不适用于当前操作" : disabledReason),
+        disabledReason: known?.disabledReason || (!known && !acceptRemoteItems ? translate("library.picker.notApplicable") : disabledReason),
         asset,
     };
 }
@@ -698,18 +767,29 @@ export function pickerItemMediaKind(item: AssetLibraryPickerItem): AssetPickerMe
     return kind === "image" || kind === "video" || kind === "audio" || kind === "text" ? kind : undefined;
 }
 
-function PickerCard({ item, selected, onToggle }: { item: AssetLibraryPickerItem; selected: boolean; onToggle: () => void }) {
-    const { text } = useLocaleText();
+type PickerMediaState = "loading" | "loaded" | "error";
+
+function PickerCard({ item, categoryLabel, selected, onToggle }: { item: AssetLibraryPickerItem; categoryLabel?: string; selected: boolean; onToggle: () => void }) {
+    const { t } = useTranslation();
     const disabled = Boolean(item.disabledReason);
+    const hasImage = Boolean(item.imageUrl || item.imageStorageKey);
+    const drawnCover = item.asset?.kind === "entity" || (item.asset?.kind === "audio" && !hasImage);
+    // 图片和视频首帧到达前显示扫光，到达后淡入；角色卡和波形是本地绘制的封面，不需要等待。
+    // 没有可加载媒体时组件直接渲染占位图标，CSS 会按占位元素关闭扫光。
+    const [mediaState, setMediaState] = useState<PickerMediaState>(drawnCover ? "loaded" : "loading");
+    const markLoaded = () => setMediaState("loaded");
+    const markFailed = () => setMediaState("error");
+    const fallback = <span className="asset-picker-card-fallback">{kindIcon(item)}</span>;
+    const meta = item.description || categoryLabel;
     return (
-        <AssetLibraryCard selected={selected} className={cn("asset-picker-card relative", disabled && "is-disabled")}>
+        <AssetLibraryCard selected={selected} className={cn("asset-picker-card", disabled && "is-disabled")}>
             <button type="button" className="asset-picker-card-action" onClick={onToggle} disabled={disabled} aria-pressed={selected} title={item.disabledReason || item.title}>
-                <div className="assets-cover asset-picker-card-media">
+                <span className="asset-picker-card-media" data-state={mediaState}>
                     {item.asset?.kind === "entity" ? (
                         <CharacterAssetCover asset={item.asset} />
-                    ) : item.asset?.kind === "audio" && !item.imageUrl && !item.imageStorageKey ? (
+                    ) : item.asset?.kind === "audio" && !hasImage ? (
                         <AudioWaveArt seed={item.asset.id} />
-                    ) : item.imageUrl || item.imageStorageKey ? (
+                    ) : hasImage ? (
                         <CachedResourceImage
                             storageKey={item.imageStorageKey}
                             src={item.imageUrl}
@@ -717,33 +797,58 @@ function PickerCard({ item, selected, onToggle }: { item: AssetLibraryPickerItem
                             loading="lazy"
                             decoding="async"
                             className={item.imageFit === "contain" ? "is-contain" : undefined}
-                            fallback={<div className="assets-cover-fallback">{kindIcon(item)}</div>}
+                            fallback={fallback}
+                            loadingFallback={null}
+                            onLoad={markLoaded}
+                            onError={markFailed}
                         />
                     ) : (
-                        <AssetMediaPreview asset={item.asset} alt={item.title} fallback={<div className="assets-cover-fallback">{kindIcon(item)}</div>} />
+                        <AssetMediaPreview asset={item.asset} alt={item.title} fallback={fallback} loadingFallback={null} onLoad={markLoaded} onError={markFailed} />
                     )}
-                    <span className="assets-cover-vignette" aria-hidden="true" />
-                    <span className="assets-cover-badges" aria-hidden="true">
-                        <span className="assets-cover-badge is-kind">{item.kindLabel}</span>
+                    <span className="asset-picker-card-kind" aria-hidden="true">
+                        {kindIcon(item)}
+                        <span>{item.kindLabel}</span>
                     </span>
                     <span className="asset-picker-card-check" aria-hidden="true">
-                        <Check />
+                        <Check strokeWidth={3} />
                     </span>
                     {item.disabledReason ? <span className="asset-picker-card-lock">{item.disabledReason}</span> : null}
-                </div>
-                <div className="asset-picker-card-copy">
-                    <strong>{item.title || text("未命名素材", "Untitled asset")}</strong>
-                    {item.description ? <span>{item.description}</span> : null}
-                </div>
+                </span>
+                <span className="asset-picker-card-copy">
+                    <strong>{item.title || t("library.picker.untitled")}</strong>
+                    {meta ? <span>{meta}</span> : null}
+                </span>
             </button>
             {item.asset?.kind === "audio" && !disabled ? (
                 // 与封面同尺寸的覆盖层：试听按钮落在封面左下角，又不嵌套在选择按钮里。
-                <span className="pointer-events-none absolute inset-x-0 top-0 aspect-[4/3]">
+                <span className="asset-picker-card-overlay">
                     <AudioPlayButton asset={item.asset} className="pointer-events-auto absolute bottom-2 left-2 !size-8" />
                 </span>
             ) : null}
         </AssetLibraryCard>
     );
+}
+
+function PickerCardSkeleton() {
+    return (
+        <div className="asset-picker-card is-skeleton" aria-hidden="true">
+            <span className="asset-picker-card-media" data-state="loading" />
+            <span className="asset-picker-card-copy">
+                <span className="asset-picker-skeleton-line" />
+                <span className="asset-picker-skeleton-line is-sm" />
+            </span>
+        </div>
+    );
+}
+
+/** 底部已选托盘的小缩略图：只取静态封面，视频和音频没有封面时显示类型图标。 */
+function PickerThumb({ item }: { item: AssetLibraryPickerItem }) {
+    const asset = item.asset;
+    const src = item.imageUrl || asset?.coverUrl || (asset?.kind === "image" ? asset.data.dataUrl : "") || "";
+    const storageKey = item.imageStorageKey || (asset?.kind === "image" ? asset.data.storageKey : asset?.kind === "entity" ? asset.data.coverStorageKey : undefined);
+    const fallback = <span className="asset-picker-tray-fallback">{kindIcon(item)}</span>;
+    if (!src && !storageKey) return fallback;
+    return <CachedResourceImage storageKey={storageKey} src={src} alt="" loading="lazy" decoding="async" draggable={false} fallback={fallback} loadingFallback={null} />;
 }
 
 function renderPickerFolders(folders: AssetLibraryPickerFolder[], items: AssetLibraryPickerItem[], selectedId: string, onSelect: (folderId: string) => void, parentId = "", depth = 0, visited: ReadonlySet<string> = new Set()): ReactNode {
@@ -772,10 +877,18 @@ function renderPickerFolders(folders: AssetLibraryPickerFolder[], items: AssetLi
         });
 }
 
+// 优先按素材类型选图标；kindLabel 已随界面语言翻译，只为未带类型的调用方保留中文标签兜底。
 function kindIcon(item: AssetLibraryPickerItem): ReactNode {
-    if (item.asset?.kind === "entity") return <UserRound />;
-    if (pickerItemMediaKind(item) === "video") return <Video />;
-    if (pickerItemMediaKind(item) === "audio") return <Music2 />;
-    if (pickerItemMediaKind(item) === "text") return <FileText />;
+    const kind = item.asset?.kind || item.external?.item.kind || item.mediaKind;
+    if (kind === "entity") return <UserRound />;
+    if (kind === "video") return <Video />;
+    if (kind === "audio") return <Music2 />;
+    if (kind === "text") return <FileText />;
+    if (kind) return <ImageIcon />;
+    const label = item.kindLabel;
+    if (label.includes("角色")) return <UserRound />;
+    if (label.includes("视频")) return <Video />;
+    if (label.includes("音频")) return <Music2 />;
+    if (label.includes("文本")) return <FileText />;
     return <ImageIcon />;
 }

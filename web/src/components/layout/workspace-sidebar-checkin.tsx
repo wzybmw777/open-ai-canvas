@@ -1,6 +1,7 @@
 import { App } from "antd";
 import { useState } from "react";
 import { Gift, LoaderCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { formatCredits } from "@/constant/credits";
 import { useWalletBalance } from "@/hooks/use-wallet-balance";
@@ -10,10 +11,9 @@ import { ApiError } from "@/services/api/request";
 import { checkinCredits } from "@/services/api/wallet";
 import { useAppearanceStore } from "@/stores/use-appearance-store";
 import { useUserStore } from "@/stores/use-user-store";
-import { localizedErrorMessage, useLocaleText } from "@/lib/i18n";
 
 export function WorkspaceSidebarCheckin({ collapsed }: { collapsed: boolean }) {
-    const { locale, text } = useLocaleText();
+    const { t } = useTranslation();
     const user = useUserStore((state) => state.user);
     const creditsEnabled = useUserStore((state) => state.features.creditsEnabled);
     const brandName = useAppearanceStore((state) => state.appearance.brandName);
@@ -29,8 +29,8 @@ export function WorkspaceSidebarCheckin({ collapsed }: { collapsed: boolean }) {
     if (!user || !visible || !policy) return null;
 
     const amount = formatCredits(policy.checkinBonusMicrocredits, 2);
-    const title = locale === "en-US" ? `${brandName} daily bonus` : sidebarCheckinTitle(brandName);
-    const summary = text(`${title}，今日可领 ${amount} 积分`, `${title}, claim ${amount} credits today`);
+    const title = sidebarCheckinTitle(brandName);
+    const summary = t("account.layout.checkin.summary", { title, amount });
 
     const claim = async () => {
         if (claiming) return;
@@ -39,13 +39,13 @@ export function WorkspaceSidebarCheckin({ collapsed }: { collapsed: boolean }) {
             await checkinCredits();
             window.dispatchEvent(new CustomEvent("wallet:updated"));
             await refresh();
-            message.success(text("签到成功，积分已到账", "Daily credits claimed"));
+            message.success(t("account.layout.checkin.success"));
         } catch (error) {
             const alreadyClaimed = error instanceof ApiError && error.status === 409;
             window.dispatchEvent(new CustomEvent("wallet:updated"));
             await refresh();
             if (alreadyClaimed) return;
-            message.error(localizedErrorMessage(error, "领取失败", "Could not claim credits"));
+            message.error(error instanceof Error ? error.message : t("account.layout.checkin.failed"));
         } finally {
             setClaiming(false);
         }
@@ -53,7 +53,7 @@ export function WorkspaceSidebarCheckin({ collapsed }: { collapsed: boolean }) {
 
     if (collapsed) {
         return (
-            <button type="button" className="app-workspace-sidebar-checkin is-collapsed" title={summary} aria-label={text(`立即领取今日 ${amount} 积分`, `Claim ${amount} daily credits`)} aria-busy={claiming} disabled={claiming} onClick={() => void claim()}>
+            <button type="button" className="app-workspace-sidebar-checkin is-collapsed" title={summary} aria-label={t("account.layout.checkin.claimToday", { amount })} aria-busy={claiming} disabled={claiming} onClick={() => void claim()}>
                 {claiming ? <LoaderCircle className="size-5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Gift className="size-5" aria-hidden="true" />}
             </button>
         );
@@ -64,13 +64,13 @@ export function WorkspaceSidebarCheckin({ collapsed }: { collapsed: boolean }) {
             <div className="app-workspace-sidebar-checkin-copy">
                 <strong className="app-workspace-sidebar-checkin-title">{title}</strong>
                 <span className="app-workspace-sidebar-checkin-offer">
-                    {text("今日可领", "Today ")}
+                    {t("account.layout.checkin.offerBefore")}
                     <em>{amount}</em>
-                    {text("积分", " credits")}
+                    {t("account.layout.checkin.offerAfter")}
                 </span>
             </div>
-            <button type="button" className={cn("app-workspace-sidebar-checkin-claim", claiming && "is-loading")} disabled={claiming} aria-label={text(`立即领取 ${amount} 积分`, `Claim ${amount} credits`)} onClick={() => void claim()}>
-                {claiming ? text("领取中", "Claiming") : text("立即领取", "Claim")}
+            <button type="button" className={cn("app-workspace-sidebar-checkin-claim", claiming && "is-loading")} disabled={claiming} aria-label={t("account.layout.checkin.claimAmount", { amount })} onClick={() => void claim()}>
+                {claiming ? t("account.layout.checkin.claiming") : t("account.layout.checkin.claim")}
             </button>
         </aside>
     );

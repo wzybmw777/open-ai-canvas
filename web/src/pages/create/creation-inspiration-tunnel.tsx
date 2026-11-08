@@ -14,7 +14,8 @@
 // 更远的两张在短暂延迟后补齐，切换时不会出现空白。
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
-import { ArrowUp } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { ArrowUp, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { catalogIdOf, curatedInspirations, type CreationInspiration } from "@/lib/inspirations/catalog";
 import { fillablePrompt } from "@/lib/inspirations/resolve";
@@ -100,6 +101,7 @@ export function CreationInspirationTunnel({ mode, onStartPrompt, composing = fal
      * 外部 gallery-pool.json 是单独一份静态 JSON，不打包；首屏先使用打包的本地精选图，
      * 等浏览器空闲后再扩充随机池，避免 JSON 请求挡住第一张图片。
      */
+    const { t } = useTranslation();
     const [pool, setPool] = useState<CreationInspiration[]>(() => curatedInspirations);
     const poolReady = true;
     const [shots, setShots] = useState<CreationInspiration[]>([]);
@@ -224,10 +226,21 @@ export function CreationInspirationTunnel({ mode, onStartPrompt, composing = fal
 
     const current = shots[active];
 
-    if (!shots.length) return <div className="creation-inspiration-tunnel is-loading" aria-busy="true"><div className="creation-gallery-stage"><span className="creation-gallery-placeholder" aria-hidden /></div></div>;
+    if (!shots.length)
+        return (
+            <div className="creation-inspiration-tunnel is-loading" aria-busy="true">
+                <div className="creation-gallery-stage">
+                    <span className="creation-gallery-placeholder" aria-hidden />
+                </div>
+            </div>
+        );
 
     return (
-        <div className="creation-inspiration-tunnel" role="region" aria-label="灵感轮播，左右滑动或使用方向键切换，回车使用当前创意" tabIndex={0}
+        <div
+            className="creation-inspiration-tunnel"
+            role="region"
+            aria-label="灵感轮播，左右滑动或使用方向键切换，回车使用当前创意"
+            tabIndex={0}
             onKeyDown={(event) => {
                 if (event.target !== event.currentTarget) return;
                 if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
@@ -238,16 +251,8 @@ export function CreationInspirationTunnel({ mode, onStartPrompt, composing = fal
                     onStartPrompt(current.mode, fillablePrompt(current));
                 }
             }}
-            >
-            <div
-                ref={stageRef}
-                className="creation-gallery-stage"
-                aria-hidden="true"
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={finishPointerDrag}
-                onPointerCancel={finishPointerDrag}
-            >
+        >
+            <div ref={stageRef} className="creation-gallery-stage" aria-hidden="true" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={finishPointerDrag} onPointerCancel={finishPointerDrag}>
                 {shots.map((inspiration, index) => {
                     const id = catalogIdOf(inspiration);
                     // 相对当前卡片的距离，绕成最短路径，形成首尾相接的队列。
@@ -269,36 +274,44 @@ export function CreationInspirationTunnel({ mode, onStartPrompt, composing = fal
                             key={id}
                             type="button"
                             tabIndex={-1}
-                            className={`creation-tunnel-card ${depth === 0 ? "is-active" : ""} ${readyIds.has(id) ? "is-ready" : "is-loading"}`}
+                            className={`creation-tunnel-card ${depth === 0 ? "is-active" : ""} ${depth > 0 && depth <= MAX_DEPTH ? "is-selectable" : ""} ${readyIds.has(id) ? "is-ready" : ""}`}
                             style={style}
                             onClick={() => {
                                 if (suppressClickRef.current) {
                                     suppressClickRef.current = false;
                                     return;
                                 }
-                                onStartPrompt(inspiration.mode, fillablePrompt(inspiration));
+                                if (relative === 0) onStartPrompt(inspiration.mode, fillablePrompt(inspiration));
+                                else step(relative);
                             }}
                         >
-                            {depth <= loadDepth && !failedIds.has(id) ? <img
-                                src={inspiration.image}
-                                alt=""
-                                draggable={false}
-                                decoding="async"
-                                loading={depth === 0 ? "eager" : "lazy"}
-                                fetchPriority={depth === 0 ? "high" : "low"}
-                                onLoad={() => markReady(id)}
-                                onError={() => { setFailedIds((current) => new Set(current).add(id)); markReady(id); }}
-                                // 命中浏览器缓存的图可能在挂监听之前就 complete 了，onLoad 不会再触发，这里补一次。
-                                ref={(node) => {
-                                    if (node?.complete && node.naturalWidth > 0) markReady(id);
-                                }}
-                            /> : <span className="creation-gallery-placeholder" aria-hidden />}
+                            {depth <= loadDepth && !failedIds.has(id) ? (
+                                <img
+                                    src={inspiration.image}
+                                    alt=""
+                                    draggable={false}
+                                    decoding="async"
+                                    loading={depth === 0 ? "eager" : "lazy"}
+                                    fetchPriority={depth === 0 ? "high" : "low"}
+                                    onLoad={() => markReady(id)}
+                                    onError={() => {
+                                        setFailedIds((current) => new Set(current).add(id));
+                                        markReady(id);
+                                    }}
+                                    // 命中浏览器缓存的图可能在挂监听之前就 complete 了，onLoad 不会再触发，这里补一次。
+                                    ref={(node) => {
+                                        if (node?.complete && node.naturalWidth > 0) markReady(id);
+                                    }}
+                                />
+                            ) : (
+                                <span className="creation-gallery-placeholder" aria-hidden />
+                            )}
                             {failedIds.has(id) ? <span className="creation-gallery-image-error">封面暂不可用，仍可使用这个创意</span> : null}
                             {/* 三段式提示词信息：行动点、标题、描述，只有最前那张露出来。 */}
                             <span className="creation-tunnel-card-info">
                                 <span className="creation-tunnel-card-cta">
                                     <ArrowUp aria-hidden="true" />
-                                    使用这个创意
+                                    {t("create.inspiration.useIdea")}
                                 </span>
                                 <span className="creation-tunnel-card-title">{inspiration.title}</span>
                                 <span className="creation-tunnel-card-desc">{inspiration.description}</span>
@@ -307,6 +320,21 @@ export function CreationInspirationTunnel({ mode, onStartPrompt, composing = fal
                     );
                 })}
             </div>
+
+            {/* 图标外面套一层 span 是必须的：workspace-product.css 里有一条
+                `button:has(> svg):not(:has(> span)):not(:disabled):hover` 会认领"纯图标按钮"，
+                用 !important 改写 color / background 并把 transform 顶成 translateY(-1px)，
+                按钮会当场掉半个身位。带 span 的按钮不在那条规则的射程内。 */}
+            <button type="button" className="creation-gallery-arrow is-prev" aria-label={t("create.inspiration.previous")} onClick={() => step(-1)}>
+                <span className="creation-gallery-arrow-icon">
+                    <ChevronLeft aria-hidden="true" />
+                </span>
+            </button>
+            <button type="button" className="creation-gallery-arrow is-next" aria-label={t("create.inspiration.next")} onClick={() => step(1)}>
+                <span className="creation-gallery-arrow-icon">
+                    <ChevronRight aria-hidden="true" />
+                </span>
+            </button>
 
             {/* 卡片本身对辅助技术隐藏，切换结果靠这条播报传达。 */}
             <p className="creation-gallery-announce" aria-live="polite">

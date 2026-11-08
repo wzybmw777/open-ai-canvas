@@ -2,14 +2,15 @@ import { App, Button, Dropdown, Input } from "antd";
 import { ChevronDown, Download, Heart, Import, MoreHorizontal, Pencil, Plus, RotateCcw, Search, SlidersHorizontal, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { PaginationBar, WorkspacePage } from "@/components/layout/workspace-page";
+import { PaginationBar } from "@/components/layout/workspace-page";
 import { WorkspaceErrorState, WorkspaceLoadingState, WorkspaceState } from "@/components/layout/workspace-state";
 import { SegmentedControl } from "@/components/ui/base/segmented-control";
 import { Select } from "@/components/ui/base/select";
 import { Tooltip } from "@/components/ui/base/tooltip";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { catalogIdOf, inspirationSourceOf, inspirationSources, type CreationInspiration, type InspirationSourceId } from "@/lib/inspirations/catalog";
-import { fillablePrompt, isCustomInspiration, resolveInspirations } from "@/lib/inspirations/resolve";
+import { isFreshInspiration, localDayKey, orderInspirationsByLatest, orderInspirationsForToday } from "@/lib/inspirations/daily-order";
+import { isCustomInspiration, resolveInspirations } from "@/lib/inspirations/resolve";
 import { loadInspirationCatalog, type InspirationCatalog } from "@/services/inspiration-catalog";
 import { useInspirationStore } from "@/stores/use-inspiration-store";
 import { useUserStore } from "@/stores/use-user-store";
@@ -20,7 +21,7 @@ import "./inspirations.css";
 type SourceFilter = "all" | InspirationSourceId;
 type ViewFilter = "all" | "favorites" | "hidden";
 type ModeFilter = "all" | CreationInspiration["mode"];
-type SortKey = "default" | "title";
+type SortKey = "daily" | "latest" | "title";
 /** 分类标签比编辑器里的选项多一个条目数，用于在标签上显示数量。 */
 type CategoryChoice = InspirationCategoryChoice & { count: number };
 
@@ -32,9 +33,23 @@ const VIEW_OPTIONS: { label: string; value: ViewFilter }[] = [
     { label: "已隐藏", value: "hidden" },
 ];
 const SORT_OPTIONS = [
-    { label: "默认顺序", value: "default" },
+    { label: "每日推荐", value: "daily" },
+    { label: "最新上架", value: "latest" },
     { label: "按标题", value: "title" },
 ];
+
+/** 标签页隔夜后回到前台时换成新的一天，推荐顺序随之轮换，不必刷新页面。 */
+function useLocalDayKey(): string {
+    const [dayKey, setDayKey] = useState(() => localDayKey());
+    useEffect(() => {
+        const refresh = () => {
+            if (document.visibilityState === "visible") setDayKey(localDayKey());
+        };
+        document.addEventListener("visibilitychange", refresh);
+        return () => document.removeEventListener("visibilitychange", refresh);
+    }, []);
+    return dayKey;
+}
 
 /** 导出文件名带上日期，重复导出不会互相覆盖。 */
 function exportFileName() {
@@ -50,7 +65,7 @@ function downloadText(text: string, fileName: string) {
     URL.revokeObjectURL(url);
 }
 
-export function InspirationHall({ onUse }: { onUse?: (item: CreationInspiration) => void }) {
+export function InspirationHall({ onUse }: { onUse: (item: CreationInspiration) => void }) {
     const { message, modal } = App.useApp();
     const inspirationSourcesVisible = useUserStore((state) => state.features.inspirationSourcesVisible);
 
@@ -78,7 +93,8 @@ export function InspirationHall({ onUse }: { onUse?: (item: CreationInspiration)
     const [modeFilter, setModeFilter] = useState<ModeFilter>("all");
     const [category, setCategory] = useState("all");
     const [view, setView] = useState<ViewFilter>("all");
-    const [sort, setSort] = useState<SortKey>("default");
+    const [sort, setSort] = useState<SortKey>("daily");
+    const dayKey = useLocalDayKey();
     const [search, setSearch] = useState("");
     const debouncedSearch = useDebouncedValue(search, 250);
     const [page, setPage] = useState(1);
@@ -128,10 +144,10 @@ export function InspirationHall({ onUse }: { onUse?: (item: CreationInspiration)
         if (!inspirationSourcesVisible) setSource("all");
     }, [inspirationSourcesVisible]);
 
-    // 筛选条件一变就回第一页，否则会停在一个已经不存在的位置上。
+    // 筛选条件或推荐日期一变就回第一页，否则会停在一个已经不存在的位置上。
     useEffect(() => {
         setPage(1);
-    }, [source, modeFilter, category, view, sort, debouncedSearch, pageSize]);
+    }, [source, modeFilter, category, view, sort, debouncedSearch, pageSize, dayKey]);
 
     const overlay = useMemo(() => ({ custom, overrides, hidden }), [custom, hidden, overrides]);
     const resolved = useMemo(() => (catalog ? resolveInspirations(catalog.entries, overlay) : []), [catalog, overlay]);
@@ -233,8 +249,15 @@ export function InspirationHall({ onUse }: { onUse?: (item: CreationInspiration)
             return haystack.includes(keyword);
         });
         if (sort === "title") return [...filtered].sort((left, right) => left.title.localeCompare(right.title, "zh-Hans-CN"));
-        return filtered;
-    }, [view, resolved, hiddenItems, debouncedSearch, favorites, source, modeFilter, category, sort, categoryLabel]);
+        // 自建条目固定在最前，刚建好的条目不会被打散到后面几页；内置条目按当天顺序轮换，上新排在前面。
+        const own = filtered.filter((item) => isCustomInspiration(catalogIdOf(item)));
+        const builtIn = filtered.filter((item) => !isCustomInspiration(catalogIdOf(item)));
+        return [...own, ...(sort === "latest" ? orderInspirationsByLatest(builtIn, dayKey) : orderInspirationsForToday(builtIn, dayKey, Date.now()))];
+    }, [view, resolved, hiddenItems, debouncedSearch, favorites, source, modeFilter, category, sort, categoryLabel, dayKey]);
+    const freshCount = useMemo(() => {
+        const now = Date.now();
+        return visible.filter((item) => isFreshInspiration(item, now)).length;
+    }, [visible]);
 
     const lastPage = Math.max(1, Math.ceil(visible.length / pageSize));
     const currentPage = Math.min(page, lastPage);
@@ -254,17 +277,9 @@ export function InspirationHall({ onUse }: { onUse?: (item: CreationInspiration)
     const handleUse = useCallback(
         (item: CreationInspiration) => {
             setDetail(null);
-            if (onUse) {
-                onUse(item);
-                return;
-            }
-            const prompt = fillablePrompt(item);
-            void navigator.clipboard.writeText(prompt).then(
-                () => message.success("提示词已复制，请前往创作工作台使用"),
-                () => message.error("复制失败，请手动选中提示词"),
-            );
+            onUse(item);
         },
-        [message, onUse],
+        [onUse],
     );
 
     const handleCopy = useCallback(
@@ -314,7 +329,7 @@ export function InspirationHall({ onUse }: { onUse?: (item: CreationInspiration)
             setModeFilter("all");
             setCategory("all");
             setView("all");
-            setSort("default");
+            setSort("daily");
             setSearch("");
             setPage(1);
             message.success("灵感已创建");
@@ -339,14 +354,14 @@ export function InspirationHall({ onUse }: { onUse?: (item: CreationInspiration)
         [importPayload, message],
     );
 
-    const advancedFilterCount = Number(source !== "all") + Number(category !== "all") + Number(view !== "all") + Number(sort !== "default");
+    const advancedFilterCount = Number(source !== "all") + Number(category !== "all") + Number(view !== "all") + Number(sort !== "daily");
     const hasFilters = Boolean(advancedFilterCount || modeFilter !== "all" || search.trim());
     const resetFilters = () => {
         setSource("all");
         setModeFilter("all");
         setCategory("all");
         setView("all");
-        setSort("default");
+        setSort("daily");
         setSearch("");
     };
 
@@ -354,8 +369,8 @@ export function InspirationHall({ onUse }: { onUse?: (item: CreationInspiration)
         <section ref={sectionRef} id="creation-inspirations" className="inspiration-hall" aria-labelledby="inspiration-hall-title">
             <header className="inspiration-hall-header">
                 <div>
-                    <h2 id="inspiration-hall-title">灵感库</h2>
-                    <p>浏览可复用的创意提示词，选择一个起点继续创作。</p>
+                    <h2 id="inspiration-hall-title">灵感大厅</h2>
+                    <p>每天换一批推荐，新上架的排在前面。点开查看完整提示词，用喜欢的创意继续创作。</p>
                 </div>
                 <div className="inspiration-hall-actions">
                     <Button
@@ -395,7 +410,7 @@ export function InspirationHall({ onUse }: { onUse?: (item: CreationInspiration)
                     <ChevronDown className={filtersOpen ? "is-open" : undefined} aria-hidden="true" />
                 </Button>
                 <span className="inspiration-hall-count" role="status">
-                    {catalog && hydrated ? `共 ${visible.length.toLocaleString("zh-CN")} 条` : ""}
+                    {catalog && hydrated ? `共 ${visible.length.toLocaleString("zh-CN")} 条${freshCount ? ` · 本周上新 ${freshCount.toLocaleString("zh-CN")} 条` : ""}` : ""}
                 </span>
             </div>
 
@@ -566,6 +581,7 @@ function InspirationCard({
             <button type="button" className="inspiration-card-open" aria-label={`查看灵感：${item.title}`} aria-haspopup="dialog" onClick={onOpen}>
                 <span className="inspiration-card-cover">
                     <InspirationCover key={item.image} image={item.image} />
+                    {isFreshInspiration(item, Date.now()) ? <span className="inspiration-card-new">新</span> : null}
                     {showSources ? <span className="inspiration-card-source">{inspirationSourceOf(item)?.label ?? "未标注来源"}</span> : null}
                 </span>
                 <span className="inspiration-card-body">
@@ -619,10 +635,4 @@ function InspirationCard({
     );
 }
 
-export default function InspirationsPage() {
-    return (
-        <WorkspacePage className="inspirations-page">
-            <InspirationHall />
-        </WorkspacePage>
-    );
-}
+export default InspirationHall;

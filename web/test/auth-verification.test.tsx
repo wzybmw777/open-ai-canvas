@@ -27,7 +27,7 @@ test("双重验证渲染独立短信和邮件验证码，只使用一个发送�
     expect(html).toContain('value="123456"');
     expect(html).toContain('value="654321"');
     expect((html.match(/autoComplete="one-time-code"/g) || []).length).toBe(2);
-    expect((html.match(/class="[^"]*auth-code-send/g) || []).length).toBe(1);
+    expect((html.match(/class="[^"]*auth-code-button/g) || []).length).toBe(1);
     expect(html).toMatch(/短信验证码|SMS code/);
     expect(html).toMatch(/邮件验证码|Email code/);
 });
@@ -82,10 +82,30 @@ test("互亿无线渠道提交 API 凭据及有序模板变量，无需签名和
             expect(config.url).toBe("/admin/sms/channels");
             const body = JSON.parse(config.data);
             expect(body).toMatchObject({ provider: "huyi", signName: "", appId: "", accessId: "test-api-id", accessKey: "test-api-key" });
-            expect(body.templates[0].parameters).toEqual([{ name: "0", value: "code" }, { name: "1", value: "minutes" }]);
+            expect(body.templates[0].parameters).toEqual([
+                { name: "0", value: "code" },
+                { name: "1", value: "minutes" },
+            ]);
             return { config, status: 200, statusText: "OK", headers: {}, data: { code: 0, data: { id: "huyi-channel", hasCredentials: true } } };
         };
-        const result = await createSMSChannel({ ...channel, provider: "huyi", signName: "", appId: "", accessId: "test-api-id", accessKey: "test-api-key", templates: [{ purpose: "register", templateId: "123", parameters: [{ name: "0", value: "code" }, { name: "1", value: "minutes" }] }] });
+        const result = await createSMSChannel({
+            ...channel,
+            provider: "huyi",
+            signName: "",
+            appId: "",
+            accessId: "test-api-id",
+            accessKey: "test-api-key",
+            templates: [
+                {
+                    purpose: "register",
+                    templateId: "123",
+                    parameters: [
+                        { name: "0", value: "code" },
+                        { name: "1", value: "minutes" },
+                    ],
+                },
+            ],
+        });
         expect(result.id).toBe("huyi-channel");
     } finally {
         apiClient.defaults.adapter = original;

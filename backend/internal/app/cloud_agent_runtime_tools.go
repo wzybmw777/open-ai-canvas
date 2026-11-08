@@ -456,6 +456,9 @@ func (s *Service) advanceCloudAgentTool(run *model.CloudAgentExecution, state *c
 	mediaTool := toolPolicy.Media()
 	// 媒体工具先固定生成输入和报价；auto 直接提交，request_approval 等待用户批准。
 	if allowed && (toolPolicy.ApprovalRequired(state.Request.PermissionMode) || mediaTool) && state.Approval == nil && state.MediaTaskID == "" {
+		if call.Function.Name == agenttool.GenerateMediaBatch {
+			return s.requestCloudAgentMediaBatchApproval(run, state, call)
+		}
 		var plan *cloudAgentMediaPlan
 		var modelName string
 		var mediaRequest CreateTaskRequest
@@ -641,9 +644,15 @@ func (s *Service) advanceCloudAgentTool(run *model.CloudAgentExecution, state *c
 			})
 		}
 	}
+	if allowed && call.Function.Name == agenttool.GenerateMediaBatch && state.Approval != nil && state.Approval.Decision == "approve" {
+		return s.startCloudAgentMediaBatch(run, state, call)
+	}
 	// Submitted auto tasks have no approval object; resume their receipts directly.
 	if allowed && mediaTool && (state.MediaTaskID != "" || (state.Approval != nil && state.Approval.Decision == "approve")) {
 		return s.advanceCloudAgentMedia(run, state, cloudAgentMediaCall(call))
+	}
+	if allowed && call.Function.Name == agenttool.MediaBatchControl {
+		return s.advanceCloudAgentMediaBatchControl(run, state, call)
 	}
 	policy, err := s.RuntimePolicy()
 	if err != nil {

@@ -12,19 +12,20 @@ import (
 )
 
 type TaskInput struct {
-	ProjectID      string          `json:"projectId"`
-	Kind           string          `json:"kind"`
-	ToolID         string          `json:"toolId"`
-	PresetID       string          `json:"presetId,omitempty"`
-	Workbench      *TaskWorkbench  `json:"workbench,omitempty"`
-	Prompt         string          `json:"prompt"`
-	Model          string          `json:"model,omitempty"`
-	LogicalModelID string          `json:"logicalModelId,omitempty"`
-	ChannelID      string          `json:"channelId,omitempty"`
-	ModelChoice    *ModelChoice    `json:"modelChoice,omitempty"`
-	Parameters     map[string]any  `json:"parameters,omitempty"`
-	References     []TaskReference `json:"references,omitempty"`
-	Batch          *TaskBatch      `json:"batch,omitempty"`
+	ProjectID          string          `json:"projectId"`
+	EcommerceProjectID string          `json:"ecommerceProjectId,omitempty"`
+	Kind               string          `json:"kind"`
+	ToolID             string          `json:"toolId"`
+	PresetID           string          `json:"presetId,omitempty"`
+	Workbench          *TaskWorkbench  `json:"workbench,omitempty"`
+	Prompt             string          `json:"prompt"`
+	Model              string          `json:"model,omitempty"`
+	LogicalModelID     string          `json:"logicalModelId,omitempty"`
+	ChannelID          string          `json:"channelId,omitempty"`
+	ModelChoice        *ModelChoice    `json:"modelChoice,omitempty"`
+	Parameters         map[string]any  `json:"parameters,omitempty"`
+	References         []TaskReference `json:"references,omitempty"`
+	Batch              *TaskBatch      `json:"batch,omitempty"`
 }
 
 // TaskBatch 关联同一次提交拆出的多个任务（例如一次生成 3 条视频），

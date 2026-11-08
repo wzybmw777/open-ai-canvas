@@ -139,8 +139,8 @@ func TestDramaEpisodePreviewKeepsReferenceArrayWhenVideoModelDisabled(t *testing
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(string(encoded), `"references":[]`) {
-			t.Fatalf("preview must return an empty array, not null: %s", encoded)
+		if !strings.Contains(string(encoded), `"references":[`) || segment.Request.AudioReferences == nil {
+			t.Fatalf("preview must return reference arrays, not null: %s", encoded)
 		}
 	}
 	rows, err := svc.repo.DramaSegments(detail.Episode.ID)
@@ -152,8 +152,12 @@ func TestDramaEpisodePreviewKeepsReferenceArrayWhenVideoModelDisabled(t *testing
 		t.Fatal(err)
 	}
 	settings := parseDramaSettings(production.SettingsJSON)
-	if _, _, _, err := svc.prepareDramaSegment(settings, dramaSegmentDraft{}, rows[0], nil, nil); err == nil {
+	request, _, _, err := svc.prepareDramaSegment(settings, dramaSegmentDraft{}, rows[0], nil, nil)
+	if err == nil {
 		t.Fatal("unavailable model must still reject provider submission")
+	}
+	if request.References == nil || request.AudioReferences == nil {
+		t.Fatalf("unavailable model must preserve arrays in the provider error path: %+v", request)
 	}
 }
 

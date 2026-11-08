@@ -1,64 +1,39 @@
 import { useEffect, useRef, useState } from "react";
 import { App, Button, Input } from "antd";
+import { useTranslation } from "react-i18next";
 import { startVerification, type VerificationDraft, type VerificationMethod, type VerificationPurpose } from "@/services/api/verification";
-import { localizedErrorMessage, useLocaleText } from "@/lib/i18n";
 
-// 验证码输入框与「获取验证码」按钮同排显示：按钮贴右侧、竖线分隔。
-// 倒计时文案长度变化会撑动按钮宽度，因此按钮用 tabular-nums + nowrap 固定视觉节奏，
-// 输入框通过 flex: 1 吸收剩余宽度，避免每次倒计时跳一下布局。
-function CodeField({ label, value, onChange, onSend, sending, remaining, targetReady, disabled, placeholder, autoComplete, inputMode, sendLabel, showSend = true }: {
-    label: string; value: string; onChange: (next: string) => void;
-    onSend: () => void; sending: boolean; remaining: number; targetReady: boolean;
-    disabled: boolean; placeholder: string; autoComplete: string; inputMode: "text" | "email" | "tel" | "numeric"; sendLabel: string; showSend?: boolean;
+// 字段不显示可见标签：占位文案说明填写内容，aria-label 提供无障碍名称。
+// 「获取验证码」按钮固定最小宽度并使用等宽数字，倒计时文案变化时输入框不跳动。
+export function VerificationFields({
+    purpose,
+    method,
+    value,
+    onChange,
+    disabled = false,
+    password,
+}: {
+    purpose: VerificationPurpose;
+    method: VerificationMethod;
+    value: VerificationDraft;
+    onChange: (value: VerificationDraft) => void;
+    disabled?: boolean;
+    password?: string;
 }) {
-    const { text } = useLocaleText();
-    const counting = remaining > 0;
-    const blocked = disabled || sending || counting || !targetReady;
-    return (
-        <label className="block space-y-2">
-            <span className="auth-scene-label text-xs font-medium">{label}</span>
-            <span className={`auth-code-field${sending ? " is-busy" : ""}`}>
-                <Input
-                    size="large"
-                    variant="borderless"
-                    value={value}
-                    onChange={(event) => onChange(event.target.value)}
-                    autoComplete={autoComplete}
-                    inputMode={inputMode}
-                    placeholder={placeholder}
-                    disabled={disabled || sending}
-                    required
-                    pattern="[0-9]{6}"
-                    maxLength={6}
-                />
-                {showSend && <Button
-                    className="auth-code-send"
-                    size="large"
-                    type="text"
-                    data-counting={counting ? "true" : "false"}
-                    loading={sending}
-                    disabled={blocked}
-                    onClick={onSend}
-                >
-                    {counting ? text(`${remaining} 秒后重发`, `Resend in ${remaining}s`) : sendLabel}
-                </Button>}
-            </span>
-        </label>
-    );
-}
-
-export function VerificationFields({ purpose, method, value, onChange, disabled = false, password }: {
-    purpose: VerificationPurpose; method: VerificationMethod; value: VerificationDraft;
-    onChange: (value: VerificationDraft) => void; disabled?: boolean; password?: string;
-}) {
-    const { text } = useLocaleText();
     const { message } = App.useApp();
+    const { t } = useTranslation();
     const [sending, setSending] = useState(false);
     const [remaining, setRemaining] = useState(0);
     const inFlight = useRef(false);
     const active = useRef(true);
-    useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
-    const sms = method !== "email", email = method !== "sms";
+    useEffect(() => {
+        active.current = true;
+        return () => {
+            active.current = false;
+        };
+    }, []);
+    const sms = method !== "email",
+        email = method !== "sms";
     useEffect(() => {
         if (!remaining) return;
         const timer = window.setTimeout(() => setRemaining((n) => Math.max(0, n - 1)), 1000);
@@ -68,9 +43,11 @@ export function VerificationFields({ purpose, method, value, onChange, disabled 
     const send = async () => {
         if (inFlight.current || remaining > 0) return;
         if ((sms && !value.phone.trim()) || (email && !value.email.trim()) || (purpose === "bind" && !password)) {
-            message.warning(text("请先填写联系方式及必要的当前密码", "Enter your contact details and current password")); return;
+            message.warning(t("auth.verification.needTarget"));
+            return;
         }
-        inFlight.current = true; setSending(true);
+        inFlight.current = true;
+        setSending(true);
         // Start cooldown even on ambiguous failures; never encourage instant resends.
         setRemaining(60);
         onChange({ ...value, ticket: "", emailCode: "", smsCode: "" });
@@ -79,33 +56,78 @@ export function VerificationFields({ purpose, method, value, onChange, disabled 
             if (!active.current) return;
             onChange({ ...value, email: email ? value.email.trim().toLowerCase() : "", phone: sms ? value.phone.trim() : "", emailCode: "", smsCode: "", ticket: result.ticket });
             setRemaining(result.retryAfter);
-            message.success(purpose === "login" ? text("如该联系方式已验证且账号可用，验证码将发送至该联系方式", "If this contact is verified, a code will be sent.") : text("验证码已发送，10 分钟内有效", "Code sent. It expires in 10 minutes."));
-        } catch (error) { if (active.current) message.error(localizedErrorMessage(error, "发送失败，请稍后重试", "Could not send code. Try again later.")); }
-        finally { setSending(false); inFlight.current = false; }
+            message.success(purpose === "login" ? t("auth.verification.sentLogin") : t("auth.verification.sent"));
+        } catch (error) {
+            if (active.current) message.error(error instanceof Error ? error.message : t("auth.verification.sendFailed"));
+        } finally {
+            if (active.current) setSending(false);
+            inFlight.current = false;
+        }
     };
-    const sendLabel = text("获取验证码", "Get code");
-    return <div className="space-y-4">
-        {sms && <label className="block space-y-2"><span className="auth-scene-label text-xs font-medium">{text("手机号", "Phone number")}</span><Input size="large" value={value.phone} onChange={(e) => changeTarget("phone", e.target.value)} autoComplete="tel" inputMode="tel" placeholder={text("中国大陆手机号，支持 +86", "Mainland China number (+86 only)")} required disabled={disabled || sending} /></label>}
-        {email && <label className="block space-y-2"><span className="auth-scene-label text-xs font-medium">{text("邮箱", "Email")}</span><Input size="large" type="email" value={value.email} onChange={(e) => changeTarget("email", e.target.value)} autoComplete="email" placeholder={text("请输入邮箱", "Enter your email")} required disabled={disabled || sending} /></label>}
-        {[...(sms ? ["smsCode" as const] : []), ...(email ? ["emailCode" as const] : [])].map((key, index) => (
-            <CodeField
-                key={key}
-                label={key === "smsCode" ? text("短信验证码", "SMS code") : text("邮件验证码", "Email code")}
-                value={value[key]}
-                onChange={(next) => onChange({ ...value, [key]: next.replace(/\D/g, "").slice(0, 6) })}
-                onSend={() => void send()}
-                sending={sending}
-                remaining={remaining}
-                // 按钮在联系方式为空时保持禁用，避免用户点了才发现没填邮箱/手机号。
-                targetReady={(sms ? Boolean(value.phone.trim()) : true) && (email ? Boolean(value.email.trim()) : true) && (purpose !== "bind" || Boolean(password))}
-                disabled={disabled}
-                placeholder={text("6 位数字验证码", "6-digit code")}
-                autoComplete="one-time-code"
-                inputMode="numeric"
-                sendLabel={sendLabel}
-                showSend={index === 0}
-            />
-        ))}
-        {method === "sms_email" && <p className="auth-scene-muted m-0 text-xs leading-5">{text("获取验证码会同时发送短信和邮件，请分别填写收到的验证码；修改联系方式后需要重新获取。", "Requesting codes sends both SMS and email. Enter each code separately; request new codes after changing contact details.")}</p>}
-    </div>;
+    const counting = remaining > 0;
+    // 按钮在联系方式为空时保持禁用，避免用户点了才发现没填邮箱/手机号。
+    const targetReady = (sms ? Boolean(value.phone.trim()) : true) && (email ? Boolean(value.email.trim()) : true) && (purpose !== "bind" || Boolean(password));
+    return (
+        <div className="auth-form-fields">
+            {/* 后端只接受中国大陆手机号，+86 是固定前缀，输入时可省略。 */}
+            {sms && (
+                <Input
+                    size="large"
+                    className="auth-phone-input"
+                    prefix={
+                        <span className="auth-phone-prefix" aria-hidden>
+                            +86
+                        </span>
+                    }
+                    value={value.phone}
+                    onChange={(e) => changeTarget("phone", e.target.value)}
+                    autoComplete="tel"
+                    inputMode="tel"
+                    aria-label={t("auth.verification.phone")}
+                    placeholder={t("auth.verification.phonePlaceholder")}
+                    required
+                    disabled={disabled || sending}
+                />
+            )}
+            {email && (
+                <Input
+                    size="large"
+                    type="email"
+                    value={value.email}
+                    onChange={(e) => changeTarget("email", e.target.value)}
+                    autoComplete="email"
+                    aria-label={t("auth.verification.email")}
+                    placeholder={t("auth.verification.emailPlaceholder")}
+                    required
+                    disabled={disabled || sending}
+                />
+            )}
+            {[...(sms ? ["smsCode" as const] : []), ...(email ? ["emailCode" as const] : [])].map((key, index) => (
+                <div className="auth-code-row" key={key}>
+                    <Input
+                        size="large"
+                        value={value[key]}
+                        onChange={(event) => {
+                            const code = event.target.value.replace(/\D/g, "").slice(0, 6);
+                            onChange({ ...value, [key]: code });
+                        }}
+                        autoComplete="one-time-code"
+                        inputMode="numeric"
+                        aria-label={t(key === "smsCode" ? "auth.verification.smsCode" : "auth.verification.emailCode")}
+                        placeholder={method === "sms_email" ? t(key === "smsCode" ? "auth.verification.smsCode" : "auth.verification.emailCode") : t("auth.verification.codePlaceholder")}
+                        required
+                        pattern="[0-9]{6}"
+                        maxLength={6}
+                        disabled={disabled || sending}
+                    />
+                    {index === 0 && (
+                        <Button className="auth-code-button" size="large" data-counting={counting ? "true" : "false"} loading={sending} disabled={disabled || sending || counting || !targetReady} onClick={() => void send()}>
+                            {counting ? t("auth.verification.resendIn", { seconds: remaining }) : t("auth.verification.send")}
+                        </Button>
+                    )}
+                </div>
+            ))}
+            {method === "sms_email" && <p className="auth-scene-muted m-0 text-xs leading-5">{t("auth.verification.dualHint")}</p>}
+        </div>
+    );
 }

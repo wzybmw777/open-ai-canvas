@@ -1,6 +1,7 @@
 import { http } from "@/services/api/request";
 import { getResourceAccess, resolveResourceAccessURL, resourceStorageKey } from "@/services/api/resources";
 import type { GenerationTask } from "@/services/api/task-center";
+import { observeGenerationTaskStatus, observeGenerationTaskStatuses } from "@/services/generation-completion-tracker";
 
 export type WorkbenchKind = "image" | "video";
 
@@ -76,7 +77,8 @@ export type WorkbenchToolDirectory = {
 };
 
 export type CreateWorkbenchTaskInput = {
-    projectId: string;
+    projectId?: string;
+    ecommerceProjectId?: string;
     kind: WorkbenchKind;
     toolId?: string;
     presetId?: string;
@@ -101,10 +103,12 @@ export type WorkbenchTaskBatch = { id: string; index: number; count: number };
 
 export async function listWorkbenchTasks(kind: WorkbenchKind, limit = 100, activeOnly = false, signal?: AbortSignal, projectId?: string) {
     const pageSize = Number.isFinite(limit) ? Math.max(1, Math.min(100, Math.trunc(limit))) : 100;
-    return http.get<GenerationTask[]>("/workbench/tasks", {
+    const tasks = await http.get<GenerationTask[]>("/workbench/tasks", {
         params: { kind, pageSize, activeOnly: activeOnly || undefined, projectId: projectId || undefined },
         signal,
     });
+    observeGenerationTaskStatuses(tasks);
+    return tasks;
 }
 
 export async function listWorkbenchTools(kind: WorkbenchKind, signal?: AbortSignal, admin = false) {
@@ -223,18 +227,15 @@ export function setAdminWorkbenchToolEnabled(id: string, enabled: boolean) {
 export type WorkbenchTaskIntent = CreateWorkbenchTaskInput;
 
 export async function createWorkbenchTask(input: WorkbenchTaskIntent, signal?: AbortSignal) {
-    const result = await http.post<WorkbenchTaskReceipt | WorkbenchTaskReceipt["task"]>("/workbench/tasks", input, { signal });
+    const result = await http.post<WorkbenchTaskReceipt | GenerationTask>("/workbench/tasks", input, { signal });
     const task = result && "task" in result ? result.task : result;
     if (!task?.id) throw new Error("任务已提交，但没有返回任务编号");
+    observeGenerationTaskStatus(task);
     // 与 createGenerationTask 一致：创建时积分已被预占，钱包余额需要立即刷新。
     window.dispatchEvent(new CustomEvent("wallet:updated"));
     return task;
 }
 
 export type WorkbenchTaskReceipt = {
-    task: {
-        id: string;
-        status: "queued" | "running" | "succeeded" | "failed" | "cancelled";
-        createdAt?: string;
-    };
+    task: GenerationTask;
 };

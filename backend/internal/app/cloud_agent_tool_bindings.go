@@ -37,6 +37,10 @@ func cloudAgentToolHandlers() map[string]cloudAgentToolHandler {
 		agenttool.SkillMarketSearch:      {Read: cloudAgentHandleSkillMarketSearch},
 		agenttool.SkillRecommend:         {Read: cloudAgentHandleSkillRecommend},
 		agenttool.MemoryUpdate:           {Read: cloudAgentHandleMemoryUpdate},
+		agenttool.GenerateMediaBatch:     {Pipeline: cloudAgentToolMedia},
+		agenttool.MediaBatchControl:      {Read: cloudAgentHandleMediaBatchControlFallback},
+		agenttool.CanvasBuildBoard:       {Write: applyCloudAgentBuildBoard, Preview: cloudAgentPreviewBuildBoard},
+		agenttool.CanvasPreflight:        {Read: cloudAgentHandleCanvasPreflight},
 		agenttool.DramaGetContext:        {Read: cloudAgentHandleDramaGetContext},
 		agenttool.DramaAdoptCanvasMedia:  {Write: applyCloudAgentDramaAdopt, Preview: cloudAgentPreviewDramaAdopt},
 	}

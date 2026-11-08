@@ -1,9 +1,11 @@
-import { create } from "zustand";
+import { useLocaleStore } from "@/stores/use-locale-store";
+import type { AppLocale } from "@/i18n/locales";
 
-export type AppLocale = "zh-CN" | "en-US";
+export { useLocaleStore };
+export type { AppLocale };
 
 export function localeText(chinese: string, english: string, locale: AppLocale) {
-    return locale === "en-US" ? english : chinese;
+    return locale === "zh-CN" ? chinese : english;
 }
 
 const STORAGE_KEY = "infinite-canvas:locale";
@@ -19,20 +21,6 @@ export function preferredLocale(storage?: Pick<Storage, "getItem">, languages?: 
     const browserLanguages = languages ?? (typeof navigator === "undefined" ? [] : navigator.languages?.length ? navigator.languages : [navigator.language]);
     return browserLanguages[0]?.toLowerCase().startsWith("zh") ? "zh-CN" : "en-US";
 }
-
-type LocaleState = { locale: AppLocale; setLocale: (locale: AppLocale) => void };
-
-export const useLocaleStore = create<LocaleState>((set) => ({
-    locale: preferredLocale(),
-    setLocale: (locale) => {
-        try {
-            window.localStorage.setItem(STORAGE_KEY, locale);
-        } catch {
-            // Keep the selection for this session.
-        }
-        set({ locale });
-    },
-}));
 
 export function formatLocalizedDate(value: Date | number | string, options: Intl.DateTimeFormatOptions, locale = useLocaleStore.getState().locale) {
     const date = value instanceof Date ? value : new Date(value);
@@ -56,7 +44,7 @@ const englishErrorReasons: Record<string, string> = {
 };
 
 export function localizedErrorMessage(error: unknown, chineseFallback: string, englishFallback: string, locale = useLocaleStore.getState().locale) {
-    if (locale === "en-US") {
+    if (locale !== "zh-CN") {
         const reason = error && typeof error === "object" && "reason" in error ? error.reason : undefined;
         return typeof reason === "string" ? englishErrorReasons[reason] || englishFallback : englishFallback;
     }

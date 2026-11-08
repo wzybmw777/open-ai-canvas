@@ -40,6 +40,9 @@ func (s *Service) terminateStuckCloudAgent(run *model.CloudAgentExecution) bool 
 }
 
 func (s *Service) cloudAgentHasLiveWork(run *model.CloudAgentExecution, state *cloudAgentRuntime) bool {
+	if cloudAgentMediaBatchActive(state) {
+		return true
+	}
 	taskIDs := []string{state.ActiveTaskID, state.MediaTaskID, state.StoryboardTaskID}
 	for _, pending := range state.PendingMedia {
 		taskIDs = append(taskIDs, pending.TaskID)
