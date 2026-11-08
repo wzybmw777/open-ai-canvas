@@ -28,7 +28,7 @@ for (const [key, value] of Object.entries({
 }
 const { act } = await import("react");
 const { createRoot } = await import("react-dom/client");
-const { App } = await import("antd");
+const { App, ConfigProvider } = await import("antd");
 const { MemoryRouter, useLocation } = await import("react-router");
 const { default: TasksPage } = await import("../../src/pages/tasks");
 const { apiClient } = await import("../../src/services/api/request");
@@ -77,43 +77,46 @@ test.each(["completed", "recover", "recovery-failed", "detail-failed"])("task ro
         await act(async () =>
             root.render(
                 <MemoryRouter initialEntries={["/tasks?status=all"]}>
-                    <App>
-                        <TasksPage />
-                        <RouteProbe />
-                    </App>
+                    <ConfigProvider theme={{ token: { motion: false } }}>
+                        <App>
+                            <TasksPage />
+                            <RouteProbe />
+                        </App>
+                    </ConfigProvider>
                 </MemoryRouter>,
             ),
         );
-        const title = host.querySelector<HTMLButtonElement>(".task-record-title");
+        const title = host.querySelector<HTMLButtonElement>('button[title="任务摘要"]');
         expect(title?.textContent).toBe("任务摘要");
         await act(async () => title!.click());
-        const drawer = document.querySelector(".ant-drawer-body");
-        expect(drawer).not.toBeNull();
+        const dialog = document.querySelector('[role="dialog"] .task-detail');
+        expect(dialog).not.toBeNull();
+        expect(dialog?.querySelector(".task-detail-id code")?.textContent).toBe("existing-task");
         expect(requests).toContain("get /tasks/existing-task");
         expect(requests).toContain("get /tasks/existing-task/logs");
         if (state === "detail-failed") {
-            expect(drawer?.textContent).toContain("任务摘要");
+            expect(dialog?.textContent).toContain("任务摘要");
             expect(document.body.textContent).toContain("服务端拒绝详情读取");
         } else if (recovering) {
-            const retry = Array.from(drawer!.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.includes("重试保存"));
+            const retry = Array.from(dialog!.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.includes("重试保存"));
             expect(retry).toBeDefined();
             await act(async () => retry!.click());
             expect(requests.filter((request) => request.startsWith("post "))).toEqual(["post /tasks/existing-task/recover-media"]);
             if (state === "recover") {
-                expect(drawer?.textContent).toContain("同一任务正在恢复保存");
+                expect(dialog?.textContent).toContain("同一任务正在恢复保存");
                 expect(host.querySelector("[data-location]")?.textContent).toBe("?status=active");
             } else {
                 expect(document.body.textContent).toContain("保存恢复失败");
-                expect(drawer?.textContent).toContain("服务端任务详情");
+                expect(dialog?.textContent).toContain("服务端任务详情");
                 expect(host.querySelector("[data-location]")?.textContent).toBe("?status=all");
             }
         } else {
-            expect(drawer?.textContent).toContain("服务端任务详情");
-            expect(drawer?.textContent).toContain("对应任务的生成结果");
+            expect(dialog?.textContent).toContain("服务端任务详情");
+            expect(dialog?.textContent).toContain("对应任务的生成结果");
             expect(requests.some((request) => request.startsWith("post "))).toBe(false);
         }
-        await act(async () => document.querySelector<HTMLButtonElement>(".ant-drawer-close")!.click());
-        expect(document.querySelector(".ant-drawer-open")).toBeNull();
+        await act(async () => dialog!.querySelector<HTMLButtonElement>('.task-detail-close[aria-label="关闭"]')!.click());
+        expect(document.querySelector('[role="dialog"] .task-detail')).toBeNull();
     } finally {
         await act(async () => root.unmount());
         host.remove();

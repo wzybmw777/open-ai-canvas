@@ -88,7 +88,9 @@ func testCanvasAgentHistoryPlan(t *testing.T, db *gorm.DB) {
 	if err := db.Transaction(func(tx *gorm.DB) error {
 		for i := range 1000 {
 			id := fmt.Sprintf("pi-history-%d", i)
-			if err := tx.Create(&model.Task{ID: id, UserID: "history", ProjectID: "history-canvas", Operation: "cloud_agent", Status: model.TaskStatusTextReplay}).Error; err != nil {
+			// 已有检查点的历史不进入预留索引；先插入再更新会残留大量死项和索引页，
+			// 使小数据集的成本计划依赖 VACUUM 时机，而不是历史读取的性能合同。
+			if err := tx.Create(&model.Task{ID: id, UserID: "history", ProjectID: "history-canvas", Operation: "cloud_agent", Status: model.TaskStatusTextReplay, AgentExecutionReady: true}).Error; err != nil {
 				return err
 			}
 			if err := New(tx).EnsureCloudAgent(&model.CloudAgentExecution{ID: id, UserID: "history", Status: "completed"}); err != nil {
