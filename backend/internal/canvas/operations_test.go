@@ -576,6 +576,12 @@ func newCanvasOperationTestService(t *testing.T) *Service {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := db.Exec("PRAGMA journal_mode = MEMORY").Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec("PRAGMA synchronous = OFF").Error; err != nil {
+		t.Fatal(err)
+	}
 	if err := db.AutoMigrate(&model.CanvasEditLease{}, &model.CanvasProject{}, &model.CanvasSnapshot{}, &model.CanvasSnapshotResource{}, &model.CanvasMutationReceipt{}, &model.CanvasShare{}, &model.CanvasUnitLink{}, &model.Task{}, &model.CloudAgentExecution{}, &model.Resource{}, &model.Asset{}); err != nil {
 		t.Fatal(err)
 	}

@@ -35,9 +35,9 @@ export function ensureDefaultCreationProject(): Promise<string> {
         return created.id;
     };
     // Serialize first use across tabs as well as React mounts when Web Locks is available.
-    const result = (typeof navigator !== "undefined" && navigator.locks
-        ? navigator.locks.request(`yingce:default-creation-project:${scope}`, prepare)
-        : prepare()).finally(() => { if (pendingDefaults.get(scope) === result) pendingDefaults.delete(scope); });
+    const result = (typeof navigator !== "undefined" && navigator.locks ? navigator.locks.request(`yingce:default-creation-project:${scope}`, prepare) : prepare()).finally(() => {
+        if (pendingDefaults.get(scope) === result) pendingDefaults.delete(scope);
+    });
     pendingDefaults.set(scope, result);
     return result;
 }

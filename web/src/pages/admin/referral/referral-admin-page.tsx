@@ -24,7 +24,11 @@ export default function AdminReferralPage() {
         if (setting.data) setDraft(setting.data);
     }, [setting.data]);
 
-    const dirty = Boolean(draft && setting.data && (draft.enabled !== setting.data.enabled || draft.mode !== setting.data.mode || draft.commissionRateBasisPoints !== setting.data.commissionRateBasisPoints || draft.redeemCommissionEnabled !== setting.data.redeemCommissionEnabled));
+    const dirty = Boolean(
+        draft &&
+        setting.data &&
+        (draft.enabled !== setting.data.enabled || draft.mode !== setting.data.mode || draft.commissionRateBasisPoints !== setting.data.commissionRateBasisPoints || draft.redeemCommissionEnabled !== setting.data.redeemCommissionEnabled),
+    );
     const save = async () => {
         if (!draft) return;
         setSaving(true);
@@ -138,8 +142,14 @@ export default function AdminReferralPage() {
                             columns: [
                                 { key: "inviter", title: "推广人", dataIndex: "inviterName" },
                                 { key: "invitee", title: "被邀请用户", dataIndex: "inviteeName" },
-                                { key: "source", title: "来源", dataIndex: "sourceType", align: "center", render: (value: ReferralCommission["sourceType"]) => value === "redeem" ? "兑换码" : "支付充值" },
-                                { key: "amount", title: "充值金额", dataIndex: "orderAmountFen", align: "right", render: (value: number, item: ReferralCommission) => <span className="tabular-nums">{item.sourceType === "redeem" ? "—" : formatReferralYuan(value)}</span> },
+                                { key: "source", title: "来源", dataIndex: "sourceType", align: "center", render: (value: ReferralCommission["sourceType"]) => (value === "redeem" ? "兑换码" : "支付充值") },
+                                {
+                                    key: "amount",
+                                    title: "充值金额",
+                                    dataIndex: "orderAmountFen",
+                                    align: "right",
+                                    render: (value: number, item: ReferralCommission) => <span className="tabular-nums">{item.sourceType === "redeem" ? "—" : formatReferralYuan(value)}</span>,
+                                },
                                 { key: "credits", title: "到账积分", dataIndex: "orderCreditsMicrocredits", align: "right", render: (value: number) => <span className="tabular-nums">{formatReferralCredits(value)}</span> },
                                 { key: "rate", title: "比例", dataIndex: "rateBasisPoints", align: "center", render: (value: number) => formatReferralRate(value) },
                                 { key: "commission", title: "返佣积分", dataIndex: "commissionMicrocredits", align: "right", render: (value: number) => <span className="tabular-nums">+{formatReferralCredits(value)}</span> },

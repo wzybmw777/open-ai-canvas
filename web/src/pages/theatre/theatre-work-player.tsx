@@ -15,7 +15,11 @@ export function TheatreWorkPlayer({ work, userId, onClose }: { work: TheatreWork
         <AppModal
             open
             flush
-            title={<span className="block min-w-0 truncate pr-8" title={work.title}>{work.title}</span>}
+            title={
+                <span className="block min-w-0 truncate pr-8" title={work.title}>
+                    {work.title}
+                </span>
+            }
             width={1080}
             footer={null}
             styles={{ header: { padding: "16px 52px 16px 24px" } }}

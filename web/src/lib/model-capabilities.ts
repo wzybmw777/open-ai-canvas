@@ -86,6 +86,7 @@ export type ImageCapabilityConfig = {
         allowCustom: boolean;
         presets?: ImageResolutionOption[];
         defaultTier?: string;
+        defaultRatio?: string;
     };
     resolution: { supported: boolean; values: string[]; default: string };
     quality: {
@@ -480,12 +481,27 @@ export function defaultModelCapabilityConfig(protocol?: ModelProtocol, model = "
         video.resolutions = ["720p"];
     }
     if (protocol === "dashscope-happyhorse-video-edit") {
-        video.references = { ...video.references, promptMaxChars:2500, minImages:0, maxImages:5, maxImageBytes:20*1024*1024, maxVideos:1, maxVideoBytes:100*1024*1024, maxVideoDurationSeconds:15, maxAudios:0, maxAudioBytes:0, maxAudioDurationSeconds:0 };
-        video.duration = { selection:"range", min:3, max:15, step:1, default:5, maxWithReferenceVideo:15 };
-        video.ratios = []; video.defaultRatio = "";
-        video.resolutions = ["720P", "1080P"]; video.defaultResolution = "720P";
-        video.watermark = { supported:true, default:false };
-        video.operations = ["video_edit"]; video.defaultOperation = "video_edit";
+        video.references = {
+            ...video.references,
+            promptMaxChars: 2500,
+            minImages: 0,
+            maxImages: 5,
+            maxImageBytes: 20 * 1024 * 1024,
+            maxVideos: 1,
+            maxVideoBytes: 100 * 1024 * 1024,
+            maxVideoDurationSeconds: 15,
+            maxAudios: 0,
+            maxAudioBytes: 0,
+            maxAudioDurationSeconds: 0,
+        };
+        video.duration = { selection: "range", min: 3, max: 15, step: 1, default: 5, maxWithReferenceVideo: 15 };
+        video.ratios = [];
+        video.defaultRatio = "";
+        video.resolutions = ["720P", "1080P"];
+        video.defaultResolution = "720P";
+        video.watermark = { supported: true, default: false };
+        video.operations = ["video_edit"];
+        video.defaultOperation = "video_edit";
     }
     if (protocol === "gemini-veo") {
         video.duration = { selection: "enum", values: [4, 6, 8], default: 6 };
@@ -742,9 +758,7 @@ function normalizeRangeDuration(profile: VideoCapabilityConfig, value: number) {
 export function videoCapabilityForReferenceVideos(profile: VideoCapabilityConfig, referenceVideoCount: number): VideoCapabilityConfig {
     const limit = profile.duration.maxWithReferenceVideo;
     if (!limit || referenceVideoCount <= 0) return profile;
-    const duration = profile.duration.selection === "enum"
-        ? { ...profile.duration, values: (profile.duration.values || []).filter((value) => value <= limit) }
-        : { ...profile.duration, max: Math.min(profile.duration.max || limit, limit) };
+    const duration = profile.duration.selection === "enum" ? { ...profile.duration, values: (profile.duration.values || []).filter((value) => value <= limit) } : { ...profile.duration, max: Math.min(profile.duration.max || limit, limit) };
     if (duration.selection === "enum" && !duration.values?.includes(duration.default)) duration.default = duration.values?.[0] || profile.duration.default;
     return { ...profile, duration };
 }

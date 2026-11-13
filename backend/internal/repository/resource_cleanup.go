@@ -67,6 +67,13 @@ func (r *Repository) DeleteDetachedResources(resources []model.Resource, deletio
 				}
 			}
 		}
+		logReferences, err := New(tx).APICallLogResourceReferences("", resourceIDs)
+		if err != nil {
+			return err
+		}
+		if len(logReferences) > 0 {
+			return ErrResourceCleanupStillReferenced
+		}
 		for _, check := range []struct {
 			model any
 			query string
@@ -74,6 +81,7 @@ func (r *Repository) DeleteDetachedResources(resources []model.Resource, deletio
 			{&model.Announcement{}, "image_resource_id IN ?"},
 			{&model.AnnouncementImageDraft{}, "resource_id IN ?"},
 			{&model.AssetRepresentation{}, "resource_id IN ?"},
+			{&model.CreationConversationResource{}, "resource_id IN ?"},
 			{&model.VoiceProfile{}, "sample_resource_id IN ?"},
 			{&model.ShotArtifact{}, "resource_id IN ?"},
 			{&model.TheatreWork{}, "resource_id IN ?"},

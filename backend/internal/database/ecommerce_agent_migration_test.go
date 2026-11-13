@@ -45,10 +45,15 @@ func TestEcommerceAgentSchemaUpgradeFrom82PreservesMigrationHistory(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := db.Exec("PRAGMA synchronous = OFF").Error; err != nil {
+		t.Fatal(err)
+	}
 	sqlDB, err := db.DB()
 	if err != nil {
 		t.Fatal(err)
 	}
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
 	defer sqlDB.Close()
 	assertSchemaUpgradeFrom82(t, db)
 }
@@ -200,7 +205,7 @@ func assertSchemaUpgradeFrom82(t *testing.T, db *gorm.DB) {
 		}
 	}
 	status, err := ReadSchemaStatus(db)
-	if err != nil || !status.Ready || status.Current != 96 {
+	if err != nil || !status.Ready || status.Current != CurrentSchemaVersion {
 		t.Fatalf("unexpected upgraded schema: %+v, %v", status, err)
 	}
 	if err := RequireSchemaVersion(db); err != nil {

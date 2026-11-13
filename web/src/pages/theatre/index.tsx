@@ -57,7 +57,11 @@ function TheatreWorkspace({ userId }: { userId: string }) {
                     title={text("作品与发布", "Works & publishing")}
                     description={text("管理已发布作品，或上传成片发布为短片、短剧系列。", "Manage published works, or upload a film to publish a video or series.")}
                     meta={worksQuery.isSuccess ? <span className="text-[var(--fs-caption)] text-muted-foreground">{text(`${totalWorks} 部作品`, `${totalWorks} works`)}</span> : undefined}
-                    actions={<Button type="primary" icon={<Plus className="size-4" />} onClick={() => setEditor(kind === "short_drama" ? "new_drama" : "new")}>{text("发布作品", "Publish a work")}</Button>}
+                    actions={
+                        <Button type="primary" icon={<Plus className="size-4" />} onClick={() => setEditor(kind === "short_drama" ? "new_drama" : "new")}>
+                            {text("发布作品", "Publish a work")}
+                        </Button>
+                    }
                 />
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--r-xl)] border border-border bg-surface px-3 py-3 sm:px-4">
                     <div className="flex min-w-0 gap-1.5">

@@ -29,16 +29,33 @@ export function ProjectContextBar({ projectId, disabled, onChange, description, 
         if (!userId || disabled || !projects.isSuccess || projects.isFetching) return;
         if (!projectId || !projects.data.projects.some((project) => project.id === projectId)) onChange(projects.data.defaultId);
     }, [userId, projectId, disabled, projects.isSuccess, projects.isFetching, projects.data, onChange]);
-    return <section className="project-context-bar" aria-label={text("当前创作项目", "Creation project")}>
-        <div className="project-context-controls">
-            <span>{text("所属项目", "Project")}</span>
-            <Select aria-label={text("选择创作项目", "Choose a project")} placeholder={text("选择项目", "Choose a project")}
-                value={projectId || undefined} onChange={onChange} showSearch={{ optionFilterProp: "label" }}
-                options={(projects.data?.projects || []).map((project) => ({ value: project.id, label: project.title }))}
-                loading={projects.isPending && Boolean(userId)} disabled={!userId || disabled || projects.isError}
-                notFoundContent={text("正在准备默认项目", "Preparing your default project")} />
-            {action || <Link to="/canvas">{text("打开项目", "Open project")}</Link>}
-        </div>
-        {projects.isError ? <p role="alert">{text("项目准备失败，请重试。", "Could not prepare projects. Try again.")} <Button size="small" onClick={() => void projects.refetch()}>{text("重试", "Retry")}</Button></p> : description ? <p>{description}</p> : null}
-    </section>;
+    return (
+        <section className="project-context-bar" aria-label={text("当前创作项目", "Creation project")}>
+            <div className="project-context-controls">
+                <span>{text("所属项目", "Project")}</span>
+                <Select
+                    aria-label={text("选择创作项目", "Choose a project")}
+                    placeholder={text("选择项目", "Choose a project")}
+                    value={projectId || undefined}
+                    onChange={onChange}
+                    showSearch={{ optionFilterProp: "label" }}
+                    options={(projects.data?.projects || []).map((project) => ({ value: project.id, label: project.title }))}
+                    loading={projects.isPending && Boolean(userId)}
+                    disabled={!userId || disabled || projects.isError}
+                    notFoundContent={text("正在准备默认项目", "Preparing your default project")}
+                />
+                {action || <Link to="/canvas">{text("打开项目", "Open project")}</Link>}
+            </div>
+            {projects.isError ? (
+                <p role="alert">
+                    {text("项目准备失败，请重试。", "Could not prepare projects. Try again.")}{" "}
+                    <Button size="small" onClick={() => void projects.refetch()}>
+                        {text("重试", "Retry")}
+                    </Button>
+                </p>
+            ) : description ? (
+                <p>{description}</p>
+            ) : null}
+        </section>
+    );
 }

@@ -13,7 +13,7 @@ import { EAGLE_PLUGIN_ID } from "@/lib/plugins/builtin/eagle";
 import { PROMPT_OPTIMIZER_PLUGIN_ID } from "@/lib/plugins/builtin/prompt-optimizer";
 import { RUNNINGHUB_PLUGIN_ID } from "@/lib/plugins/builtin/workflows";
 import { isOfficialApplicationPluginId } from "@/lib/plugins/official-applications";
-import type { PluginManifest, PluginManifestV2, RegisteredPlugin } from "@/lib/plugins/plugin-types";
+import type { PluginManifest, RegisteredPlugin } from "@/lib/plugins/plugin-types";
 import { getEagleLibrary, type EagleFolder } from "@/services/api/eagle";
 import { fetchPlugins, setUserPluginEnabled, type BackendPlugin, type PluginState } from "@/services/api/plugins";
 import { useAppearanceStore } from "@/stores/use-appearance-store";
@@ -38,8 +38,16 @@ const categoryLabels: Record<string, string> = {
     "import-export": "导入导出",
 };
 const englishCategoryLabels: Record<string, string> = {
-    provider: "Model provider", "payment-provider": "Payment provider", "canvas-node": "Canvas node", workflow: "Workflow",
-    transform: "Media transform", "asset-source": "Asset source", "ai-capability": "AI capability", "usage-observer": "Usage tracking", agent: "Agent", "import-export": "Import/export",
+    provider: "Model provider",
+    "payment-provider": "Payment provider",
+    "canvas-node": "Canvas node",
+    workflow: "Workflow",
+    transform: "Media transform",
+    "asset-source": "Asset source",
+    "ai-capability": "AI capability",
+    "usage-observer": "Usage tracking",
+    agent: "Agent",
+    "import-export": "Import/export",
 };
 
 const surfaceLabels: Record<string, string> = {
@@ -63,8 +71,16 @@ const permissionLabels: Record<string, string> = {
     "external.open": "打开外部详情",
 };
 const englishPermissionLabels: Record<string, string> = {
-    "canvas.read": "Read canvas", "canvas.write": "Edit canvas", "asset.read": "Read assets", "asset.search": "Search assets", "asset.import": "Import assets",
-    "asset.upload": "Upload assets", "generation.run": "Run generation", "ai.text": "Use configured text/vision models", "media.read": "Read input media", "external.open": "Open external details",
+    "canvas.read": "Read canvas",
+    "canvas.write": "Edit canvas",
+    "asset.read": "Read assets",
+    "asset.search": "Search assets",
+    "asset.import": "Import assets",
+    "asset.upload": "Upload assets",
+    "generation.run": "Run generation",
+    "ai.text": "Use configured text/vision models",
+    "media.read": "Read input media",
+    "external.open": "Open external details",
 };
 
 const protocolSectionMeta = [
@@ -100,7 +116,7 @@ export default function PluginsPage() {
     const [statusFilter, setStatusFilter] = useState<"all" | "enabled" | "disabled">("all");
     const [trustFilter, setTrustFilter] = useState<"all" | "trusted">("all");
     const [eagleBaseUrl, setEagleBaseUrl] = useState("http://localhost:41595");
-    const [eagleAutoUploadGenerated, setEagleAutoUploadGenerated] = useState(true);
+    const [eagleAutoUploadGenerated, setEagleAutoUploadGenerated] = useState(false);
     const [eagleGeneratedFolderId, setEagleGeneratedFolderId] = useState("");
     const [eagleFolders, setEagleFolders] = useState<EagleFolder[]>([]);
     const [eagleFoldersLoading, setEagleFoldersLoading] = useState(false);
@@ -142,7 +158,7 @@ export default function PluginsPage() {
         const configured = eagle?.config.baseUrl;
         if (typeof configured === "string" && configured.trim()) setEagleBaseUrl(configured);
         const autoUpload = eagle?.config.autoUploadGenerated;
-        setEagleAutoUploadGenerated(autoUpload !== false && autoUpload !== "false");
+        setEagleAutoUploadGenerated(autoUpload === true || autoUpload === "true");
         const folderId = eagle?.config.generatedFolderId;
         setEagleGeneratedFolderId(typeof folderId === "string" ? folderId : "");
     }, [eagle?.config.baseUrl, eagle?.config.autoUploadGenerated, eagle?.config.generatedFolderId]);
@@ -289,16 +305,21 @@ export default function PluginsPage() {
                         </nav>
                     </aside>
                     <div className="plugins-page-content">
-                        <CollectionToolbar label={text("插件筛选", "Plugin filters")} trailing={<div className="plugins-toolbar-actions">
-                                <Button icon={<RefreshCw className="size-4" />} loading={backendPluginsLoading} onClick={() => void reloadBackendPlugins()}>
-                                    {text("刷新插件", "Refresh plugins")}
-                                </Button>
-                                {user?.role === "admin" ? (
-                                    <Button type="primary" onClick={() => navigate("/admin/plugins")}>
-                                        {text("管理员插件管理", "Manage plugins")}
+                        <CollectionToolbar
+                            label={text("插件筛选", "Plugin filters")}
+                            trailing={
+                                <div className="plugins-toolbar-actions">
+                                    <Button icon={<RefreshCw className="size-4" />} loading={backendPluginsLoading} onClick={() => void reloadBackendPlugins()}>
+                                        {text("刷新插件", "Refresh plugins")}
                                     </Button>
-                                ) : null}
-                            </div>}>
+                                    {user?.role === "admin" ? (
+                                        <Button type="primary" onClick={() => navigate("/admin/plugins")}>
+                                            {text("管理员插件管理", "Manage plugins")}
+                                        </Button>
+                                    ) : null}
+                                </div>
+                            }
+                        >
                             <Input
                                 className="plugins-search"
                                 prefix={<Search className="size-4 text-foreground/38" aria-hidden="true" />}
@@ -346,8 +367,27 @@ export default function PluginsPage() {
                                                     <SectionIcon className="size-4" />
                                                 </span>
                                                 <div>
-                                                    <h2>{section.key === "other" ? text("应用插件", "Applications") : locale === "en-US" ? ({ text: "Text protocol", image: "Image protocol", video: "Video protocol", audio: "Audio protocol", payment: "Payment protocol" } as Record<string, string>)[section.key] : section.label}</h2>
-                                                    <p>{locale === "en-US" ? ({ text: "Chat, reasoning, and streaming", image: "Generation, editing, and references", video: "Tasks, polling, and media results", audio: "Speech and asynchronous audio", payment: "Payment, orders, and reconciliation", other: "Canvas, asset, and workflow extensions" } as Record<string, string>)[section.key] : section.description}</p>
+                                                    <h2>
+                                                        {section.key === "other"
+                                                            ? text("应用插件", "Applications")
+                                                            : locale === "en-US"
+                                                              ? ({ text: "Text protocol", image: "Image protocol", video: "Video protocol", audio: "Audio protocol", payment: "Payment protocol" } as Record<string, string>)[section.key]
+                                                              : section.label}
+                                                    </h2>
+                                                    <p>
+                                                        {locale === "en-US"
+                                                            ? (
+                                                                  {
+                                                                      text: "Chat, reasoning, and streaming",
+                                                                      image: "Generation, editing, and references",
+                                                                      video: "Tasks, polling, and media results",
+                                                                      audio: "Speech and asynchronous audio",
+                                                                      payment: "Payment, orders, and reconciliation",
+                                                                      other: "Canvas, asset, and workflow extensions",
+                                                                  } as Record<string, string>
+                                                              )[section.key]
+                                                            : section.description}
+                                                    </p>
                                                 </div>
                                                 <span className="plugin-section-count">{section.plugins.length}</span>
                                             </header>
@@ -421,20 +461,32 @@ export default function PluginsPage() {
                                                                             <span key={capability}>{capabilityLabel(capability, locale)}</span>
                                                                         ))}
                                                                         {plugin.manifest.contributes.providers?.some((provider) => provider.poll) ? <span>{text("异步轮询", "Async polling")}</span> : null}
-                                                                        <span>{plugin.manifest.permissions.length} {text("项能力", "permissions")}</span>
+                                                                        <span>
+                                                                            {plugin.manifest.permissions.length} {text("项能力", "permissions")}
+                                                                        </span>
                                                                     </div>
                                                                 </button>
 
                                                                 <div className="plugin-card-actions">
                                                                     <span role="status" className={`settings-channel-status ${enabled ? "is-ready" : ""}`}>
                                                                         <i aria-hidden="true" />
-                                                                        {!state?.platformAvailable && state?.blockedReason ? locale === "en-US" && /[\u3400-\u9fff]/.test(state.blockedReason) ? "Unavailable on this platform" : state.blockedReason : enabled ? text("已启用", "Enabled") : text("已停用", "Disabled")}
+                                                                        {!state?.platformAvailable && state?.blockedReason
+                                                                            ? locale === "en-US" && /[\u3400-\u9fff]/.test(state.blockedReason)
+                                                                                ? "Unavailable on this platform"
+                                                                                : state.blockedReason
+                                                                            : enabled
+                                                                              ? text("已启用", "Enabled")
+                                                                              : text("已停用", "Disabled")}
                                                                     </span>
                                                                     <Switch
                                                                         className="plugin-state-switch"
                                                                         disabled={!state?.canToggle}
                                                                         checked={enabled}
-                                                                        aria-label={locale === "en-US" ? `${plugin.manifest.name}, currently ${enabled ? "enabled. Click to disable" : "disabled. Click to enable"}` : `${plugin.manifest.name}，当前${enabled ? "已启用，点击停用" : "已停用，点击启用"}`}
+                                                                        aria-label={
+                                                                            locale === "en-US"
+                                                                                ? `${plugin.manifest.name}, currently ${enabled ? "enabled. Click to disable" : "disabled. Click to enable"}`
+                                                                                : `${plugin.manifest.name}，当前${enabled ? "已启用，点击停用" : "已停用，点击启用"}`
+                                                                        }
                                                                         title={state?.blockedReason && locale === "en-US" && /[\u3400-\u9fff]/.test(state.blockedReason) ? "Unavailable on this platform" : state?.blockedReason}
                                                                         onChange={(checked) => void togglePlugin(plugin, checked)}
                                                                     />
@@ -521,15 +573,32 @@ export default function PluginsPage() {
                                             <div className="plugin-settings-fields">
                                                 <div className="min-w-0">
                                                     <label htmlFor="eagle-base-url">{text("Eagle 本地 API 地址", "Eagle local API URL")}</label>
-                                                    <Input id="eagle-base-url" aria-label={text("Eagle 本地 API 地址", "Eagle local API URL")} value={eagleBaseUrl} onChange={(event) => setEagleBaseUrl(event.target.value)} placeholder="http://localhost:41595" />
-                                                    <p>{locale === "en-US" ? `Eagle must run on this computer. ${brandName} reads and writes Eagle files through the plugin.` : `Eagle 必须在本机运行；${brandName}通过插件直接读取和写入 Eagle 原始文件。`}</p>
+                                                    <Input
+                                                        id="eagle-base-url"
+                                                        aria-label={text("Eagle 本地 API 地址", "Eagle local API URL")}
+                                                        value={eagleBaseUrl}
+                                                        onChange={(event) => setEagleBaseUrl(event.target.value)}
+                                                        placeholder="http://localhost:41595"
+                                                    />
+                                                    <p>
+                                                        {locale === "en-US" ? `Eagle must run on this computer. ${brandName} reads and writes Eagle files through the plugin.` : `Eagle 必须在本机运行；${brandName}通过插件直接读取和写入 Eagle 原始文件。`}
+                                                    </p>
                                                 </div>
                                                 <div className="min-w-0">
                                                     <div className="plugin-setting-label-row">
                                                         <label htmlFor="eagle-auto-upload-generated">{text("自动归档生成结果", "Archive generated results automatically")}</label>
-                                                        <Switch id="eagle-auto-upload-generated" checked={eagleAutoUploadGenerated} onChange={setEagleAutoUploadGenerated} aria-label={text("自动归档生成结果到 Eagle", "Archive generated results in Eagle automatically")} />
+                                                        <Switch
+                                                            id="eagle-auto-upload-generated"
+                                                            checked={eagleAutoUploadGenerated}
+                                                            onChange={setEagleAutoUploadGenerated}
+                                                            aria-label={text("自动归档生成结果到 Eagle", "Archive generated results in Eagle automatically")}
+                                                        />
                                                     </div>
-                                                    <p>{locale === "en-US" ? `Successful image, video, and audio results are added to Eagle. Local ${brandName} assets remain available.` : `图片、视频和音频生成成功后，自动写入 Eagle；${brandName}本地素材仍会保留。`}</p>
+                                                    <p>
+                                                        {locale === "en-US"
+                                                            ? `Successful image, video, and audio results are added to Eagle. Local ${brandName} assets remain available.`
+                                                            : `图片、视频和音频生成成功后，自动写入 Eagle；${brandName}本地素材仍会保留。`}
+                                                    </p>
                                                 </div>
                                                 <div className="min-w-0">
                                                     <div className="plugin-setting-label-row">
@@ -566,8 +635,12 @@ export default function PluginsPage() {
                                         </>
                                     ) : settingsPlugin.manifest.id === PROMPT_OPTIMIZER_PLUGIN_ID ? (
                                         <div className="rounded-[var(--r-md)] border border-border/60 bg-muted/25 px-3 py-3 text-[var(--fs-body)] leading-6 text-foreground/70">
-                                            <p>{text("在创作页或图片、视频节点的提示词编辑器中使用“优化”按钮，即可让当前文本模型整理提示词。", "Use Optimize in the creation page or an image/video prompt editor to refine prompts with your text model.")}</p>
-                                            <p className="mt-2 text-[var(--fs-caption)] text-muted-foreground">{text("插件不会自动覆盖原提示词，只有点击“采用”后才会回填到当前输入框。", "The original prompt changes only when you accept the suggestion.")}</p>
+                                            <p>
+                                                {text("在创作页或图片、视频节点的提示词编辑器中使用“优化”按钮，即可让当前文本模型整理提示词。", "Use Optimize in the creation page or an image/video prompt editor to refine prompts with your text model.")}
+                                            </p>
+                                            <p className="mt-2 text-[var(--fs-caption)] text-muted-foreground">
+                                                {text("插件不会自动覆盖原提示词，只有点击“采用”后才会回填到当前输入框。", "The original prompt changes only when you accept the suggestion.")}
+                                            </p>
                                         </div>
                                     ) : settingsPlugin.manifest.id === RUNNINGHUB_PLUGIN_ID ? (
                                         <div className="plugin-settings-empty">
@@ -596,7 +669,8 @@ export default function PluginsPage() {
                                     <div className="plugin-permissions">
                                         <div>
                                             <span>{text("接入位置", "Surfaces")}</span>
-                                            {(settingsPlugin.manifest.surfaces || []).map((surface) => (locale === "en-US" ? englishSurfaceLabels : surfaceLabels)[surface] ?? surface).join(locale === "en-US" ? ", " : "、") || text("由贡献点决定", "Determined by contribution")}
+                                            {(settingsPlugin.manifest.surfaces || []).map((surface) => (locale === "en-US" ? englishSurfaceLabels : surfaceLabels)[surface] ?? surface).join(locale === "en-US" ? ", " : "、") ||
+                                                text("由贡献点决定", "Determined by contribution")}
                                         </div>
                                         <div>
                                             <span>{text("插件能力", "Permissions")}</span>
@@ -631,7 +705,7 @@ function pluginSourceLabel(plugin: RegisteredPlugin, state: PluginState | undefi
     return localeText("系统插件", "System plugin", locale);
 }
 
-function contributionKindsFor(manifest: PluginManifest | PluginManifestV2): string[] {
+function contributionKindsFor(manifest: PluginManifest): string[] {
     const contributions = manifest.contributes;
     const kinds: string[] = [];
     if (contributions.providers?.length) kinds.push("provider");
@@ -647,11 +721,11 @@ function contributionKindsFor(manifest: PluginManifest | PluginManifestV2): stri
     return kinds;
 }
 
-function providerCapabilitiesFor(manifest: PluginManifest | PluginManifestV2) {
+function providerCapabilitiesFor(manifest: PluginManifest) {
     return [...new Set((manifest.contributes.providers || []).flatMap((provider) => provider.capabilities))];
 }
 
-function pluginMatchesCategory(manifest: PluginManifest | PluginManifestV2, category: string) {
+function pluginMatchesCategory(manifest: PluginManifest, category: string) {
     const providerCapabilities = providerCapabilitiesFor(manifest);
     const isPaymentProtocol = Boolean(manifest.contributes.paymentProviders?.length);
     if (category === "payment") return isPaymentProtocol;

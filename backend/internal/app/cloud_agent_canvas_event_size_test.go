@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"yingce/backend/internal/database"
 	"yingce/backend/internal/model"
 	"yingce/backend/internal/repository"
 )
@@ -22,7 +21,7 @@ func TestAgentApprovalLargeCanvasEvent(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			db := agentPermissionsDB(t)
-			if err := db.AutoMigrate(database.Models()...); err != nil {
+			if err := migrateCloudAgentApprovalModels(db); err != nil {
 				t.Fatal(err)
 			}
 			s := &Service{repo: repository.New(db), dataDir: t.TempDir(), disablePiRuntime: true}

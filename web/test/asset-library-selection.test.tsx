@@ -97,5 +97,4 @@ describe("素材库分页多选", () => {
         const busy = renderToStaticMarkup(<AssetsBatchBar {...props} count={3} busy />);
         expect(busy.match(/disabled=""/g)).toHaveLength(5);
     });
-
 });

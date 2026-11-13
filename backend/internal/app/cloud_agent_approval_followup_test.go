@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"yingce/backend/internal/database"
 	"yingce/backend/internal/model"
 	"yingce/backend/internal/repository"
 )
@@ -17,7 +16,7 @@ import (
 func approvalFollowUpFixture(t *testing.T) (*Service, string, string) {
 	t.Helper()
 	db := agentPermissionsDB(t)
-	if err := db.AutoMigrate(database.Models()...); err != nil {
+	if err := migrateCloudAgentApprovalModels(db); err != nil {
 		t.Fatal(err)
 	}
 	s := &Service{repo: repository.New(db), dataDir: t.TempDir(), disablePiRuntime: true}

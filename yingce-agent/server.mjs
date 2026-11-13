@@ -184,12 +184,13 @@ const server = createServer(async (request, response) => {
     },
     stdio: ["pipe", "pipe", "pipe"],
   });
-  let released = false;
+  let finishing;
   const finish = () => {
-    if (released) return;
-    released = true;
-    void rm(sessionDir, { recursive: true, force: true }).catch((error) => console.error("Agent session cleanup failed:", error));
-    release();
+    if (finishing) return finishing;
+    finishing = rm(sessionDir, { recursive: true, force: true })
+      .catch((error) => console.error("Agent session cleanup failed:", error))
+      .then(release);
+    return finishing;
   };
   let sawRuntimeError = false;
   const stop = () => {
@@ -203,18 +204,18 @@ const server = createServer(async (request, response) => {
     response.write(chunk);
   });
   child.stderr.on("data", (chunk) => process.stderr.write(chunk));
-  child.on("error", (error) => {
+  child.on("error", async (error) => {
     writeRuntimeError(response, error.message);
-    finish();
+    await finish();
   });
-  child.on("close", (code) => {
+  child.on("close", async (code) => {
+    await finish();
     if (!response.writableEnded) {
       if (code && !sawRuntimeError) {
         response.write(`${JSON.stringify({ event: "runtime_error", message: `Agent runtime exited with code ${code}` })}\n`);
       }
       response.end();
     }
-    finish();
   });
   child.stdin.end(body);
 });

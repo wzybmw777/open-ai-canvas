@@ -142,9 +142,23 @@ export default function SMSChannelsPanel({ onUnsavedChange }: { onUnsavedChange:
         }
         setSaving(true);
         try {
-            const input = { ...values, name: values.name.trim(), signName: provider === "huyi" ? "" : values.signName?.trim() || "", version: editing === "new" ? 0 : editing.version, appId: provider === "tencent" ? values.appId?.trim() || "" : "", accessId: values.accessId?.trim() || "", accessKey: values.accessKey?.trim() || "" };
+            const input = {
+                ...values,
+                name: values.name.trim(),
+                signName: provider === "huyi" ? "" : values.signName?.trim() || "",
+                version: editing === "new" ? 0 : editing.version,
+                appId: provider === "tencent" ? values.appId?.trim() || "" : "",
+                accessId: values.accessId?.trim() || "",
+                accessKey: values.accessKey?.trim() || "",
+            };
             const result = editing === "new" ? await createSMSChannel(input) : await updateSMSChannel(editing.id, input);
-            if (!result.id || !result.hasCredentials || ["name", "provider", "enabled", "priority", "dailyLimit", "signName", "appId"].some((key) => result[key as keyof SMSChannel] !== input[key as keyof SMSChannelInput]) || JSON.stringify(result.templates) !== JSON.stringify(input.templates)) throw new Error("服务端返回的渠道与本次保存不一致，请刷新后核对");
+            if (
+                !result.id ||
+                !result.hasCredentials ||
+                ["name", "provider", "enabled", "priority", "dailyLimit", "signName", "appId"].some((key) => result[key as keyof SMSChannel] !== input[key as keyof SMSChannelInput]) ||
+                JSON.stringify(result.templates) !== JSON.stringify(input.templates)
+            )
+                throw new Error("服务端返回的渠道与本次保存不一致，请刷新后核对");
             setChannels((current) => [...(current || []).filter((item) => item.id !== result.id), result].sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id)));
             setEditing(null);
             setDirty(false);
@@ -225,7 +239,13 @@ export default function SMSChannelsPanel({ onUnsavedChange }: { onUnsavedChange:
     };
 
     return (
-        <SettingsSectionCard className="admin-access-section" layout="stacked" icon={<MessageSquare className="size-4" />} title="短信渠道与发送记录" description="配置阿里云、腾讯云或互亿无线短信，按登录、注册、绑定场景使用已审核模板。优先级数值越小越优先。">
+        <SettingsSectionCard
+            className="admin-access-section"
+            layout="stacked"
+            icon={<MessageSquare className="size-4" />}
+            title="短信渠道与发送记录"
+            description="配置阿里云、腾讯云或互亿无线短信，按登录、注册、绑定场景使用已审核模板。优先级数值越小越优先。"
+        >
             <div className="space-y-4 p-4">
                 <Callout title="配置顺序">
                     先在
@@ -414,7 +434,10 @@ export default function SMSChannelsPanel({ onUnsavedChange }: { onUnsavedChange:
                                         <Form.Item name={[field.name, "templateId"]} label="已审核模板 ID" rules={[{ required: true, whitespace: true, message: "请填写模板 ID" }]}>
                                             <Input maxLength={100} />
                                         </Form.Item>
-                                        <p className="text-xs text-foreground/50">{orderedParameters ? "参数按模板顺序填写，名称必须为 0、1…" : "参数名称须与阿里云模板中的变量名一致"}；code 为验证码，minutes 为有效分钟数。{provider === "huyi" && "变量将按顺序以 | 连接；模板只有验证码时仅保留一个参数。"}</p>
+                                        <p className="text-xs text-foreground/50">
+                                            {orderedParameters ? "参数按模板顺序填写，名称必须为 0、1…" : "参数名称须与阿里云模板中的变量名一致"}；code 为验证码，minutes 为有效分钟数。
+                                            {provider === "huyi" && "变量将按顺序以 | 连接；模板只有验证码时仅保留一个参数。"}
+                                        </p>
                                         <Form.List name={[field.name, "parameters"]}>
                                             {(parameters, actions) => (
                                                 <>
@@ -440,7 +463,10 @@ export default function SMSChannelsPanel({ onUnsavedChange }: { onUnsavedChange:
                                                                     actions.remove(parameter.name);
                                                                     if (orderedParameters) {
                                                                         const values = form.getFieldValue(["templates", field.name, "parameters"]) as SMSChannelInput["templates"][number]["parameters"];
-                                                                        form.setFieldValue(["templates", field.name, "parameters"], values.map((p, i) => ({ ...p, name: String(i) })));
+                                                                        form.setFieldValue(
+                                                                            ["templates", field.name, "parameters"],
+                                                                            values.map((p, i) => ({ ...p, name: String(i) })),
+                                                                        );
                                                                     }
                                                                     setDirty(true);
                                                                 }}

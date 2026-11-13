@@ -5,8 +5,14 @@ import type { GenerationTask } from "../src/services/api/task-center";
 
 function task(overrides: Partial<GenerationTask> = {}): GenerationTask {
     return {
-        id: "story-task", projectId: "project-a", type: "canvas_text", status: "succeeded", prompt: "story", attempts: 1,
-        createdAt: "2026-01-01", updatedAt: "2026-01-01",
+        id: "story-task",
+        projectId: "project-a",
+        type: "canvas_text",
+        status: "succeeded",
+        prompt: "story",
+        attempts: 1,
+        createdAt: "2026-01-01",
+        updatedAt: "2026-01-01",
         inputJson: JSON.stringify({ metadata: { source: "project-story-generator", promptTemplateOperation: PromptTemplateOperation.ShortDramaOutline } }),
         resultJson: JSON.stringify({ text: JSON.stringify({ title: "重逢", chapters: [{ title: "雨夜", content: "旧友在车站重逢。" }] }) }),
         ...overrides,

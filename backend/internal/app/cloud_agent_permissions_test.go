@@ -56,6 +56,14 @@ func agentPermissionsDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if os.Getenv("CANVAS_TEST_POSTGRES_DSN") == "" {
+		if err := db.Exec("PRAGMA journal_mode = MEMORY").Error; err != nil {
+			t.Fatal(err)
+		}
+		if err := db.Exec("PRAGMA synchronous = OFF").Error; err != nil {
+			t.Fatal(err)
+		}
+	}
 	sqlDB, err := db.DB()
 	if err != nil {
 		t.Fatal(err)
@@ -65,6 +73,49 @@ func agentPermissionsDB(t *testing.T) *gorm.DB {
 		t.Fatal(err)
 	}
 	return db
+}
+
+func migrateCloudAgentApprovalModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&model.User{},
+		&model.CanvasProject{},
+		&model.ModelChannel{},
+		&model.ChannelModel{},
+		&model.ChannelModelPriceTier{},
+		&model.CreditAccount{},
+		&model.CreditLedgerEntry{},
+		&model.Task{},
+		&model.CloudAgentExecution{},
+		&model.CloudAgentPiSession{},
+		&model.CloudAgentEventRecord{},
+		&model.CloudAgentMessageRecord{},
+		&model.CloudAgentCanvasMutation{},
+		&model.AgentProfile{},
+		&model.Skill{},
+		&model.SkillVersion{},
+		&model.SkillFile{},
+		&model.UserSkillState{},
+		&model.AgentMemoryEntry{},
+		&model.AgentMemoryDocument{},
+		&model.AgentMemoryDocumentRevision{},
+		&model.AgentMemorySetting{},
+		&model.AgentMemoryProposal{},
+		&model.AgentMemoryRevision{},
+		&model.AgentLesson{},
+		&model.SystemSetting{},
+		&model.EcommerceProject{},
+		&model.UserGroup{},
+		&model.UserGroupChannel{},
+		&model.Asset{},
+		&model.TaskLog{},
+		&model.Result{},
+		&model.TaskTextDelta{},
+		&model.ApiCallLog{},
+		&model.BillingOrder{},
+		&model.CloudAgentResourceLease{},
+		&model.CanvasMutationReceipt{},
+		&model.CanvasEditLease{},
+	)
 }
 
 func TestAgentPermissionsUseCanvasProjects(t *testing.T) {

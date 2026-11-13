@@ -5,5 +5,7 @@ export function isVideoCleanupTask(task?: Pick<GenerationTask, "inputJson" | "cl
     try {
         const metadata = JSON.parse(task?.inputJson || "{}").metadata;
         return metadata?.source === "workbench" && metadata?.workbenchKind === "video" && metadata.edit === "remove_watermark";
-    } catch { return false; }
+    } catch {
+        return false;
+    }
 }

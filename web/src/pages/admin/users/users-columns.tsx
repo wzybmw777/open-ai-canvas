@@ -60,7 +60,22 @@ export function createUserColumns({
                 </div>
             ),
         },
-        { key: "email", title: "邮箱 / 手机号", align: "center", render: (_, user) => <div>{user.email && <div>{user.email}</div>}{user.phone && <div>{user.phone} · {user.phoneVerifiedAt ? "已验证" : "未验证"}</div>}{!user.email && !user.phone && <span className="text-foreground/40">未填写</span>}</div> },
+        {
+            key: "email",
+            title: "邮箱 / 手机号",
+            align: "center",
+            render: (_, user) => (
+                <div>
+                    {user.email && <div>{user.email}</div>}
+                    {user.phone && (
+                        <div>
+                            {user.phone} · {user.phoneVerifiedAt ? "已验证" : "未验证"}
+                        </div>
+                    )}
+                    {!user.email && !user.phone && <span className="text-foreground/40">未填写</span>}
+                </div>
+            ),
+        },
         {
             key: "credits",
             title: "可用积分",

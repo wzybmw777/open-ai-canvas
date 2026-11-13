@@ -39,7 +39,12 @@ test("the real notice preserves an editor through updating, downtime and recover
     };
     try {
         await act(async () => {
-            root.render(<StrictMode><textarea defaultValue="未保存的内容" /><SystemUpdateNotice /></StrictMode>);
+            root.render(
+                <StrictMode>
+                    <textarea defaultValue="未保存的内容" />
+                    <SystemUpdateNotice />
+                </StrictMode>,
+            );
             await new Promise((resolve) => setTimeout(resolve, 0));
         });
         const editor = host.querySelector("textarea")!;
@@ -84,7 +89,12 @@ test("an unavailable updater does not report a healthy site as offline and recov
     };
     try {
         await act(async () => {
-            root.render(<StrictMode><textarea defaultValue="保留我的编辑" /><SystemUpdateNotice /></StrictMode>);
+            root.render(
+                <StrictMode>
+                    <textarea defaultValue="保留我的编辑" />
+                    <SystemUpdateNotice />
+                </StrictMode>,
+            );
             await new Promise((resolve) => setTimeout(resolve, 0));
         });
         const editor = host.querySelector("textarea")!;

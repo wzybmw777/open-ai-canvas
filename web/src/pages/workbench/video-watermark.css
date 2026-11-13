@@ -1,1 +1,3 @@
-.video-watermark-page video { background: var(--surface-active); }
+.video-watermark-page video {
+    background: var(--surface-active);
+}

@@ -89,7 +89,10 @@ export function generationTaskStatusLabel(task: GenerationTaskDisplayTarget, loc
 export function generationTaskStageLabel(task: GenerationTaskDisplayTarget, locale: AppLocale = "zh-CN") {
     if (isGenerationTaskSubmissionUncertain(task)) return localeText("为避免重复扣费，未自动重试", "Not retried automatically to avoid duplicate charges", locale);
     // 状态标签已表达“保存中”，这里补充保存的真实进展（正常保存 / 失败后自动重试 / 等待保存）。
-    if (generationTaskSaving(task) && (task.status === "queued" || task.status === "running")) return locale === "en-US" ? ({ saving: "Generated, saving result", retrying: "Save failed, retrying", waiting: "Generated, waiting to save" } as const)[generationTaskSavingState(task.stage)] : savingStageLabels[generationTaskSavingState(task.stage)];
+    if (generationTaskSaving(task) && (task.status === "queued" || task.status === "running"))
+        return locale === "en-US"
+            ? ({ saving: "Generated, saving result", retrying: "Save failed, retrying", waiting: "Generated, waiting to save" } as const)[generationTaskSavingState(task.stage)]
+            : savingStageLabels[generationTaskSavingState(task.stage)];
     switch (task.stage) {
         case "queued":
         case "等待队列调度":
@@ -268,9 +271,16 @@ export const operationOptions = [
 export const operationLabelByValue = new Map(operationOptions.map((item) => [item.value, item.label]));
 
 const englishOperationLabels: Record<string, string> = {
-    text_to_video: "Text to video", image_to_video: "Image to video", reference_to_video: "Multimodal reference", extend: "Extend video",
-    inpaint: "Edit part of video", replace_element: "Replace element", camera_motion: "Camera movement", style_transfer: "Style transfer",
-    audio_to_video: "Audio to video", compare_versions: "Compare versions",
+    text_to_video: "Text to video",
+    image_to_video: "Image to video",
+    reference_to_video: "Multimodal reference",
+    extend: "Extend video",
+    inpaint: "Edit part of video",
+    replace_element: "Replace element",
+    camera_motion: "Camera movement",
+    style_transfer: "Style transfer",
+    audio_to_video: "Audio to video",
+    compare_versions: "Compare versions",
 };
 
 export function localizedOperationOptions(locale: AppLocale) {

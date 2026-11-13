@@ -44,21 +44,25 @@ test("concurrent first entry returns the same saved canvas", async () => {
 
 test("failed cloud creation stays an error and retries the same local canvas", async () => {
     restorers.push(spyOn(api, "listRemoteCanvasProjects").mockResolvedValue({ projects: [] }));
-    restorers.push(spyOn(sync, "createCanvasProjectWithRemoteSync").mockImplementation(async () => {
-        canvasState.projects = [{ id: "pending-canvas", title: "默认项目", revision: 0 } as typeof canvasState.projects[number]];
-        return { id: "pending-canvas", syncError: new Error("offline") };
-    }));
+    restorers.push(
+        spyOn(sync, "createCanvasProjectWithRemoteSync").mockImplementation(async () => {
+            canvasState.projects = [{ id: "pending-canvas", title: "默认项目", revision: 0 } as (typeof canvasState.projects)[number]];
+            return { id: "pending-canvas", syncError: new Error("offline") };
+        }),
+    );
     restorers.push(spyOn(sync, "saveRemoteUserDataNow").mockResolvedValue(undefined));
     await expect(ensureDefaultCreationProject()).rejects.toThrow("offline");
     expect(await ensureDefaultCreationProject()).toBe("pending-canvas");
 });
 
 test("an account switch during loading cannot create a canvas in the new account", async () => {
-    restorers.push(spyOn(api, "listRemoteCanvasProjects").mockImplementation(async () => {
-        setActiveUserScope("another-owner");
-        userState = { ...userState, user: { ...userState.user!, id: "another-owner" } };
-        return { projects: [] };
-    }));
+    restorers.push(
+        spyOn(api, "listRemoteCanvasProjects").mockImplementation(async () => {
+            setActiveUserScope("another-owner");
+            userState = { ...userState, user: { ...userState.user!, id: "another-owner" } };
+            return { projects: [] };
+        }),
+    );
     await expect(ensureDefaultCreationProject()).rejects.toThrow("账号已切换");
     expect(canvasState.projects).toHaveLength(0);
 });
@@ -71,7 +75,7 @@ test("initialization waits for the remote sync session before creating the defau
 });
 
 test("a remotely deleted synced canvas cannot become the default again from a stale local cache", async () => {
-    canvasState.projects = [{ id: "deleted-canvas", title: "默认项目", revision: 3 } as typeof canvasState.projects[number]];
+    canvasState.projects = [{ id: "deleted-canvas", title: "默认项目", revision: 3 } as (typeof canvasState.projects)[number]];
     restorers.push(spyOn(api, "listRemoteCanvasProjects").mockResolvedValue({ projects: [] }));
     restorers.push(spyOn(sync, "saveRemoteUserDataNow").mockResolvedValue(undefined));
     restorers.push(spyOn(sync, "createCanvasProjectWithRemoteSync").mockResolvedValue({ id: "replacement-canvas" }));
@@ -80,19 +84,36 @@ test("a remotely deleted synced canvas cannot become the default again from a st
 
 test("continuing on the selected canvas merges conversation messages and preserves its Agent work", async () => {
     const canvas = {
-        id: "selected-canvas", title: "默认项目", chatSessions: [
+        id: "selected-canvas",
+        title: "默认项目",
+        chatSessions: [
             { id: "agent-session", messages: [{ id: "agent-work", role: "assistant", text: "existing work" }] },
-            { id: "creation:conversation", messages: [{ id: "creation:conversation:first", role: "user", text: "old text" }, { id: "canvas-reply", role: "assistant", text: "canvas reply" }] },
+            {
+                id: "creation:conversation",
+                messages: [
+                    { id: "creation:conversation:first", role: "user", text: "old text" },
+                    { id: "canvas-reply", role: "assistant", text: "canvas reply" },
+                ],
+            },
         ],
-    } as unknown as typeof canvasState.projects[number];
+    } as unknown as (typeof canvasState.projects)[number];
     restorers.push(spyOn(sync, "loadCanvasProjectForEditing").mockResolvedValue(canvas));
     restorers.push(spyOn(sync, "saveRemoteUserDataNow").mockResolvedValue(undefined));
     restorers.push(spyOn(canvasStore, "flushCanvasStorePersistence").mockResolvedValue(undefined));
     let patch: Partial<typeof canvas> | undefined;
-    canvasState.updateProject = (id, updates) => { expect(id).toBe(canvas.id); patch = updates; };
+    canvasState.updateProject = (id, updates) => {
+        expect(id).toBe(canvas.id);
+        patch = updates;
+    };
     const result = await continueCreationConversationOnCanvas({
-        id: "conversation", title: "Current idea", updatedAt: "2026-10-20", canvasId: canvas.id,
-        messages: [{ id: "first", role: "user", content: "updated prompt", createdAt: "2026-10-20" }, { id: "second", role: "assistant", content: "new result", createdAt: "2026-10-20", status: "done" }],
+        id: "conversation",
+        title: "Current idea",
+        updatedAt: "2026-10-20",
+        canvasId: canvas.id,
+        messages: [
+            { id: "first", role: "user", content: "updated prompt", createdAt: "2026-10-20" },
+            { id: "second", role: "assistant", content: "new result", createdAt: "2026-10-20", status: "done" },
+        ],
     });
     expect(result).toEqual({ id: canvas.id, sessionId: "creation:conversation", syncError: undefined });
     expect(patch?.activeChatId).toBe("creation:conversation");

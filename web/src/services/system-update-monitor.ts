@@ -2,10 +2,7 @@ import type { PublicSystemUpdateStatus } from "./api/system-update";
 
 export type SystemUpdateNoticeState = "idle" | "updating" | "unavailable" | "restored";
 
-export function createSystemUpdateMonitor(
-    probe: (signal: AbortSignal) => Promise<PublicSystemUpdateStatus>,
-    probeReadiness: (signal: AbortSignal) => Promise<{ ready: boolean }>,
-) {
+export function createSystemUpdateMonitor(probe: (signal: AbortSignal) => Promise<PublicSystemUpdateStatus>, probeReadiness: (signal: AbortSignal) => Promise<{ ready: boolean }>) {
     let state: SystemUpdateNoticeState = "idle";
     let running = false;
     let generation = 0;
@@ -25,28 +22,32 @@ export function createSystemUpdateMonitor(
         const request = new AbortController();
         controller = request;
         // Defer the probe so pending is assigned before even a synchronous failure settles.
-        const promise = Promise.resolve().then(() => probe(request.signal)).then((status) => {
-            if (request.signal.aborted || generation !== currentGeneration) return;
-            if (status.updating) update("updating");
-            else if (state === "updating" || state === "unavailable") update("restored");
-        }).catch(async () => {
-            if (request.signal.aborted || generation !== currentGeneration) return;
-            try {
-                const readiness = await probeReadiness(request.signal);
+        const promise = Promise.resolve()
+            .then(() => probe(request.signal))
+            .then((status) => {
                 if (request.signal.aborted || generation !== currentGeneration) return;
-                if (readiness.ready) {
-                    // 更新器不可达不代表网站停机；就绪也不能证明已确认的更新已经结束。
-                    if (state === "unavailable") update("restored");
-                    return;
+                if (status.updating) update("updating");
+                else if (state === "updating" || state === "unavailable") update("restored");
+            })
+            .catch(async () => {
+                if (request.signal.aborted || generation !== currentGeneration) return;
+                try {
+                    const readiness = await probeReadiness(request.signal);
+                    if (request.signal.aborted || generation !== currentGeneration) return;
+                    if (readiness.ready) {
+                        // 更新器不可达不代表网站停机；就绪也不能证明已确认的更新已经结束。
+                        if (state === "unavailable") update("restored");
+                        return;
+                    }
+                } catch {
+                    // 两条探测均失败时继续保留页面，等待下一轮恢复检测。
                 }
-            } catch {
-                // 两条探测均失败时继续保留页面，等待下一轮恢复检测。
-            }
-            if (request.signal.aborted || generation !== currentGeneration) return;
-            if (state !== "updating") update("unavailable");
-        }).finally(() => {
-            if (pending === promise) pending = undefined;
-        });
+                if (request.signal.aborted || generation !== currentGeneration) return;
+                if (state !== "updating") update("unavailable");
+            })
+            .finally(() => {
+                if (pending === promise) pending = undefined;
+            });
         pending = promise;
         return promise;
     };
@@ -54,7 +55,9 @@ export function createSystemUpdateMonitor(
         getSnapshot: () => state,
         subscribe(listener: () => void) {
             listeners.add(listener);
-            return () => { listeners.delete(listener); };
+            return () => {
+                listeners.delete(listener);
+            };
         },
         check,
         dismiss() {

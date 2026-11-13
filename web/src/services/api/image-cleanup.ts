@@ -18,7 +18,9 @@ export function imageCleanupInput(task?: GenerationTask): ImageCleanupInput | nu
     try {
         const input = JSON.parse(task?.inputJson || "{}");
         return isImageCleanupTask(task) && typeof input.resourceId === "string" ? input : null;
-    } catch { return null; }
+    } catch {
+        return null;
+    }
 }
 
 export function imageCleanupResult(task?: GenerationTask): ImageCleanupResult | null {
@@ -26,7 +28,9 @@ export function imageCleanupResult(task?: GenerationTask): ImageCleanupResult | 
     try {
         const image = JSON.parse(task.resultJson || "{}").images?.[0];
         return typeof image?.resourceId === "string" && image.width > 0 && image.height > 0 ? image : null;
-    } catch { return null; }
+    } catch {
+        return null;
+    }
 }
 
 export async function submitImageCleanup(resourceId: string, config: AiConfig, maskDataUrl?: string) {
@@ -39,9 +43,13 @@ export async function submitImageCleanup(resourceId: string, config: AiConfig, m
         if (!response.ok) throw new Error("读取水印遮罩失败");
         maskResourceId = (await uploadResourceFile(await response.blob(), "image", { fileName: "watermark-mask.png" })).id;
     }
-    const task = await http.post<GenerationTask>("/workbench/image-cleanup/tasks", { resourceId, maskResourceId,
-        model: modelOptionName(config.model), ...(logicalModelId ? { logicalModelId } : { channelId: channel.id }),
-        parameters: { size: config.size, quality: config.quality, imageResolution: config.imageResolution } });
+    const task = await http.post<GenerationTask>("/workbench/image-cleanup/tasks", {
+        resourceId,
+        maskResourceId,
+        model: modelOptionName(config.model),
+        ...(logicalModelId ? { logicalModelId } : { channelId: channel.id }),
+        parameters: { size: config.size, quality: config.quality, imageResolution: config.imageResolution },
+    });
     window.dispatchEvent(new CustomEvent("wallet:updated"));
     return task;
 }
@@ -61,15 +69,18 @@ export async function uploadImageCleanupSource(file: File, limits: ImageCleanupA
         if (width > limits.maxDimension || height > limits.maxDimension || width * height > limits.maxPixels) throw new Error("图片最长边须不超过 4096 像素，总像素须不超过 1200 万");
         // Decode EXIF orientation once so browser strokes and server pixels share coordinates.
         const canvas = document.createElement("canvas");
-        canvas.width = width; canvas.height = height;
+        canvas.width = width;
+        canvas.height = height;
         const context = canvas.getContext("2d");
         if (!context) throw new Error("浏览器无法解码图片");
         context.drawImage(bitmap, 0, 0);
-        const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("图片转换失败")), "image/png"));
+        const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => (value ? resolve(value) : reject(new Error("图片转换失败"))), "image/png"));
         if (blob.size > limits.maxBytes) throw new Error("图片解码后超过 10MB，请缩小图片后重试");
         const resource = await uploadResourceFile(blob, "image", { width, height, fileName: "watermark-source.png" });
         return { resource, blob };
-    } finally { bitmap.close(); }
+    } finally {
+        bitmap.close();
+    }
 }
 
 export async function saveImageCleanupAsset(task: GenerationTask) {
@@ -77,14 +88,25 @@ export async function saveImageCleanupAsset(task: GenerationTask) {
     if (!result) throw new Error("处理结果尚未保存完成");
     // Repeated saves reuse a stable asset ID and preserve existing user edits.
     const id = `watermark_${task.id}`;
-    try { return (await getRemoteAsset(id)).asset; }
-    catch (error) {
+    try {
+        return (await getRemoteAsset(id)).asset;
+    } catch (error) {
         if (!(error instanceof ApiError) || error.code !== 404) throw error;
     }
     const url = resolveResourceUrl(resourceStorageKey(result.resourceId));
     const now = new Date().toISOString();
-    const asset: ImageAsset = { id, kind: "image", title: "去水印结果", coverUrl: url, tags: [], source: "image-watermark-removal", createdAt: now, updatedAt: now,
-        data: { dataUrl: url, storageKey: resourceStorageKey(result.resourceId), width: result.width, height: result.height, bytes: result.bytes, mimeType: result.mimeType }, metadata: { taskId: task.id } };
+    const asset: ImageAsset = {
+        id,
+        kind: "image",
+        title: "去水印结果",
+        coverUrl: url,
+        tags: [],
+        source: "image-watermark-removal",
+        createdAt: now,
+        updatedAt: now,
+        data: { dataUrl: url, storageKey: resourceStorageKey(result.resourceId), width: result.width, height: result.height, bytes: result.bytes, mimeType: result.mimeType },
+        metadata: { taskId: task.id },
+    };
     await upsertRemoteAsset(asset);
     return asset;
 }

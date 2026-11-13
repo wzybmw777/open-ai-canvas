@@ -22,7 +22,11 @@ func agentCanvasPatchForOperation(t *testing.T, state cloudAgentRuntime, operati
 		}
 	}
 	if found == nil {
-		t.Fatalf("missing persisted canvas event for %s", operation)
+		observed := make([]string, 0, len(state.Events))
+		for _, event := range state.Events {
+			observed = append(observed, event.Type+":"+stringValue(event.Payload["operation"])+":"+stringValue(event.Payload["text"]))
+		}
+		t.Fatalf("missing persisted canvas event for %s (observed: %v)", operation, observed)
 	}
 	return found
 }
@@ -302,6 +306,8 @@ func TestCloudAgentCanvasOperationTraceSharesToolCallID(t *testing.T) {
 
 func TestCloudAgentMissingCanvasStillCheckpointsMediaFailure(t *testing.T) {
 	s, db, args := agentMediaFixture(t)
+	// This test advances checkpoints itself; the approval waiter must not race its revision CAS.
+	s.closeApprovedCloudAgentMediaWaiters()
 	run, _ := agentMediaRun(t, s, args, "request_approval")
 	if err := s.advanceCloudAgentByID("user", run.ID); err != nil {
 		t.Fatal(err)
